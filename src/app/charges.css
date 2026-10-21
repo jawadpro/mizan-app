@@ -1,0 +1,34 @@
+/* Bank charges / tax box at the end of a transfer's form. */
+.charges-box {
+  margin-top: 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fdf7ea 0%, var(--warn-bg) 100%);
+  border: 1px solid #efdcb4;
+  border-left: 4px solid #d9a441;
+  display: grid;
+  gap: 10px;
+}
+.charges-head { display: flex; gap: 12px; align-items: center; }
+.charges-icon {
+  width: 34px; height: 34px; flex: none;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: #f3dfb2; color: var(--warn);
+  font-weight: 700; font-size: 0.95rem;
+}
+.charges-title { font-weight: 600; color: var(--warn); font-size: 0.95rem; }
+.charges-input {
+  display: flex; align-items: center;
+  background: var(--surface);
+  border: 1px solid #e6cf9f;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.charges-input:focus-within { outline: 2px solid #d9a441; outline-offset: 1px; }
+.charges-input span { padding: 0 10px 0 12px; color: var(--warn); font-weight: 600; font-size: 0.9rem; }
+.charges-input input { border: 0; border-radius: 0; flex: 1; padding-left: 0; font-size: 1.05rem; font-variant-numeric: tabular-nums; background: transparent; }
+.charges-input input:focus { outline: none; }
+.charges-input.invalid { border-color: var(--danger); }
+.charges-box .err { color: var(--danger); font-size: 0.82rem; }
+.charges-total { font-size: 0.88rem; color: var(--warn); }
