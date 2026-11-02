@@ -303,6 +303,8 @@ export type SetAsideRow = {
   applies_to: "remittance" | "income" | "incoming";
   starts_on: string;
   ended_on: string | null;
+  purpose: "giving" | "saving";
+  forgiven: number;
   allocated: number;
   sources: number;
   used: number;
@@ -316,6 +318,7 @@ const MATCHES = `t.category <> '${OWN_ACCOUNTS}' AND ((s.applies_to = 'incoming'
 export async function listSetAsides(): Promise<SetAsideRow[]> {
   const { rows } = await q<Omit<SetAsideRow, "remaining">>(
     `SELECT s.id, s.name, s.percent_bp, s.applies_to, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, to_char(s.ended_on, 'YYYY-MM-DD') AS ended_on,
+            s.purpose, s.forgiven_paisa::float8 AS forgiven,
             coalesce(src.allocated, 0)::float8 AS allocated, coalesce(src.n, 0)::int AS sources,
             coalesce(out.used, 0)::float8 AS used
      FROM app.set_asides s
@@ -328,7 +331,7 @@ export async function listSetAsides(): Promise<SetAsideRow[]> {
      ) out ON true
      ORDER BY s.ended_on IS NOT NULL, s.created_at`,
   );
-  return rows.map((r) => ({ ...r, remaining: r.allocated - r.used }));
+  return rows.map((r) => ({ ...r, remaining: r.allocated - r.used + r.forgiven }));
 }
 
 export async function setAsideContributions(id: string) {
@@ -342,20 +345,33 @@ export async function setAsideContributions(id: string) {
   return rows;
 }
 
+/** Names that read as charity default to "giving" when no purpose is chosen. */
+export const GIVING_NAME = /(allah|charit|sadq|sadaq|zakat|donat|khair|fitr|qurban|masjid|mosque)/i;
+
 export async function createSetAside(v: SetAsideInput) {
   const { rows } = await q<{ id: string }>(
-    `INSERT INTO app.set_asides (name, percent_bp, applies_to, starts_on, ended_on) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-    [v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null],
+    `INSERT INTO app.set_asides (name, percent_bp, applies_to, starts_on, ended_on, purpose) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+    [v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null, v.purpose ?? (GIVING_NAME.test(v.name) ? "giving" : "saving")],
   );
   return rows[0].id;
 }
 
 export async function updateSetAside(id: string, v: SetAsideInput) {
   const r = await q(
-    `UPDATE app.set_asides SET name=$2, percent_bp=$3, applies_to=$4, starts_on=$5, ended_on=$6 WHERE id=$1`,
-    [id, v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null],
+    `UPDATE app.set_asides SET name=$2, percent_bp=$3, applies_to=$4, starts_on=$5, ended_on=$6, purpose=coalesce($7, purpose) WHERE id=$1`,
+    [id, v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null, v.purpose ?? null],
   );
   return (r.rowCount ?? 0) > 0;
+}
+
+/** Forgive the current overpayment so the set-aside starts again from zero. Returns false if not found. */
+export async function startSetAsideFresh(id: string) {
+  const [row] = (await listSetAsides()).filter((s) => s.id === id);
+  if (!row) return false;
+  if (row.remaining < 0) {
+    await q(`UPDATE app.set_asides SET forgiven_paisa = forgiven_paisa + $2 WHERE id=$1`, [id, Math.round(-row.remaining)]);
+  }
+  return true;
 }
 
 export async function deleteSetAside(id: string) {

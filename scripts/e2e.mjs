@@ -173,6 +173,17 @@ r = await call("/api/balance");
 check("dashboard shows money set aside and free to spend", r.data.setAside >= fund.remaining && r.data.freeToSpend === r.data.balance.balance - r.data.setAside);
 r = await call("/api/recipients");
 check("sender of incoming money appears as a recipient", r.data.items.some((x) => x.counterparty === `${label} brother` && x.received === 2000000));
+check("a charity name defaults to giving", fund?.purpose === "giving");
+r = await call("/api/transactions", { method: "POST", body: { kind: "expense", amount: "5,000", occurredAt: soon(7), category: "Charity", counterparty: `${label} extra`, setAsideId: fundId } });
+extra.push(r.data?.item?.id);
+r = await call("/api/set-asides");
+const overFund = r.data?.items?.find((f) => f.id === fundId);
+check("paying beyond the set-aside shows as negative remaining", !!overFund && overFund.remaining < 0, overFund ? `remaining ${overFund.remaining}` : "missing");
+r = await call(`/api/set-asides/${fundId}`, { method: "POST", body: { action: "start-fresh" } });
+check("start fresh accepted", r.status === 200, `HTTP ${r.status}`);
+r = await call("/api/set-asides");
+const fresh = r.data?.items?.find((f) => f.id === fundId);
+check("start fresh brings the set-aside back to zero", !!fresh && fresh.remaining === 0 && fresh.forgiven === -overFund.remaining, fresh ? `remaining ${fresh.remaining}, forgiven ${fresh.forgiven}` : "missing");
 r = await call(`/api/set-asides/${fundId}`, { method: "DELETE" });
 check("set-aside deleted", r.status === 200);
 
