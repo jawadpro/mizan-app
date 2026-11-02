@@ -83,3 +83,16 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
   .sheet-item.danger { color: var(--danger); border-bottom: 0; }
   .sheet-item span { color: var(--muted); font-size: 1.3rem; }
 }
+.fund-amount { font-size: 1.6rem; font-weight: 650; margin-top: 10px; font-variant-numeric: tabular-nums; }
+.fund-amount.beyond { color: var(--income); }
+.fund-amount.over { color: var(--warn); }
+.fund-bar { display: flex; }
+.fund-bar > div { border-radius: 0; }
+.fund-bar > div:first-child { border-radius: 99px 0 0 99px; }
+.fund-bar > div:last-child { border-radius: 0 99px 99px 0; }
+.fund-bar > div:only-child { border-radius: 99px; }
+.fund-bar > div.beyond { background: #c9a96e; }
+.fund-bar > div.over { background: #d9a441; }
+.fund-note { margin-top: 10px; padding: 8px 10px; border-radius: 8px; font-size: 0.85rem; line-height: 1.4; }
+.fund-note.beyond { background: #eef5ef; color: #2f5e43; }
+.fund-note.over { background: var(--warn-bg); color: var(--warn); }

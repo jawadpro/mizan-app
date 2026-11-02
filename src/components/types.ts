@@ -51,6 +51,8 @@ export type SetAside = {
   applies_to: "remittance" | "income" | "incoming";
   starts_on: string;
   ended_on: string | null;
+  purpose: "giving" | "saving";
+  forgiven: number;
   allocated: number;
   sources: number;
   used: number;

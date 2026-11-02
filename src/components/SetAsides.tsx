@@ -15,7 +15,9 @@ const APPLIES: Record<SetAside["applies_to"], string> = {
   incoming: "all money coming in",
 };
 
-type Draft = { name: string; percent: string; appliesTo: SetAside["applies_to"]; startsOn: string; endedOn: string | null };
+type Draft = { name: string; percent: string; appliesTo: SetAside["applies_to"]; startsOn: string; endedOn: string | null; purpose: SetAside["purpose"] | null };
+
+const GIVING_NAME = /(allah|charit|sadq|sadaq|zakat|donat|khair|fitr|qurban|masjid|mosque)/i;
 
 function pct(bp: number) {
   return `${(bp / 100).toLocaleString("en", { maximumFractionDigits: 2 })}%`;
@@ -46,6 +48,20 @@ export default function SetAsides() {
         body: JSON.stringify({ name: f.name, percent: String(f.percent_bp / 100), appliesTo: f.applies_to, startsOn: f.starts_on, endedOn: f.ended_on ? null : todayPkt() }),
       });
       toast(f.ended_on ? "Set-aside resumed" : "Set-aside paused from tomorrow", "ok");
+      reload();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
+  async function startFresh(f: SetAside) {
+    const over = formatPaisa(-f.remaining);
+    const msg = f.purpose === "giving"
+      ? `Keep the extra ${over} as a gift? "${f.name}" goes back to Rs 0 and your next shares are set aside as normal instead of covering it.`
+      : `Forgive the ${over} overspend? "${f.name}" goes back to Rs 0 and your next shares are saved as normal instead of covering it.`;
+    if (!window.confirm(msg)) return;
+    try {
+      await apiFetch(`/api/set-asides/${f.id}`, { method: "POST", body: JSON.stringify({ action: "start-fresh" }) });
+      toast(`${f.name} starts fresh from Rs 0`, "ok");
       reload();
     } catch (e) {
       toast((e as Error).message, "error");
@@ -87,14 +103,10 @@ export default function SetAsides() {
               <p className="small muted">
                 {pct(f.percent_bp)} of {APPLIES[f.applies_to]} from {formatDatePkt(f.starts_on)}{f.ended_on ? ` to ${formatDatePkt(f.ended_on)}` : ""}
               </p>
-              <div style={{ fontSize: "1.6rem", fontWeight: 650, marginTop: 10, color: f.remaining < 0 ? "var(--expense)" : undefined }}>{formatPaisa(f.remaining)}</div>
-              <div className="small muted">available in this set-aside</div>
-              <div className="progress" aria-hidden><div style={{ width: `${f.allocated ? Math.min(100, (f.used / f.allocated) * 100) : 0}%` }} /></div>
-              <div className="small muted" style={{ marginTop: 6 }}>
-                {formatPaisa(f.allocated)} set aside from {f.sources} payment{f.sources === 1 ? "" : "s"} · {formatPaisa(f.used)} paid out
-              </div>
+              <FundStatus f={f} />
               <div className="toolbar" style={{ marginTop: 14 }}>
                 <button className="btn sm primary" onClick={() => setPaying(f)}>Record payment</button>
+                {f.remaining < 0 && <button className="btn sm" onClick={() => startFresh(f)}>Start fresh</button>}
                 <button className="btn sm" onClick={() => setOpen(open === f.id ? null : f.id)}>{open === f.id ? "Hide history" : "History"}</button>
                 <button className="btn sm" onClick={() => setEditing(f)}>Edit</button>
                 <button className="btn sm ghost" onClick={() => stop(f)}>{f.ended_on ? "Resume" : "Pause"}</button>
@@ -126,6 +138,50 @@ export default function SetAsides() {
   );
 }
 
+function FundStatus({ f }: { f: SetAside }) {
+  const over = f.remaining < 0 ? -f.remaining : 0;
+  const giving = f.purpose === "giving";
+  const next = `Your next ${pct(f.percent_bp)}`;
+  // Bar: green is what came out of the set-aside, the second colour is anything paid beyond it.
+  const covered = f.allocated + f.forgiven;
+  const greenPct = over ? (covered / f.used) * 100 : covered ? Math.min(100, (f.used / covered) * 100) : 0;
+  return (
+    <>
+      {over === 0 ? (
+        <>
+          <div className="fund-amount">{formatPaisa(f.remaining)}</div>
+          <div className="small muted">available in this set-aside</div>
+        </>
+      ) : giving ? (
+        <>
+          <div className="fund-amount beyond">{formatPaisa(over)}</div>
+          <div className="small muted">given beyond what was set aside</div>
+        </>
+      ) : (
+        <>
+          <div className="fund-amount over">{formatPaisa(over)} over</div>
+          <div className="small muted">spent beyond this set-aside, paid from your main balance</div>
+        </>
+      )}
+      <div className="progress fund-bar" aria-hidden>
+        <div style={{ width: `${greenPct}%` }} />
+        {over > 0 && <div className={giving ? "beyond" : "over"} style={{ width: `${100 - greenPct}%` }} />}
+      </div>
+      <div className="small muted" style={{ marginTop: 6 }}>
+        {formatPaisa(f.allocated)} set aside from {f.sources} payment{f.sources === 1 ? "" : "s"} · {formatPaisa(f.used)} paid out
+        {f.forgiven > 0 && <> · {formatPaisa(f.forgiven)} {giving ? "kept as extra giving" : "forgiven"}</>}
+      </div>
+      {over > 0 && (
+        <p className={`fund-note ${giving ? "beyond" : "over"}`}>
+          {giving
+            ? <>May Allah accept it. {f.ended_on ? "" : <>{next} will count toward this first. </>}Choose <strong>Start fresh</strong> to keep it as extra giving instead.</>
+            : <>{f.ended_on ? "This set-aside is paused, so nothing new will cover it. " : <>{next} will cover this first, then it starts saving again. </>}Choose <strong>Start fresh</strong> to forgive it.</>}
+        </p>
+      )}
+    </>
+  );
+}
+
 function Contributions({ id }: { id: string }) {
   const { data, error, loading } = useData<{ items: (Tx & { share: number })[] }>(`/api/set-asides/${id}`);
   if (error) return <div style={{ marginTop: 12 }}><ErrorBox message={error} /></div>;
@@ -146,8 +202,9 @@ function Contributions({ id }: { id: string }) {
 
 function SetAsideForm({ initial, onClose, onSaved }: { initial: SetAside | null; onClose: () => void; onSaved: () => void }) {
   const [d, setD] = useState<Draft>(() => initial
-    ? { name: initial.name, percent: String(initial.percent_bp / 100), appliesTo: initial.applies_to, startsOn: initial.starts_on, endedOn: initial.ended_on }
-    : { name: "", percent: "10", appliesTo: "remittance", startsOn: todayPkt(), endedOn: null });
+    ? { name: initial.name, percent: String(initial.percent_bp / 100), appliesTo: initial.applies_to, startsOn: initial.starts_on, endedOn: initial.ended_on, purpose: initial.purpose }
+    : { name: "", percent: "10", appliesTo: "remittance", startsOn: todayPkt(), endedOn: null, purpose: null });
+  const purpose = d.purpose ?? (GIVING_NAME.test(d.name) ? "giving" : "saving");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string[]>>({});
@@ -162,7 +219,7 @@ function SetAsideForm({ initial, onClose, onSaved }: { initial: SetAside | null;
     setErr(null);
     setFields({});
     try {
-      await apiFetch(initial ? `/api/set-asides/${initial.id}` : "/api/set-asides", { method: initial ? "PATCH" : "POST", body: JSON.stringify(d) });
+      await apiFetch(initial ? `/api/set-asides/${initial.id}` : "/api/set-asides", { method: initial ? "PATCH" : "POST", body: JSON.stringify({ ...d, purpose }) });
       onSaved();
     } catch (ex) {
       const a = ex as ApiError;
@@ -194,6 +251,13 @@ function SetAsideForm({ initial, onClose, onSaved }: { initial: SetAside | null;
                 <option value="income">All income (salary etc.)</option>
                 <option value="incoming">All money coming in</option>
               </select>
+            </label>
+            <label className="field full">What is it for?
+              <select value={purpose} onChange={(e) => setD({ ...d, purpose: e.target.value as SetAside["purpose"] })}>
+                <option value="giving">Giving (charity, sadaqah, zakat)</option>
+                <option value="saving">Saving or spending (a goal, a purchase)</option>
+              </select>
+              <span className="small muted">Changes how paying more than was set aside is shown.</span>
             </label>
             <label className="field">Starting from
               <input type="date" value={d.startsOn} onChange={(e) => setD({ ...d, startsOn: e.target.value })} required />

@@ -102,6 +102,7 @@ export const setAsideInput = z
     appliesTo: z.enum(["remittance", "income", "incoming"]),
     startsOn: z.string().refine(isIsoDate, "Choose a start date"),
     endedOn: z.string().refine(isIsoDate, "Choose a valid end date").nullable().optional(),
+    purpose: z.enum(["giving", "saving"]).optional(),
   })
   .refine((v) => !v.endedOn || v.endedOn >= v.startsOn, { message: "End date must be on or after the start date", path: ["endedOn"] })
   .transform(({ percent, ...rest }) => ({ ...rest, percentBp: percent }));
