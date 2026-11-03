@@ -12,7 +12,7 @@ const DRIVE_RESULT: Record<string, [string, "ok" | "error"]> = {
   connected: ["Google Drive is connected. Backups will be saved there every night.", "ok"],
   declined: ["Google Drive wasn't connected.", "error"],
   expired: ["That sign-in link expired. Please try connecting again.", "error"],
-  failed: ["Google didn't give Mizan access. Please try connecting again.", "error"],
+  failed: ["Google didn't give Pocketbook access. Please try connecting again.", "error"],
 };
 
 export default function Backup() {
@@ -61,7 +61,7 @@ export default function Backup() {
       <div className="page-head">
         <div>
           <h1>Backups</h1>
-          <p className="muted">Every night at about 3 am, all your transactions are saved to your Google Drive as a spreadsheet file (CSV). The last 30 days are kept there; nothing extra is stored in Mizan.</p>
+          <p className="muted">Every night at about 3 am, all your transactions are saved to your Google Drive as a spreadsheet file (CSV). The last 30 days are kept there; nothing extra is stored in Pocketbook.</p>
         </div>
       </div>
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading && !data ? <div className="card"><Loading rows={3} /></div> : data && (
@@ -72,8 +72,8 @@ export default function Backup() {
                 <strong>Google Drive</strong>
                 <div className="small muted">
                   {!data.googleConfigured && "Google Drive isn't set up on the server yet."}
-                  {data.googleConfigured && !data.driveConnected && "Not connected. Mizan will only be able to see the backup files it creates, not the rest of your Drive."}
-                  {data.driveConnected && "Connected. Backups go to the “Mizan backups” folder."}
+                  {data.googleConfigured && !data.driveConnected && "Not connected. Pocketbook will only be able to see the backup files it creates, not the rest of your Drive."}
+                  {data.driveConnected && "Connected. Backups go to the “Pocketbook backups” folder."}
                 </div>
               </div>
               <div className="toolbar">

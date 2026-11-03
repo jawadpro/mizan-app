@@ -44,7 +44,7 @@ export async function getExport(space: Space, req: Request) {
   return new Response(toCsv(rows), {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="mizan-${space === "demo" ? "demo-" : ""}transactions-${todayPkt()}.csv"`,
+      "content-disposition": `attachment; filename="pocketbook-${space === "demo" ? "demo-" : ""}transactions-${todayPkt()}.csv"`,
       "cache-control": "no-store",
     },
   });

@@ -18,7 +18,7 @@ export default async function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="card login-card">
-        <div className="brand" style={{ marginBottom: 12 }}><span className="brand-mark" aria-hidden>م</span> Mizan</div>
+        <div className="brand" style={{ marginBottom: 12 }}><span className="brand-mark" aria-hidden>P</span> Pocketbook</div>
         <h1 style={{ fontSize: "1.5rem" }}>Welcome back</h1>
         <p className="muted" style={{ marginTop: 4 }}>Enter your passphrase to open your finances.</p>
         <Suspense><LoginForm /></Suspense>

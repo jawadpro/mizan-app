@@ -174,7 +174,7 @@ type Run = typeof q;
 async function addBankCharge(run: Run, chargesPaisa: number, t: TransactionInput, accountHint: string | null) {
   await run(
     `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint)
-     VALUES ('expense',$1,$2,'Bank charges','MCB',$3,'manual',$4)`,
+     VALUES ('expense',$1,$2,'Bank charges','Bank',$3,'manual',$4)`,
     [chargesPaisa, t.occurredAt, `Charges on transfer${t.counterparty ? ` to ${t.counterparty}` : ""}`.slice(0, 500), accountHint],
   );
 }

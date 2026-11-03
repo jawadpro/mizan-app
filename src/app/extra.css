@@ -9,7 +9,7 @@
 @font-face { font-family: "IndoPak Nastaleeq"; src: url("https://cdn.jsdelivr.net/gh/quran/quran.com-frontend-next@aff1a035b09b66f28047b3216edcae4c5c949a49/public/fonts/quran/hafs/nastaleeq/indopak/indopak-nastaleeq-waqf-lazim-v4.2.1.woff2") format("woff2"); font-display: swap; }
 @font-face { font-family: "Noto Nastaliq Urdu"; src: url("https://cdn.jsdelivr.net/npm/@fontsource/noto-nastaliq-urdu@5.1.0/files/noto-nastaliq-urdu-arabic-400-normal.woff2") format("woff2"); font-display: swap; }
 .top-row { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); margin-bottom: 16px; align-items: stretch; }
-@media (min-width: 900px) { .top-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } .top-row:has(.reminder-hidden) { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 900px) { .top-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } .top-row:has(.reminder-hidden), .top-row.solo { grid-template-columns: minmax(0, 1fr); } }
 .top-row > .card { margin-bottom: 0 !important; display: flex; flex-direction: column; justify-content: center; }
 .reminder-hidden { display: flex; justify-content: flex-end; }
 .top-row:has(.reminder-hidden) { gap: 4px; }

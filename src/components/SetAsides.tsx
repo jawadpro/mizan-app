@@ -88,7 +88,7 @@ export default function SetAsides() {
       {loading && !data ? <div className="card"><Loading /></div> : items.length === 0 ? (
         <div className="card">
           <Empty icon="🤲" title="No set-asides yet">
-            <p>Create one and Mizan will work out how much to keep aside from every matching payment, including ones imported from SMS.</p>
+            <p>Create one and Pocketbook will work out how much to keep aside from every matching payment, including ones imported from SMS.</p>
             <button className="btn primary" style={{ marginTop: 12 }} onClick={() => setEditing("new")}>Create your first set-aside</button>
           </Empty>
         </div>

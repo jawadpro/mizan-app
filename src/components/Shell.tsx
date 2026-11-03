@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./Toast";
 import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
+import { FAITH_FEATURES } from "@/lib/features";
 import "@/app/extra.css";
 import "@/app/badge.css";
 
@@ -17,6 +18,7 @@ const ICONS = {
   list: svg(<><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="3.5" cy="6" r="1" /><circle cx="3.5" cy="12" r="1" /><circle cx="3.5" cy="18" r="1" /></>),
   jar: svg(<><path d="M7 4h10M8 4v3a5 5 0 0 0-3 4.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7.4A5 5 0 0 0 16 7V4" /><path d="M9 14h6" /></>),
   scale: svg(<><path d="M12 3v18M5 21h14M4 7h16" /><path d="M7 7l-3 7a3 3 0 0 0 6 0L7 7zM17 7l-3 7a3 3 0 0 0 6 0l-3-7z" /></>),
+  people: svg(<><circle cx="9" cy="8" r="3.2" /><path d="M3 20a6 6 0 0 1 12 0" /><circle cx="17" cy="9" r="2.6" /><path d="M15.5 14.2A5 5 0 0 1 21 19" /></>),
   more: svg(<><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></>),
 };
 
@@ -29,7 +31,7 @@ export default function Shell({ space, children }: { space: Space; children: Rea
     { href: `${base}/transactions`, label: "Transactions" },
     { href: `${base}/recipients`, label: "Recipients" },
     { href: `${base}/set-asides`, label: "Set-asides" },
-    { href: `${base}/zakat`, label: "Zakat" },
+    ...(FAITH_FEATURES ? [{ href: `${base}/zakat`, label: "Zakat" }] : []),
     { href: `${base}/review`, label: "Review inbox" },
     ...(space === "app" ? [{ href: `${base}/settings`, label: "SMS setup" }, { href: `${base}/backup`, label: "Backups" }] : []),
   ];
@@ -38,7 +40,9 @@ export default function Shell({ space, children }: { space: Space; children: Rea
     { href: base, label: "Home", icon: ICONS.home },
     { href: `${base}/transactions`, label: "Activity", icon: ICONS.list },
     { href: `${base}/set-asides`, label: "Set-asides", icon: ICONS.jar },
-    { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
+    FAITH_FEATURES
+      ? { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale }
+      : { href: `${base}/recipients`, label: "People", icon: ICONS.people },
   ];
   const moreLinks = links.filter((l) => !tabs.some((t) => t.href === l.href));
   const inMore = moreLinks.some((l) => l.href === path);
@@ -86,13 +90,13 @@ export default function Shell({ space, children }: { space: Space; children: Rea
       window.location.href = "/login";
     }
   }
-  const title = links.find((l) => l.href === path)?.label ?? "Mizan";
+  const title = links.find((l) => l.href === path)?.label ?? "Pocketbook";
   return (
     <ToastProvider>
       <header className="topbar">
         <div className="container topbar-inner">
-          <Link href="/app" className="brand" aria-label="Mizan home">
-            <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
+          <Link href="/app" className="brand" aria-label="Pocketbook home">
+            <span className="brand-mark" aria-hidden>P</span> <span className="brand-name">Pocketbook</span>
           </Link>
           <span className="topbar-title" aria-hidden>{path === base ? "" : title}</span>
           <nav className="nav" aria-label="Main">

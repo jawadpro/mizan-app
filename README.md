@@ -1,24 +1,23 @@
-# Mizan
+# Pocketbook
 
-Mizan is a private, single-owner personal finance app. It turns your bank's SMS alerts into a categorised
+Pocketbook is a private, single-owner personal finance app. It turns your bank's SMS alerts into a categorised
 expense record, keeps your bank balance up to date, tracks money you set aside (for charity, a goal, a purchase),
-helps you calculate zakat, and backs everything up to your Google Drive.
+and backs everything up to your Google Drive.
 
 It is built with Next.js, TypeScript and PostgreSQL, and runs on free tiers of [Vercel](https://vercel.com) and
 [Neon](https://neon.tech). Amounts are in PKR and dates follow Asia/Karachi time.
 
 ## Features
 
-- **Automatic SMS import.** An iPhone Shortcuts automation forwards each bank alert to Mizan, which reads the amount,
+- **Automatic SMS import.** An iPhone Shortcuts automation forwards each bank alert to Pocketbook, which reads the amount,
   direction, date, counterparty and category. Anything ambiguous waits in a **Review inbox** instead of being guessed.
 - **Live bank balance.** Set it once; every transaction after that moves it. Editing or deleting a transaction corrects it.
 - **Dashboard.** Spending trend, spending by category and top recipients for any period.
 - **Transactions.** Search, filter, edit, add cash spending by hand, and export to CSV.
 - **Recipients.** Everyone named in an alert ("from AYESHA KHAN", "at FOODPANDA") gets running sent and received totals.
-- **Set-asides.** Rules such as "10% of every remittance for Charity". Mizan tracks what has built up and what you paid out.
-- **Zakat.** Checks today's gold and silver prices against nisab, works out what is due, and keeps a record per year.
+- **Set-asides.** Rules such as "10% of every remittance for Charity". Pocketbook tracks what has built up and what you paid out.
 - **Push notifications.** Get notified when an alert needs your review (installed web app on iPhone, or any modern browser).
-- **Backups.** Nightly backup to a "Mizan backups" folder in your Google Drive, plus a download button.
+- **Backups.** Nightly backup to a "Pocketbook backups" folder in your Google Drive, plus a download button.
 
 ## What you need
 
@@ -95,6 +94,7 @@ then redeploy for changes to take effect. `.env.example` lists the same variable
 | `VAPID_PUBLIC_KEY` | For push | From `npx web-push generate-vapid-keys` |
 | `VAPID_PRIVATE_KEY` | For push | From the same command |
 | `VAPID_SUBJECT` | For push | A contact URI, e.g. `mailto:you@example.com` |
+| `NEXT_PUBLIC_FAITH_FEATURES` | No | `true` adds a Quran dua card and Ramadan reminder to the dashboard, and a Zakat calculator page. Off by default |
 
 Rotating `SESSION_SECRET` signs every device out and changes future SMS fingerprints. To change the passphrase,
 generate a new hash, replace `ADMIN_PASSWORD_HASH` and redeploy.
@@ -163,7 +163,7 @@ An alert is held for review instead of imported when it:
 ## Optional: push notifications
 
 1. Run `npx web-push generate-vapid-keys` and add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` in Vercel. Redeploy.
-2. On iPhone, open the app in Safari, tap **Share → Add to Home Screen**, and open Mizan from the Home Screen icon.
+2. On iPhone, open the app in Safari, tap **Share → Add to Home Screen**, and open Pocketbook from the Home Screen icon.
 3. Open **Review inbox** (under **More** on a phone), and in the **Notifications** card tap **Turn on**, then **Send test**.
 
 ## Optional: Google Drive backups
@@ -173,10 +173,26 @@ An alert is held for review instead of imported when it:
 3. Create an **OAuth client ID** of type **Web application** with the authorised redirect URI
    `https://<your-app>.vercel.app/api/backup/google/callback`.
 4. Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `CRON_SECRET` in Vercel and redeploy.
-5. In Mizan, open **More → Backups → Connect Google Drive**.
+5. In Pocketbook, open **More → Backups → Connect Google Drive**.
 
-Mizan uses the `drive.file` scope, so it can only see files it created. The schedule in `vercel.json` runs a backup
+Pocketbook uses the `drive.file` scope, so it can only see files it created. The schedule in `vercel.json` runs a backup
 every night at 22:00 UTC. **Download a copy** saves the same backup file to your device at any time.
+
+## Optional: dua and zakat
+
+Set `NEXT_PUBLIC_FAITH_FEATURES=true` and redeploy to turn on three extras: a dua for provision (Al-Qasas 28:24) beside
+the balance, a reminder in the month before Ramadan, and a **Zakat** page. The Zakat page checks today's gold and silver
+prices against nisab, works out the 2.5% due, and keeps a record per year. This variable is read at build time, so a
+change needs a redeploy.
+
+## Try it with demo data
+
+`scripts/seed-demo.mjs` fills an instance with about three months of made-up transactions, two set-asides and a
+starting balance, so you can look around before connecting your bank. Run it only on a test instance:
+
+```bash
+BASE_URL=http://localhost:3000 MIZAN_PASSWORD='your passphrase' npm run seed-demo
+```
 
 ## Local development
 
@@ -186,6 +202,7 @@ cp .env.example .env.local   # fill in the values
 npm run migrate              # applies migrations/*.sql
 npm run dev                  # http://localhost:3000
 npm test                     # unit tests (SMS parser, money, zakat, ...)
+npm run seed-demo            # optional: fill it with demo data (see above)
 npm run typecheck
 BASE_URL=http://localhost:3000 MIZAN_PASSWORD='your passphrase' SMS_INGEST_TOKEN=... npm run e2e
 ```

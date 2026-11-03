@@ -21,7 +21,7 @@ export default function BalanceCard() {
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
           <div>
-            <div className="label muted small">MCB balance</div>
+            <div className="label muted small">Bank balance</div>
             {loading && !data ? <Skeleton h={36} w={200} /> : b ? (
               <>
                 <div className="big" style={{ color: b.balance < 0 ? "var(--expense)" : undefined }}>{formatPaisa(b.balance)}</div>
@@ -88,14 +88,14 @@ function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose:
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="bal-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
-          <h2 id="bal-title">Current MCB balance</h2>
+          <h2 id="bal-title">Current bank balance</h2>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <form onSubmit={submit}>
           <label className="field">Balance right now (PKR)
             <input inputMode="decimal" placeholder="e.g. 85,301.17" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus required />
           </label>
-          <p className="small muted" style={{ marginTop: 10 }}>Copy it from the MCB app. Payments recorded from now on will move it up or down automatically.</p>
+          <p className="small muted" style={{ marginTop: 10 }}>Copy it from your bank's app. Payments recorded from now on will move it up or down automatically.</p>
           {err && <div className="alert error" style={{ marginTop: 12 }} role="alert">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>

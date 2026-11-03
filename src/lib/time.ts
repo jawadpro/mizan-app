@@ -1,4 +1,4 @@
-// Mizan works in Asia/Karachi (UTC+05:00, no daylight saving).
+// Pocketbook works in Asia/Karachi (UTC+05:00, no daylight saving).
 export const TZ = "Asia/Karachi";
 const OFFSET_MS = 5 * 3600 * 1000;
 

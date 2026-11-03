@@ -1,5 +1,5 @@
 {
-  "name": "mizan",
+  "name": "pocketbook",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,8 @@
     "hash-password": "node scripts/hash-password.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "seed-demo": "node scripts/seed-demo.mjs"
   },
   "engines": {
     "node": ">=20"

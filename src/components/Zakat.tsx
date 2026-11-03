@@ -124,7 +124,7 @@ export default function Zakat() {
       <div className="page-head">
         <div>
           <h1>Zakat</h1>
-          <p className="muted">Checks your MCB balance and other savings against the nisab and works out 2.5% if Zakat is due.</p>
+          <p className="muted">Checks your bank balance and other savings against the nisab and works out 2.5% if Zakat is due.</p>
         </div>
       </div>
 
@@ -207,7 +207,7 @@ export default function Zakat() {
           <div className="card">
             <h2>Result</h2>
             {bank === null ? (
-              <p className="muted" style={{ marginTop: 12 }}>Set your MCB balance on the dashboard first, then come back here.</p>
+              <p className="muted" style={{ marginTop: 12 }}>Set your bank balance on the dashboard first, then come back here.</p>
             ) : price === null ? (
               <p className="muted" style={{ marginTop: 12 }}>{live.loading ? "Fetching live prices…" : `Enter today's ${s.basis} price per tola to check.`}</p>
             ) : !r ? (
@@ -224,7 +224,7 @@ export default function Zakat() {
                 </p>
                 <table className="tx" style={{ marginTop: 14 }}>
                   <tbody>
-                    <tr><td>MCB balance</td><td className="amt">{formatPaisa(bank)}</td></tr>
+                    <tr><td>Bank balance</td><td className="amt">{formatPaisa(bank)}</td></tr>
                     <tr><td>Other savings</td><td className="amt">+{formatPaisa(other ?? 0)}</td></tr>
                     <tr><td>Debts due now</td><td className="amt">−{formatPaisa(debts ?? 0)}</td></tr>
                     <tr><td><strong>Zakatable wealth</strong></td><td className="amt"><strong>{formatPaisa(r.wealth)}</strong></td></tr>
@@ -252,7 +252,7 @@ export default function Zakat() {
         <div className="grid two" style={{ marginTop: 16 }}>
           <form className="card" onSubmit={recordPayment} noValidate>
             <h2>Record a Zakat payment</h2>
-            <p className="small muted" style={{ marginTop: 4 }}>Saved as a Zakat expense, so it also comes off your MCB balance.</p>
+            <p className="small muted" style={{ marginTop: 4 }}>Saved as a Zakat expense, so it also comes off your bank balance.</p>
             <div className="form-grid" style={{ marginTop: 12 }}>
               <label className="field">Amount
                 <input inputMode="decimal" placeholder="e.g. 5,000" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} />

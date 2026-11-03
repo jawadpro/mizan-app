@@ -44,7 +44,7 @@ export default function Review({ space }: { space: Space }) {
       <div className="page-head">
         <div>
           <h1>Review inbox</h1>
-          <p className="muted">SMS alerts Mizan couldn&apos;t read with confidence. They&apos;re left out of analytics until you confirm them.</p>
+          <p className="muted">SMS alerts Pocketbook couldn&apos;t read with confidence. They&apos;re left out of analytics until you confirm them.</p>
         </div>
       </div>
       {!readOnly && <PushToggle />}

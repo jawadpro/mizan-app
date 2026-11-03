@@ -1,12 +1,12 @@
 import "server-only";
 import { deleteSecret, getSecret, setSecret } from "./secretbox";
 
-// Google Drive access for backups. Uses the drive.file scope, so Mizan can only see and change
+// Google Drive access for backups. Uses the drive.file scope, so Pocketbook can only see and change
 // files it created itself, never the rest of the owner's Drive.
 
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 const TOKEN_NAME = "google_refresh_token";
-const FOLDER_NAME = "Mizan backups";
+const FOLDER_NAME = "Pocketbook backups";
 const API = "https://www.googleapis.com/drive/v3";
 
 export class DriveError extends Error {}

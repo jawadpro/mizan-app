@@ -2,11 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Mizan · Personal finance", template: "%s · Mizan" },
-  description: "Calm, private expense tracking in PKR, with MCB SMS import.",
+  title: { default: "Pocketbook · Personal finance", template: "%s · Pocketbook" },
+  description: "Calm, private expense tracking in PKR, with bank SMS import.",
   robots: { index: false, follow: false },
-  applicationName: "Mizan",
-  appleWebApp: { capable: true, title: "Mizan", statusBarStyle: "default" },
+  applicationName: "Pocketbook",
+  appleWebApp: { capable: true, title: "Pocketbook", statusBarStyle: "default" },
   formatDetection: { telephone: false },
   // Older iPhones only open full screen from the home screen with this tag.
   other: { "apple-mobile-web-app-capable": "yes" },

@@ -82,8 +82,8 @@ export async function notifyReviewWaiting() {
     // Fall back to a generic count; the notification still goes out.
   }
   return notifyAll({
-    title: "Mizan",
-    body: n === 1 ? "An MCB alert is waiting in your review inbox." : `${n} MCB alerts are waiting in your review inbox.`,
+    title: "Pocketbook",
+    body: n === 1 ? "A bank alert is waiting in your review inbox." : `${n} bank alerts are waiting in your review inbox.`,
     url: "/app/review",
     count: n,
   });

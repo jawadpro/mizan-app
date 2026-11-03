@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
-import { HttpError, handle, json, readJson } from "@/lib/http";
+import { FAITH_FEATURES } from "@/lib/features";
+import { HttpError, errorJson, handle, json, readJson } from "@/lib/http";
 import { currentOrNextRamadan, ramadanStart, zakatYearOf } from "@/lib/ramadan";
 import { deleteZakatYear, saveZakatYear, zakatRecords } from "@/lib/zakat-repo";
 import { todayPkt } from "@/lib/time";
@@ -16,6 +17,7 @@ const saveInput = z.object({
 }).strict();
 
 export const GET = handle(async (req: Request) => {
+  if (!FAITH_FEATURES) return errorJson(404, "Not found");
   requireSession(req);
   const today = todayPkt();
   const ramadan = currentOrNextRamadan(today);
@@ -40,6 +42,7 @@ export const GET = handle(async (req: Request) => {
 });
 
 export const PUT = handle(async (req: Request) => {
+  if (!FAITH_FEATURES) return errorJson(404, "Not found");
   requireSession(req);
   const parsed = saveInput.safeParse(await readJson(req, 1024));
   if (!parsed.success) throw new HttpError(400, "Please check the Zakat figures", { fields: parsed.error.flatten().fieldErrors });
@@ -52,6 +55,7 @@ export const PUT = handle(async (req: Request) => {
 });
 
 export const DELETE = handle(async (req: Request) => {
+  if (!FAITH_FEATURES) return errorJson(404, "Not found");
   requireSession(req);
   const year = Number(new URL(req.url).searchParams.get("year"));
   if (!Number.isInteger(year) || year < 1400 || year > 1600) throw new HttpError(400, "Unknown year");

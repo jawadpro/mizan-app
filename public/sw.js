@@ -1,4 +1,4 @@
-// Mizan service worker: shows review-inbox notifications and keeps the app icon's badge count.
+// Pocketbook service worker: shows review-inbox notifications and keeps the app icon's badge count.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -10,8 +10,8 @@ self.addEventListener("push", (event) => {
     data = {};
   }
   const jobs = [
-    self.registration.showNotification(String(data.title || "Mizan"), {
-      body: String(data.body || "Something in Mizan needs your attention."),
+    self.registration.showNotification(String(data.title || "Pocketbook"), {
+      body: String(data.body || "Something in Pocketbook needs your attention."),
       icon: "/icons/192",
       badge: "/icons/192",
       tag: "mizan-review",

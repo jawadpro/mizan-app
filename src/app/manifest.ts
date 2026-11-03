@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 
-/** Lets Mizan be added to the home screen and open full screen like an app. */
+/** Lets Pocketbook be added to the home screen and open full screen like an app. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/app",
-    name: "Mizan",
-    short_name: "Mizan",
-    description: "Private expense tracking in PKR, with MCB SMS import.",
+    name: "Pocketbook",
+    short_name: "Pocketbook",
+    description: "Private expense tracking in PKR, with bank SMS import.",
     start_url: "/app",
     scope: "/",
     display: "standalone",
