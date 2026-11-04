@@ -1,12 +1,12 @@
 /* Zakat: Ramadan countdown */
-.ramadan-card.now { border-color: var(--green); background: var(--ok-bg); }
+.ramadan-card.now { border-color: var(--accent); background: var(--accent-soft); }
 .ramadan-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.ramadan-count { text-align: center; min-width: 88px; padding: 8px 12px; border-radius: 12px; background: var(--ok-bg); color: var(--green); }
-.ramadan-count strong { display: block; font-size: 1.9rem; line-height: 1.1; }
+.ramadan-count { text-align: center; min-width: 88px; padding: 8px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); }
+.ramadan-count strong { display: block; font-family: var(--mono); font-weight: 500; font-size: 1.9rem; line-height: 1.1; letter-spacing: -0.03em; }
 .ramadan-count span { font-size: 0.78rem; font-weight: 600; }
 .ramadan-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
 .ramadan-stats > div { display: grid; gap: 2px; }
-.ramadan-stats strong { font-size: 1.15rem; }
+.ramadan-stats strong { font-family: var(--mono); font-weight: 500; font-size: 1.1rem; letter-spacing: -0.02em; }
 .plain-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 form .err { color: var(--danger); font-size: 0.85rem; }
 @media (max-width: 640px) {
@@ -18,6 +18,6 @@ form .err { color: var(--danger); font-size: 0.85rem; }
 .zy-row { padding: 10px 0; border-top: 1px solid var(--border); }
 .zy-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .ramadan-stats.compact { margin-top: 6px; gap: 8px; }
-.ramadan-stats.compact span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ramadan-stats.compact span:last-child { font-family: var(--mono); font-weight: 500; font-variant-numeric: tabular-nums; }
 .ramadan-stats.compact span:last-child { white-space: nowrap; }
 @media (max-width: 640px) { .ramadan-stats.compact span:last-child { font-size: 0.88rem; } }

@@ -3,6 +3,7 @@ import { q, sch, tx, type Space } from "./db";
 import type { ListQuery, SetAsideInput, TransactionInput } from "./validation";
 import { HttpError } from "./http";
 import { OWN_ACCOUNTS, type Kind } from "./categories";
+import { addDays } from "./time";
 
 export type TxRow = {
   id: string;
@@ -83,11 +84,14 @@ export async function analytics(space: Space, from: string, to: string, granular
   const range = RANGE_SQL("$1", "$2");
   const step = granularity === "day" ? "1 day" : granularity === "month" ? "1 month" : "1 year";
   const fmt = granularity === "day" ? "YYYY-MM-DD" : granularity === "month" ? "YYYY-MM" : "YYYY";
-  const [totals, series, cats, recips, daily] = await Promise.all([
-    q<{ kind: Kind; total: number; n: number }>(
-      `SELECT kind, sum(amount_paisa)::float8 AS total, count(*)::int AS n FROM ${s}.transactions WHERE ${range} AND ${NOT_OWN} GROUP BY kind`,
-      [from, to],
-    ),
+  // The previous period has the same number of days and ends the day before this one starts.
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400e3) + 1;
+  const prevTo = addDays(from, -1);
+  const prevFrom = addDays(from, -days);
+  const totalsSql = `SELECT kind, sum(amount_paisa)::float8 AS total, count(*)::int AS n FROM ${s}.transactions WHERE ${range} AND ${NOT_OWN} GROUP BY kind`;
+  const [totals, prevTotals, series, cats, recips, daily, balanceSeries] = await Promise.all([
+    q<{ kind: Kind; total: number; n: number }>(totalsSql, [from, to]),
+    q<{ kind: Kind; total: number; n: number }>(totalsSql, [prevFrom, prevTo]),
     q<{ bucket: string; expense: number; income: number; remittance: number }>(
       `WITH buckets AS (
          SELECT generate_series(date_trunc('${granularity}', $1::date::timestamp), date_trunc('${granularity}', $2::date::timestamp), interval '${step}') AS b
@@ -114,9 +118,15 @@ export async function analytics(space: Space, from: string, to: string, granular
       [from, to],
     ),
     q<{ days: number }>(`SELECT ($2::date - $1::date + 1)::int AS days`, [from, to]),
+    space === "app" ? balanceOverTime(from, to, granularity) : Promise.resolve(null),
   ]);
-  const byKind = { expense: { total: 0, n: 0 }, income: { total: 0, n: 0 }, remittance: { total: 0, n: 0 } };
-  for (const r of totals.rows) byKind[r.kind] = { total: r.total, n: r.n };
+  const group = (rows: { kind: Kind; total: number; n: number }[]) => {
+    const out = { expense: { total: 0, n: 0 }, income: { total: 0, n: 0 }, remittance: { total: 0, n: 0 } };
+    for (const r of rows) out[r.kind] = { total: r.total, n: r.n };
+    return out;
+  };
+  const byKind = group(totals.rows);
+  const prevKind = group(prevTotals.rows);
   const pending = await q<{ n: number }>(`SELECT count(*)::int AS n FROM ${s}.review_items WHERE status='pending'`);
   return {
     from, to, granularity,
@@ -127,7 +137,43 @@ export async function analytics(space: Space, from: string, to: string, granular
     categories: cats.rows,
     topRecipients: recips.rows,
     pendingReview: pending.rows[0].n,
+    previous: {
+      from: prevFrom,
+      to: prevTo,
+      totals: prevKind,
+      net: prevKind.income.total + prevKind.remittance.total - prevKind.expense.total,
+      avgDailyExpense: Math.round(prevKind.expense.total / Math.max(1, days)),
+    },
+    balanceSeries,
   };
+}
+
+/**
+ * Bank balance at the end of each bucket, worked back from the balance anchor.
+ * With S(t) the signed sum of every transaction at or after t, the balance at t is
+ * anchor + S(anchor time) - S(t), which holds on both sides of the anchor.
+ * Returns null until a balance has been set.
+ */
+async function balanceOverTime(from: string, to: string, granularity: "day" | "month" | "year") {
+  const step = granularity === "day" ? "1 day" : granularity === "month" ? "1 month" : "1 year";
+  const fmt = granularity === "day" ? "YYYY-MM-DD" : granularity === "month" ? "YYYY-MM" : "YYYY";
+  const signed = `CASE WHEN t.kind = 'expense' THEN -t.amount_paisa ELSE t.amount_paisa END`;
+  const { rows } = await q<{ bucket: string; balance: number }>(
+    `WITH a AS (SELECT amount_paisa, date_trunc('minute', as_of) AS as_of FROM app.balance_anchor WHERE id = 1),
+     buckets AS (
+       SELECT b, least((b + interval '${step}') AT TIME ZONE 'Asia/Karachi', now()) AS e
+       FROM generate_series(date_trunc('${granularity}', $1::date::timestamp), date_trunc('${granularity}', $2::date::timestamp), interval '${step}') AS b
+     ),
+     after_anchor AS (SELECT coalesce(sum(${signed}), 0) AS v FROM app.transactions t, a WHERE t.occurred_at >= a.as_of)
+     SELECT to_char(buckets.b, '${fmt}') AS bucket,
+            (a.amount_paisa + after_anchor.v - coalesce((SELECT sum(${signed}) FROM app.transactions t WHERE t.occurred_at >= buckets.e), 0))::float8 AS balance
+     FROM buckets, a, after_anchor
+     WHERE (buckets.b AT TIME ZONE 'Asia/Karachi') <= now()
+     ORDER BY buckets.b`,
+    [from, to],
+  );
+  const anchor = await q(`SELECT 1 FROM app.balance_anchor WHERE id = 1`);
+  return anchor.rowCount ? rows : null;
 }
 
 export async function recipients(space: Space, from?: string, to?: string) {

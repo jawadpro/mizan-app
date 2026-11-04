@@ -25,6 +25,10 @@ export type Analytics = {
   categories: { category: string; total: number; n: number }[];
   topRecipients: { counterparty: string; total: number; n: number }[];
   pendingReview: number;
+  /** The same number of days just before this period, for the comparison badges. */
+  previous: { from: string; to: string; totals: Record<Kind, { total: number; n: number }>; net: number; avgDailyExpense: number };
+  /** Bank balance at the end of each bucket; null until a balance has been set (and always in the demo). */
+  balanceSeries: { bucket: string; balance: number }[] | null;
 };
 
 export type Recipient = { counterparty: string; sent: number; received: number; n: number; last_at: string; first_at: string };
