@@ -291,3 +291,17 @@ pre { background: var(--surface-2); border: 1px solid var(--border); border-radi
 .chart-tip .line span:last-child { font-family: var(--mono); font-weight: 500; }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Compact transaction list, used where a full table would need sideways scrolling */
+.tx-list { display: grid; }
+.tx-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+.tx-row:last-child { border-bottom: 0; }
+.tx-row-main { min-width: 0; }
+.tx-row-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 500; }
+.tx-row .meta { color: var(--muted); font-size: 0.8rem; margin-top: 2px; overflow-wrap: anywhere; }
+.tx-row-side { display: grid; justify-items: end; gap: 2px; flex: none; }
+.tx-row-side .amt { font-weight: 500; white-space: nowrap; }
+.tx-row-side .row-actions { gap: 2px; }
+.tx-row-side .btn.sm { padding: 2px 7px; font-size: 0.78rem; min-height: 0; color: var(--muted); }
+.tx-row-side .btn.sm.danger { color: var(--down-ink); }
+@media (max-width: 720px) { .tx-row-side .btn.sm { min-height: 32px; padding: 4px 9px; } }
