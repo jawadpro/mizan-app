@@ -169,3 +169,6 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
 .redacted { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; background: var(--surface-2); border-radius: 8px; padding: 10px; white-space: pre-wrap; word-break: break-word; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+/* Recharts 3 makes charts focusable, so clicking one drew the browser's black focus box. */
+.recharts-wrapper:focus, .recharts-wrapper *:focus, .recharts-surface:focus { outline: none; }
