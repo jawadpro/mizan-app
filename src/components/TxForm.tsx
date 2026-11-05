@@ -40,12 +40,17 @@ export default function TxForm({
   const [fields, setFields] = useState<Record<string, string[]>>({});
   const first = useRef<HTMLSelectElement>(null);
   const funds = useData<{ items: SetAside[] }>("/api/set-asides").data?.items ?? [];
+  // Parents pass a fresh onClose on every render (e.g. each keystroke in the charges box updates
+  // their state). Read it through a ref so this effect runs once: re-running it would pull focus
+  // back to the first field and close the phone keyboard mid-typing.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     first.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   const cats = Array.from(new Set([...CATEGORIES[d.kind], ...(d.category ? [d.category] : [])]));
   const set = (k: keyof TxDraft, v: string) => setD((x) => ({ ...x, [k]: v }));
