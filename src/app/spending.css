@@ -1,0 +1,32 @@
+/* Spending check: tips when the month is going off track, and monthly category limits. */
+.spend-check { margin-bottom: 12px; }
+.tips { display: grid; gap: 8px; }
+.tip { display: flex; gap: 10px; align-items: flex-start; padding: 11px 12px 11px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); position: relative; overflow: hidden; }
+.tip::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--border-strong); }
+.tip.bad { background: var(--down-soft); border-color: transparent; }
+.tip.bad::before { background: var(--down); }
+.tip.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.tip.warn::before { background: var(--gold); }
+.tip.ok::before { background: var(--accent); }
+.tip-body { flex: 1; min-width: 0; }
+.tip-title { font-weight: 600; font-size: 0.92rem; }
+.tip.bad .tip-title { color: var(--down-ink); }
+.tip.warn .tip-title { color: var(--warn); }
+.tip-detail { font-size: 0.86rem; color: var(--text); margin-top: 2px; }
+.tip-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.tip-actions:empty { display: none; }
+.tip-hide { margin: -4px -6px 0 0; color: var(--muted); }
+.tips-more { display: flex; gap: 14px; padding: 2px 2px 0; }
+.linkish { border: 0; background: none; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+.limits { margin-top: 14px; display: grid; gap: 4px; }
+.limits-title { font-weight: 500; margin-bottom: 2px; }
+.limit-row { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 6px 4px; border-radius: 8px; cursor: pointer; }
+.limit-row:hover { background: var(--hover); }
+.limit-row .top { display: flex; justify-content: space-between; gap: 10px; font-size: 0.88rem; }
+.limit-row .progress { margin-top: 6px; }
+.limit-row .progress > .ok { background: var(--accent); }
+.limit-row .progress > .warn { background: var(--gold); }
+.limit-row .progress > .bad { background: var(--down); }
+.ink-bad { color: var(--down-ink); } .ink-warn { color: var(--warn); }
+.spend-note { margin: 12px 0 0; }

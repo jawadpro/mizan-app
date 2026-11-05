@@ -424,3 +424,79 @@ export async function deleteSetAside(id: string) {
   const r = await q(`DELETE FROM app.set_asides WHERE id=$1`, [id]);
   return (r.rowCount ?? 0) > 0;
 }
+
+// ---- Spending check ----
+// Compares this month so far with the same days of up to three earlier months. A month only
+// counts once records cover it from day 1, so a first, partly recorded month never looks "cheap".
+
+export async function listLimits() {
+  const { rows } = await q<{ category: string; limit: number }>(
+    `SELECT category, monthly_paisa::float8 AS "limit" FROM app.category_limits ORDER BY category`,
+  );
+  return rows;
+}
+
+export async function setLimit(category: string, monthlyPaisa: number) {
+  await q(
+    `INSERT INTO app.category_limits (category, monthly_paisa) VALUES ($1, $2)
+     ON CONFLICT (category) DO UPDATE SET monthly_paisa = EXCLUDED.monthly_paisa, updated_at = now()`,
+    [category, monthlyPaisa],
+  );
+}
+
+export async function deleteLimit(category: string) {
+  const r = await q(`DELETE FROM app.category_limits WHERE category = $1`, [category]);
+  return (r.rowCount ?? 0) > 0;
+}
+
+export async function spendingCheckData(today: string) {
+  const monthStart = `${today.slice(0, 8)}01`;
+  const day = Number(today.slice(8, 10));
+  const local = `(occurred_at AT TIME ZONE 'Asia/Karachi')`;
+  const first = await q<{ first: string | null }>(`SELECT to_char(min(${local}), 'YYYY-MM-DD') AS first FROM app.transactions`);
+  // Earliest month start that records fully cover, no more than three months back.
+  const f = first.rows[0]?.first;
+  let months = 0;
+  if (f) {
+    const [y, m] = monthStart.split("-").map(Number);
+    for (let k = 1; k <= 3; k++) {
+      const start = new Date(Date.UTC(y, m - 1 - k, 1)).toISOString().slice(0, 10);
+      if (f <= start) months = k;
+    }
+  }
+  const [mtd, base, last30, limits] = await Promise.all([
+    q<{ category: string; total: number }>(
+      `SELECT category, sum(amount_paisa)::float8 AS total FROM app.transactions
+       WHERE kind = 'expense' AND ${NOT_OWN} AND ${RANGE_SQL("$1", "$2")} GROUP BY category`,
+      [monthStart, today],
+    ),
+    months > 0
+      ? q<{ category: string; same: number; full: number }>(
+          `SELECT category,
+                  coalesce(sum(amount_paisa) FILTER (WHERE extract(day FROM ${local}) <= $3), 0)::float8 AS same,
+                  sum(amount_paisa)::float8 AS full
+           FROM app.transactions
+           WHERE kind = 'expense' AND ${NOT_OWN}
+             AND occurred_at >= (($1::date - make_interval(months => $2::int))::timestamp AT TIME ZONE 'Asia/Karachi')
+             AND occurred_at < ($1::date::timestamp AT TIME ZONE 'Asia/Karachi')
+           GROUP BY category`,
+          [monthStart, months, day],
+        )
+      : Promise.resolve({ rows: [] as { category: string; same: number; full: number }[] }),
+    q<{ total: number }>(
+      `SELECT coalesce(sum(amount_paisa), 0)::float8 AS total FROM app.transactions
+       WHERE kind = 'expense' AND ${NOT_OWN} AND ${RANGE_SQL("$1", "$2")}`,
+      [addDays(today, -29), today],
+    ),
+    listLimits(),
+  ]);
+  const by = <T extends { category: string }>(rows: T[], v: (r: T) => number) => Object.fromEntries(rows.map((r) => [r.category, v(r)]));
+  return {
+    monthByCategory: by(mtd.rows, (r) => r.total),
+    baselineSameDays: by(base.rows, (r) => r.same),
+    baselineFull: by(base.rows, (r) => r.full),
+    baselineMonths: months,
+    last30Expense: last30.rows[0].total,
+    limits,
+  };
+}
