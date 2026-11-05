@@ -39,6 +39,8 @@ export type InsightInput = {
   limits: { category: string; limit: number }[];
   /** Saving set-asides that have paid out more than was put in. */
   overspentFunds: { id: string; name: string; over: number }[];
+  /** Share of a limit at which the "close to its limit" warning starts. Defaults to 0.8. */
+  warnAt?: number;
 };
 
 export type Insights = {
@@ -48,6 +50,7 @@ export type Insights = {
   usualSoFar: number | null;
   tips: Tip[];
   limits: LimitStatus[];
+  warnAt: number;
 };
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
@@ -85,6 +88,7 @@ export function buildInsights(i: InsightInput): Insights {
   const project = (spent: number) => (canProject ? Math.round((spent / day) * days) : null);
   const tips: Tip[] = [];
   const n = i.baselineMonths;
+  const warnAt = i.warnAt ?? 0.8;
   let paceDriver: string | null = null;
 
   // 1. Category limits the user set.
@@ -101,7 +105,7 @@ export function buildInsights(i: InsightInput): Insights {
         detail: `${rs(l.spent)} spent against a ${rs(l.limit)} limit, ${rs(l.spent - l.limit)} over${left > 0 ? ` with ${left} ${left === 1 ? "day" : "days"} still to go` : ""}. Hold off on ${l.category.toLowerCase()} for the rest of the month if you can.`,
         actions,
       });
-    } else if (l.spent >= l.limit * 0.8) {
+    } else if (l.spent >= l.limit * warnAt) {
       tips.push({
         id: `limit-near:${l.category}`,
         tone: "warn",
@@ -203,5 +207,5 @@ export function buildInsights(i: InsightInput): Insights {
   }
 
   tips.sort((a, b) => (a.tone === b.tone ? 0 : a.tone === "bad" ? -1 : 1));
-  return { month: { from, to: i.today, day, days }, baselineMonths: n, spent, usualSoFar, tips, limits };
+  return { month: { from, to: i.today, day, days }, baselineMonths: n, spent, usualSoFar, tips, limits, warnAt };
 }

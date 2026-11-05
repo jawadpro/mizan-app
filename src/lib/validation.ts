@@ -121,3 +121,19 @@ export const limitInput = z.object({
 });
 
 export const limitDelete = z.object({ category: trimmed(60).pipe(z.string().min(1)) });
+
+export const smsTemplatesInput = z.object({
+  items: z
+    .array(
+      z.object({
+        bank: trimmed(60).pipe(z.string().min(1, "Give the bank a name")),
+        sender: trimmed(64).default(""),
+        kind: z.enum(KINDS),
+        category: trimmed(60).transform((s) => s || null).nullable().default(null),
+        example: z.string().max(1000).transform((s) => s.trim()).pipe(z.string().min(15, "Paste a full example message")),
+        payee: trimmed(120).default(""),
+      }),
+    )
+    .max(30, "Up to 30 message types"),
+});
+

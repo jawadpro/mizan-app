@@ -4,6 +4,8 @@ import type { ListQuery, SetAsideInput, TransactionInput } from "./validation";
 import { HttpError } from "./http";
 import { OWN_ACCOUNTS, type Kind } from "./categories";
 import { addDays } from "./time";
+import { normalizePrefs, type Prefs } from "./preferences";
+import type { SmsTemplate } from "./sms/templates";
 
 export type TxRow = {
   id: string;
@@ -499,4 +501,44 @@ export async function spendingCheckData(today: string) {
     last30Expense: last30.rows[0].total,
     limits,
   };
+}
+
+// ---- Settings ----
+
+export async function getPrefs() {
+  const { rows } = await q<{ value: unknown }>(`SELECT value FROM app.preferences WHERE id = 1`);
+  return normalizePrefs(rows[0]?.value);
+}
+
+export async function updatePrefs(patch: Partial<Prefs>) {
+  const next = { ...(await getPrefs()), ...patch };
+  await q(
+    `INSERT INTO app.preferences (id, value, updated_at) VALUES (1, $1::jsonb, now())
+     ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [JSON.stringify(next)],
+  );
+  return next;
+}
+
+// ---- Message templates (other banks) ----
+
+export async function listSmsTemplates(): Promise<(SmsTemplate & { id: string })[]> {
+  const { rows } = await q<SmsTemplate & { id: string }>(
+    `SELECT id, bank, sender, kind, category, example, payee FROM app.sms_templates ORDER BY position, created_at`,
+  );
+  return rows;
+}
+
+/** Replaces the whole list, in the order given (the Settings page saves the repeater at once). */
+export async function saveSmsTemplates(items: SmsTemplate[]) {
+  await tx(async (run) => {
+    await run(`DELETE FROM app.sms_templates`);
+    for (const [i, t] of items.entries()) {
+      await run(
+        `INSERT INTO app.sms_templates (position, bank, sender, kind, category, example, payee) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [i, t.bank, t.sender, t.kind, t.category, t.example, t.payee],
+      );
+    }
+  });
+  return listSmsTemplates();
 }

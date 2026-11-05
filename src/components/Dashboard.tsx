@@ -60,9 +60,9 @@ function Tip({ active, payload, label, gran, fmt }: { active?: boolean; payload?
 
 const CAT_TOKENS: (keyof ChartColors)[] = ["text", "accent", "remit", "gold", "down"];
 
-export default function Dashboard({ space, top }: { space: Space; top?: React.ReactNode }) {
-  const [preset, setPreset] = useState<Preset>("30d");
-  const [custom, setCustom] = useState(() => presetRange("30d"));
+export default function Dashboard({ space, top, defaultPreset = "30d" }: { space: Space; top?: React.ReactNode; defaultPreset?: Preset }) {
+  const [preset, setPreset] = useState<Preset>(defaultPreset);
+  const [custom, setCustom] = useState(() => presetRange(defaultPreset));
   const [gran, setGran] = useState<Gran | null>(null);
   const [series, setSeries] = useState<Series>("expense");
   const [hover, setHover] = useState<number | null>(null);
@@ -189,7 +189,7 @@ export default function Dashboard({ space, top }: { space: Space; top?: React.Re
         <div className="card">
           <Empty title="No transactions in this period">
             {space === "app" ? (
-              <p>Add one by hand from <Link href="/app/transactions">Transactions</Link>, or set up the <Link href="/app/settings">iPhone SMS shortcut</Link>.</p>
+              <p>Add one by hand from <Link href="/app/transactions">Transactions</Link>, or set up the <Link href="/app/sms">iPhone SMS shortcut</Link>.</p>
             ) : (
               <p>Try a longer date range.</p>
             )}

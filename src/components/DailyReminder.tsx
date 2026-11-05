@@ -1,36 +1,34 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DUA } from "@/lib/dua";
+import { apiFetch } from "./api";
 
-const KEY = "mizan.reminder.hidden";
-
-/** The dua for provision (Al-Qasas 28:24), shown beside the balance. Hidden state is per device. */
-export default function DailyReminder() {
-  const [ready, setReady] = useState(false);
-  const [hidden, setHidden] = useState(false);
+/**
+ * The dua for provision (Al-Qasas 28:24), shown beside the balance. Whether it shows, and which
+ * translations, are app settings, so hiding it here hides it on every device.
+ */
+export default function DailyReminder({ shown, urdu = true, english = true }: { shown: boolean; urdu?: boolean; english?: boolean }) {
+  const [on, setOn] = useState(shown);
+  const toggle = (next: boolean) => {
+    setOn(next);
+    apiFetch("/api/preferences", { method: "PATCH", body: JSON.stringify({ dua: next }) }).catch(() => setOn(!next));
+  };
+  // The dua used to be hidden per device. Carry an old "hidden" choice over to the setting once.
   useEffect(() => {
     try {
-      setHidden(window.localStorage.getItem(KEY) === "1");
+      if (window.localStorage.getItem("mizan.reminder.hidden") === "1" && shown) toggle(false);
+      window.localStorage.removeItem("mizan.reminder.hidden");
     } catch {
-      /* storage unavailable: always shown */
+      /* storage unavailable */
     }
-    setReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggle = (h: boolean) => {
-    setHidden(h);
-    try {
-      window.localStorage.setItem(KEY, h ? "1" : "0");
-    } catch {
-      /* not remembered */
-    }
-  };
-
-  if (!ready) return null;
-  if (hidden) {
+  if (!on) {
     return (
       <div className="reminder-hidden">
-        <button type="button" className="btn ghost sm" onClick={() => toggle(false)}>Show dua</button>
+        <button type="button" className="btn ghost sm" onClick={() => toggle(true)}>Show dua</button>
       </div>
     );
   }
@@ -38,12 +36,15 @@ export default function DailyReminder() {
     <div className="reminder">
       <div className="reminder-head">
         <span className="reminder-label">Dua for provision</span>
-        <button type="button" className="btn ghost sm" onClick={() => toggle(true)}>Hide</button>
+        <span>
+          <Link className="btn ghost sm" href="/app/settings#home">Options</Link>
+          <button type="button" className="btn ghost sm" onClick={() => toggle(false)}>Hide</button>
+        </span>
       </div>
       <p className="arabic" dir="rtl" lang="ar">{DUA.arabic}</p>
-      <p className="urdu" dir="rtl" lang="ur">{DUA.urdu}</p>
-      <p className="english">{DUA.english}</p>
-      <p className="reminder-ref">Quran, Al-Qasas {DUA.ref} · Urdu translation: {DUA.source}</p>
+      {urdu && <p className="urdu" dir="rtl" lang="ur">{DUA.urdu}</p>}
+      {english && <p className="english">{DUA.english}</p>}
+      <p className="reminder-ref">Quran, Al-Qasas {DUA.ref}{urdu ? ` · Urdu translation: ${DUA.source}` : ""}</p>
     </div>
   );
 }
