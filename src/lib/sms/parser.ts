@@ -58,21 +58,21 @@ export function isTrustedSender(sender: string, extra: string[] = []): boolean {
 const CUR = String.raw`(?:PKR|Rs\.?|Rupees)`;
 const NUM = String.raw`(\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})*,\d{3}|\d+)(?:\.(\d{1,2}))?`;
 
-const OTP_RE = /\b(otp|one[\s-]?time\s+(?:password|pin|code)|verification\s+code|do\s+not\s+share|never\s+share)\b/i;
+export const OTP_RE = /\b(otp|one[\s-]?time\s+(?:password|pin|code)|verification\s+code|do\s+not\s+share|never\s+share)\b/i;
 const PROMO_RE = /\b(offer|discount|cashback\s+offer|win|lucky\s+draw|apply\s+now|click\s+here|t&cs?\s+apply)\b/i;
 // Available/ledger balance clauses. Removed before looking for the transaction amount.
-const BALANCE_RE = new RegExp(
+export const BALANCE_RE = new RegExp(
   String.raw`\b(?:avl\.?|avail\.?|available|current|closing|ledger|new|remaining|total)?\s*(?:a\/c\s*)?bal(?:ance)?\.?\s*(?:is|:|=|of)?\s*${CUR}?\s*:?\s*-?${NUM}\s*(?:cr|dr)?`,
   "gi",
 );
-const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
+export const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
 const FOREIGN_RE = /\b(USD|AED|GBP|EUR|SAR|QAR|CAD|AUD|US\$)\s*[\d,]+(?:\.\d+)?/i;
 
 const DEBIT_RE = /\b(debited|debit(?:ed)?\s+from|withdrawn|withdrawal|purchase|purchased|paid|payment\s+of|spent|sent|transferred\s+to|transfer(?:red)?\s+of|charged|deducted)\b/i;
 const CREDIT_RE = /\b(credited|received|deposited|deposit\s+of)\b/i;
 const REMITTANCE_RE = /\b(home\s+remittance|remittance|inward\s+(?:transfer|remittance)|western\s+union|moneygram|remitly|wise\s+transfer|xpress\s+money|ria\s+money)\b/i;
 const OUT_TRANSFER_RE = /\b(sent\s+to|transferred\s+to|transfer(?:red)?\s+of|via\s+(?:ibft|raast)|funds?\s+transfer|interbank)\b/i;
-const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuccessful|pending|on\s+hold|blocked|insufficient|cancel(?:led|ed)?|due\s+(?:date|amount)|minimum\s+payment|will\s+be)\b/i;
+export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuccessful|pending|on\s+hold|blocked|insufficient|cancel(?:led|ed)?|due\s+(?:date|amount)|minimum\s+payment|will\s+be)\b/i;
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
 
@@ -94,7 +94,7 @@ const CATEGORY_RULES: Array<[RegExp, string]> = [
   [/\b(ibft|raast|funds?\s+transfer|fund\s+transfer|transferred\s+to|interbank)\b/i, "Transfers"],
 ];
 
-function findDate(text: string): { y: number; m: number; d: number; hh: number | null; mm: number | null } | null {
+export function findDate(text: string): { y: number; m: number; d: number; hh: number | null; mm: number | null } | null {
   let m =
     /\b(\d{1,2})[-\s/]([A-Za-z]{3,4})[-\s/,]*(\d{2,4})\b/.exec(text) ??
     null;
@@ -141,7 +141,7 @@ function findDate(text: string): { y: number; m: number; d: number; hh: number |
 
 const ACRONYMS = new Set(["ATM", "BR", "KFC", "PSO", "IBFT", "PTCL", "KE", "SSGC", "SNGPL", "LESCO", "IESCO", "PK", "LTD", "PVT", "POS", "UK", "UAE", "USA"]);
 
-function cleanParty(raw: string | undefined): string | null {
+export function cleanParty(raw: string | undefined): string | null {
   if (!raw) return null;
   let s = raw.replace(/[*#]+/g, " ").replace(/\s+/g, " ").trim().replace(/[.,;:\-]+$/, "").trim();
   const bare = s.replace(BANK_SUFFIX_RE, "");
@@ -185,6 +185,12 @@ function findCounterparty(text: string, kind: Kind | null): string | null {
     const c = cleanParty(m?.[1]);
     if (c) return c;
   }
+  return null;
+}
+
+/** Category from well-known merchant and bill names, or null. */
+export function guessCategory(text: string): string | null {
+  for (const [re, cat] of CATEGORY_RULES) if (re.test(text)) return cat;
   return null;
 }
 

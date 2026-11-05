@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9.:_\-]{1,63}$/;
+
+/** Model choices offered on the Settings page; any other model ID can be typed in. */
+export const AI_MODELS = {
+  claude: [
+    { id: "claude-opus-5-5", label: "Claude Opus 5.5 (most accurate)" },
+    { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
+    { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 (cheapest)" },
+  ],
+  openai: [
+    { id: "gpt-5-mini", label: "GPT-5 mini" },
+    { id: "gpt-5", label: "GPT-5" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+  ],
+};
+
 /** Feature switches from the Settings page. Unknown or missing keys fall back to these defaults. */
 export const DEFAULT_PREFS = {
   spendingCheck: true,
@@ -9,6 +25,11 @@ export const DEFAULT_PREFS = {
   duaEnglish: true,
   ramadanNotice: true,
   defaultRange: "30d" as "7d" | "30d" | "month" | "12m" | "year",
+  aiEnabled: false,
+  aiProvider: "claude" as "claude" | "openai",
+  aiModelClaude: "claude-opus-5-5",
+  aiModelOpenai: "gpt-5-mini",
+  aiAutoImport: false,
 };
 export type Prefs = typeof DEFAULT_PREFS;
 
@@ -21,6 +42,11 @@ export const prefsPatch = z
     duaEnglish: z.boolean(),
     ramadanNotice: z.boolean(),
     defaultRange: z.enum(["7d", "30d", "month", "12m", "year"]),
+    aiEnabled: z.boolean(),
+    aiProvider: z.enum(["claude", "openai"]),
+    aiModelClaude: z.string().regex(MODEL_ID),
+    aiModelOpenai: z.string().regex(MODEL_ID),
+    aiAutoImport: z.boolean(),
   })
   .partial()
   .strict();

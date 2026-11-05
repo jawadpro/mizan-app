@@ -11,6 +11,7 @@ import { ErrorBox, Loading } from "./States";
 import { useToast } from "./Toast";
 import { THEME_LABEL, useTheme, type ThemePref } from "./theme";
 import PushToggle from "./PushToggle";
+import BankMessages from "./BankMessages";
 import { LimitModal, type LimitEdit } from "./SpendingCheck";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
@@ -145,6 +146,10 @@ export default function Settings() {
                 </div>
               )}
             </div>
+          </Section>
+
+          <Section id="bank" title="Bank messages">
+            <BankMessages p={p} save={save} />
           </Section>
 
           <Section id="appearance" title="Appearance">
