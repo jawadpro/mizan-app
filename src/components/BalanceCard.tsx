@@ -16,35 +16,54 @@ export default function BalanceCard() {
   const toast = useToast();
   const b = data?.balance ?? null;
 
+  const pct = b && b.anchor !== 0 && b.n > 0 ? Math.round((b.delta / Math.abs(b.anchor)) * 1000) / 10 : null;
+  const showSplit = !!(data && b && data.setAside > 0 && b.balance > 0);
+  const free = data?.freeToSpend ?? 0;
+  const whole = (p: number, o: { sign?: boolean } = {}) => formatPaisa(Math.round(p), o).replace(/\.\d\d$/, "");
+
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
-          <div>
-            <div className="label muted small">MCB balance</div>
-            {loading && !data ? <Skeleton h={36} w={200} /> : b ? (
-              <>
-                <div className="big" style={{ color: b.balance < 0 ? "var(--expense)" : undefined }}>{formatPaisa(b.balance)}</div>
-                <div className="small muted">
-                  Set to {formatPaisa(b.anchor)} on {formatDatePkt(b.as_of)} {formatTimePkt(b.as_of)}
-                  {b.n > 0 ? `, then ${b.n} transaction${b.n === 1 ? "" : "s"} (${formatPaisa(b.delta, { sign: true })})` : ""}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="big muted">Not set yet</div>
-                <div className="small muted">Enter your current balance once. After that, every incoming and outgoing payment updates it.</div>
-              </>
-            )}
+          <div className="label">
+            <span>MCB balance</span>
+            {pct != null && <span className={`delta ${pct >= 0 ? "good" : "bad"}`} title="Change since you last set the balance">{pct > 0 ? "+" : pct < 0 ? "−" : ""}{Math.abs(pct)}%</span>}
           </div>
-          {data && data.setAside > 0 && b && (
-            <div>
-              <div className="label muted small">Set aside</div>
-              <div style={{ fontSize: "1.25rem", fontWeight: 600 }}><Link href="/app/set-asides" style={{ color: "inherit" }}>{formatPaisa(data.setAside)}</Link></div>
-              <div className="small muted">Free to spend: <strong>{formatPaisa(data.freeToSpend ?? 0)}</strong></div>
+          {loading && !data ? <Skeleton h={40} w={240} /> : b ? (
+            <>
+              <div className="big" style={{ color: b.balance < 0 ? "var(--down-ink)" : undefined }}>{formatPaisa(b.balance)}</div>
+              <div className="small muted">
+                Set to {whole(b.anchor)} on {formatDatePkt(b.as_of)} {formatTimePkt(b.as_of)}
+                {b.n > 0 ? `, then ${b.n} transaction${b.n === 1 ? "" : "s"} (${whole(b.delta, { sign: true })})` : ""}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="big muted">Not set yet</div>
+              <div className="small muted">Enter your current balance once. After that, every incoming and outgoing payment updates it.</div>
+            </>
+          )}
+          {showSplit && (
+            <div className="balance-split" aria-hidden>
+              <div style={{ flex: Math.max(0, free), background: "var(--text)" }} />
+              <div style={{ flex: data!.setAside, background: "var(--accent)" }} />
             </div>
           )}
-          <button className="btn" onClick={() => setEditing(true)} disabled={loading && !data}>{b ? "Adjust balance" : "Set balance"}</button>
+          <div className="balance-foot">
+            {showSplit ? (
+              <div className="balance-legs">
+                <div>
+                  <div className="leg-label"><span className="dot" style={{ background: "var(--text)" }} />Free to spend</div>
+                  <div className="leg-value">{whole(free)}</div>
+                </div>
+                <div>
+                  <div className="leg-label"><span className="dot" style={{ background: "var(--accent)" }} />Set aside</div>
+                  <Link className="leg-value" href="/app/set-asides" style={{ display: "block" }}>{whole(data!.setAside)}</Link>
+                </div>
+              </div>
+            ) : <span />}
+            <button className="btn sm" onClick={() => setEditing(true)} disabled={loading && !data}>{b ? "Adjust balance" : "Set balance"}</button>
+          </div>
         </div>
       )}
       {editing && (

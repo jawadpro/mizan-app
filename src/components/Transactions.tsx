@@ -42,6 +42,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const url = resourceUrl(space, "transactions", { ...filters, page, pageSize: 25 });
   const { data, error, loading, reload } = useData<List>(url);
   const readOnly = space === "demo";
+  // Inside a recipient's panel there is little room, so history shows as a list instead of a wide table.
+  const compact = !!fixedCounterparty;
   const hasFilters = !!(dq || kind || category || source || from || to);
 
   async function save(d: TxDraft, id?: string) {
@@ -121,6 +123,32 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           </Empty>
         ) : (
           <>
+            {compact ? (
+              <div className="tx-list" style={{ opacity: loading ? 0.55 : 1 }}>
+                <div className="card-head" style={{ marginBottom: 2 }}><h2>History</h2><span className="muted small">{data!.total} transaction{data!.total === 1 ? "" : "s"}</span></div>
+                {data!.items.map((t) => (
+                  <div key={t.id} className="tx-row">
+                    <div className="tx-row-main">
+                      <div className="tx-row-title">
+                        <span>{t.category}</span>
+                        {t.kind !== "expense" && <span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span>}
+                        {t.source === "sms" && <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>SMS</span>}
+                      </div>
+                      <div className="meta"><span className="num">{formatDatePkt(t.occurred_at)}</span> · {formatTimePkt(t.occurred_at)}{t.note ? ` · ${t.note}` : ""}</div>
+                    </div>
+                    <div className="tx-row-side">
+                      <div className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
+                      {!readOnly && (
+                        <div className="row-actions">
+                          <button className="btn ghost sm" onClick={() => edit(t)}>Edit</button>
+                          <button className="btn ghost sm danger" onClick={() => remove(t)}>Delete</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (<>
             <div className="table-wrap responsive">
               <table className="tx">
                 <thead>
@@ -154,6 +182,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                 </div>
               ))}
             </div>
+            </>)}
             {pages > 1 && (
               <div className="toolbar" style={{ justifyContent: "space-between", marginTop: 14 }}>
                 <span className="small muted">Page {page} of {pages}</span>

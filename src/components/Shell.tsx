@@ -6,6 +6,7 @@ import { ToastProvider } from "./Toast";
 import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import "@/app/extra.css";
 import "@/app/badge.css";
+import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
@@ -15,9 +16,17 @@ const svg = (d: React.ReactNode) => (
 const ICONS = {
   home: svg(<><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h5v-6h4v6h5V9.5" /></>),
   list: svg(<><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="3.5" cy="6" r="1" /><circle cx="3.5" cy="12" r="1" /><circle cx="3.5" cy="18" r="1" /></>),
+  people: svg(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" /></>),
   jar: svg(<><path d="M7 4h10M8 4v3a5 5 0 0 0-3 4.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7.4A5 5 0 0 0 16 7V4" /><path d="M9 14h6" /></>),
   scale: svg(<><path d="M12 3v18M5 21h14M4 7h16" /><path d="M7 7l-3 7a3 3 0 0 0 6 0L7 7zM17 7l-3 7a3 3 0 0 0 6 0l-3-7z" /></>),
+  inbox: svg(<><path d="M4 13h4l2 3h4l2-3h4" /><path d="M5.5 5h13L20 13v6H4v-6z" /></>),
+  phone: svg(<><rect x="6" y="2.5" width="12" height="19" rx="2.5" /><path d="M11 18.5h2" /></>),
+  cloud: svg(<path d="M7 18a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.5A3.8 3.8 0 0 1 17.5 18H7z" />),
   more: svg(<><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></>),
+  out: svg(<><path d="M15 4h4v16h-4" /><path d="M10 8l-4 4 4 4M6 12h10" /></>),
+  system: svg(<><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></>),
+  light: svg(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>),
+  dark: svg(<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />),
 };
 
 export default function Shell({ space, children }: { space: Space; children: React.ReactNode }) {
@@ -25,14 +34,19 @@ export default function Shell({ space, children }: { space: Space; children: Rea
   const [moreOpen, setMoreOpen] = useState(false);
   const base = space === "demo" ? "/demo" : "/app";
   const links = [
-    { href: base, label: "Dashboard" },
-    { href: `${base}/transactions`, label: "Transactions" },
-    { href: `${base}/recipients`, label: "Recipients" },
-    { href: `${base}/set-asides`, label: "Set-asides" },
-    { href: `${base}/zakat`, label: "Zakat" },
-    { href: `${base}/review`, label: "Review inbox" },
-    ...(space === "app" ? [{ href: `${base}/settings`, label: "SMS setup" }, { href: `${base}/backup`, label: "Backups" }] : []),
+    { href: base, label: "Dashboard", icon: ICONS.home },
+    { href: `${base}/transactions`, label: "Transactions", icon: ICONS.list },
+    { href: `${base}/recipients`, label: "Recipients", icon: ICONS.people },
+    { href: `${base}/set-asides`, label: "Set-asides", icon: ICONS.jar },
+    { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
+    { href: `${base}/review`, label: "Review inbox", icon: ICONS.inbox },
   ];
+  const setupLinks = space === "app" ? [
+    { href: `${base}/settings`, label: "SMS setup", icon: ICONS.phone },
+    { href: `${base}/backup`, label: "Backups", icon: ICONS.cloud },
+  ] : [];
+  const allLinks = [...links, ...setupLinks];
+  const [theme, setTheme] = useTheme();
   // Phone navigation: the four most used pages as tabs, the rest behind "More".
   const tabs: Tab[] = [
     { href: base, label: "Home", icon: ICONS.home },
@@ -40,7 +54,7 @@ export default function Shell({ space, children }: { space: Space; children: Rea
     { href: `${base}/set-asides`, label: "Set-asides", icon: ICONS.jar },
     { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
   ];
-  const moreLinks = links.filter((l) => !tabs.some((t) => t.href === l.href));
+  const moreLinks = allLinks.filter((l) => !tabs.some((t) => t.href === l.href));
   const inMore = moreLinks.some((l) => l.href === path);
 
   useEffect(() => setMoreOpen(false), [path]);
@@ -86,29 +100,54 @@ export default function Shell({ space, children }: { space: Space; children: Rea
       window.location.href = "/login";
     }
   }
-  const title = links.find((l) => l.href === path)?.label ?? "Mizan";
+  const title = allLinks.find((l) => l.href === path)?.label ?? "Mizan";
+  const themeButton = (cls: string, withLabel: boolean) => (
+    <button type="button" className={cls} onClick={() => setTheme(NEXT_THEME[theme])} aria-label={`Theme: ${THEME_LABEL[theme]}. Switch to ${THEME_LABEL[NEXT_THEME[theme]]}`} title={`Theme: ${THEME_LABEL[theme]}`}>
+      {ICONS[theme]}
+      {withLabel && <span>Theme: {THEME_LABEL[theme]}</span>}
+    </button>
+  );
   return (
     <ToastProvider>
-      <header className="topbar">
-        <div className="container topbar-inner">
-          <Link href="/app" className="brand" aria-label="Mizan home">
+      <div className="layout">
+        <aside className="sidebar">
+          <Link href={base} className="brand" aria-label="Mizan home">
             <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
           </Link>
-          <span className="topbar-title" aria-hidden>{path === base ? "" : title}</span>
-          <nav className="nav" aria-label="Main">
+          <nav className="side-nav" aria-label="Main">
             {links.map((l) => (
-              <Link key={l.href} href={l.href} className={path === l.href ? "active" : ""}>
-                {l.label}
+              <Link key={l.href} href={l.href} className={`side-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined}>
+                {l.icon}
+                <span>{l.label}</span>
                 {badge(l.href)}
               </Link>
             ))}
+            {setupLinks.length > 0 && <div className="side-group">Setup</div>}
+            {setupLinks.map((l) => (
+              <Link key={l.href} href={l.href} className={`side-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined}>
+                {l.icon}
+                <span>{l.label}</span>
+              </Link>
+            ))}
           </nav>
-          <button className="btn sm ghost signout" onClick={logout}>Sign out</button>
+          <div className="side-foot">
+            {themeButton("side-link", true)}
+            <button type="button" className="side-link" onClick={logout}>{ICONS.out}<span>Sign out</span></button>
+          </div>
+        </aside>
+        <div className="main-col">
+          <header className="topbar">
+            <Link href={base} className="brand" aria-label="Mizan home">
+              <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
+            </Link>
+            <span className="topbar-title" aria-hidden>{path === base ? "" : title}</span>
+            {themeButton("icon-btn", false)}
+          </header>
+          <main>
+            <div className="container">{children}</div>
+          </main>
         </div>
-      </header>
-      <main>
-        <div className="container">{children}</div>
-      </main>
+      </div>
       <nav className="tabbar" aria-label="Main">
         {tabs.map((t) => (
           <Link key={t.href} href={t.href} className={path === t.href ? "active" : ""} aria-current={path === t.href ? "page" : undefined}>
