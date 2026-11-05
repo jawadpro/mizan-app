@@ -30,7 +30,7 @@ function writeHidden(month: string, ids: string[]) {
   }
 }
 
-type LimitEdit = { category: string; amount: string; existing: boolean };
+export type LimitEdit = { category: string; amount: string; existing: boolean };
 
 /** Month-so-far spending check: tips when spending is off track, and monthly category limits. */
 export default function SpendingCheck() {
@@ -116,7 +116,7 @@ export default function SpendingCheck() {
               <div className="limits-title small muted">Monthly limits</div>
               {data.limits.map((l) => {
                 const used = l.spent / l.limit;
-                const tone = used >= 1 ? "bad" : used >= 0.8 || (l.projected ?? 0) > l.limit * 1.1 ? "warn" : "ok";
+                const tone = used >= 1 ? "bad" : used >= data.warnAt || (l.projected ?? 0) > l.limit * 1.1 ? "warn" : "ok";
                 return (
                   <button key={l.category} className="limit-row" onClick={() => setEdit({ category: l.category, amount: amountText(l.limit), existing: true })} title="Change or remove this limit">
                     <div className="top">
@@ -129,7 +129,7 @@ export default function SpendingCheck() {
               })}
             </div>
           )}
-          <p className="small muted spend-note">Charity, Zakat and Savings are never counted as overspending.</p>
+          <p className="small muted spend-note">Charity, Zakat and Savings are never counted as overspending. <Link href="/app/settings">Spending check settings</Link></p>
         </>
       )}
 
@@ -166,7 +166,7 @@ function TipRow({ t, onHide, action }: { t: Tip; onHide: () => void; action: (a:
 
 const LIMIT_CATEGORIES = CATEGORIES.expense.filter((c) => c !== OWN_ACCOUNTS);
 
-function LimitModal({ edit, taken, onClose, onSaved }: { edit: LimitEdit; taken: string[]; onClose: () => void; onSaved: (msg: string) => void }) {
+export function LimitModal({ edit, taken, onClose, onSaved }: { edit: LimitEdit; taken: string[]; onClose: () => void; onSaved: (msg: string) => void }) {
   const [category, setCategory] = useState(edit.category || LIMIT_CATEGORIES.find((c) => !taken.includes(c)) || "");
   const [amount, setAmount] = useState(edit.amount);
   const [busy, setBusy] = useState(false);
@@ -222,7 +222,7 @@ function LimitModal({ edit, taken, onClose, onSaved }: { edit: LimitEdit; taken:
             <input inputMode="decimal" placeholder="e.g. 15,000" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus required />
           </label>
           <p className="small muted" style={{ marginTop: 10 }}>
-            {edit.existing ? "The spending check warns you at 80% and again if you go over." : "Suggested from what this category usually costs a month. The spending check warns you at 80% and again if you go over."}
+            {edit.existing ? "The spending check warns you as it gets close and again if you go over." : "Suggested from what this category usually costs a month. The spending check warns you as it gets close and again if you go over."}
           </p>
           {err && <div className="alert error" style={{ marginTop: 12 }} role="alert">{err}</div>}
           <div className="modal-foot">

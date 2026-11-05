@@ -4,6 +4,7 @@ import type { ListQuery, SetAsideInput, TransactionInput } from "./validation";
 import { HttpError } from "./http";
 import { OWN_ACCOUNTS, type Kind } from "./categories";
 import { addDays } from "./time";
+import { normalizePrefs, type Prefs } from "./preferences";
 
 export type TxRow = {
   id: string;
@@ -499,4 +500,21 @@ export async function spendingCheckData(today: string) {
     last30Expense: last30.rows[0].total,
     limits,
   };
+}
+
+// ---- Settings ----
+
+export async function getPrefs() {
+  const { rows } = await q<{ value: unknown }>(`SELECT value FROM app.preferences WHERE id = 1`);
+  return normalizePrefs(rows[0]?.value);
+}
+
+export async function updatePrefs(patch: Partial<Prefs>) {
+  const next = { ...(await getPrefs()), ...patch };
+  await q(
+    `INSERT INTO app.preferences (id, value, updated_at) VALUES (1, $1::jsonb, now())
+     ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [JSON.stringify(next)],
+  );
+  return next;
 }
