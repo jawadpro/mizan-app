@@ -61,6 +61,7 @@
 .ai-model input { width: 220px; font-family: var(--mono); font-size: 0.86rem; }
 .ai-key { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .ai-key input { width: 220px; }
+.key-saved { color: var(--accent-ink); font-weight: 600; white-space: nowrap; }
 .ai-test { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); }
 .ink-ok { color: var(--accent-ink); }
 @media (max-width: 760px) { .tpl-grid { grid-template-columns: 1fr 1fr; } }

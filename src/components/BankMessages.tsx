@@ -180,6 +180,7 @@ export default function BankMessages({ p, save }: { p: Prefs; save: (patch: Part
           </Row2>
           <Row2 title={`${PROVIDER_LABEL[provider]} API key`} hint={key?.saved ? `Saved, ending in …${key.ending}. It's stored encrypted and never shown again.` : KEY_HELP[provider]}>
             <span className="ai-key">
+              {key?.saved && <span className="key-saved small">✓ Key saved, ending …{key.ending}</span>}
               <input type="password" autoComplete="off" value={keyInput} placeholder={key?.saved ? "Paste a new key to replace it" : "Paste your API key"} onChange={(e) => setKeyInput(e.target.value)} aria-label="API key" />
               <button className="btn sm primary" onClick={saveKey} disabled={keyInput.trim().length < 20}>Save key</button>
               {key?.saved && <button className="btn sm danger" onClick={removeKey}>Remove</button>}
