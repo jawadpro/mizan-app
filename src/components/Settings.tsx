@@ -149,7 +149,7 @@ export default function Settings() {
           </Section>
 
           <Section id="bank" title="Bank messages">
-            <BankMessages p={p} save={save} />
+            <BankMessages />
           </Section>
 
           <Section id="appearance" title="Appearance">

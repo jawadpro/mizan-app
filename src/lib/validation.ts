@@ -137,4 +137,3 @@ export const smsTemplatesInput = z.object({
     .max(30, "Up to 30 message types"),
 });
 
-export const aiKeyInput = z.object({ provider: z.enum(["claude", "openai"]), key: z.string().trim().min(20, "That doesn't look like an API key").max(300) });
