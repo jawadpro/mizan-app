@@ -107,3 +107,17 @@ export const setAsideInput = z
   .refine((v) => !v.endedOn || v.endedOn >= v.startsOn, { message: "End date must be on or after the start date", path: ["endedOn"] })
   .transform(({ percent, ...rest }) => ({ ...rest, percentBp: percent }));
 export type SetAsideInput = z.infer<typeof setAsideInput>;
+
+export const limitInput = z.object({
+  category: trimmed(60).pipe(z.string().min(1, "Choose a category")),
+  amount: z
+    .string()
+    .max(20)
+    .transform((s, ctx) => {
+      const v = parseAmountToPaisa(s);
+      if (v === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter a monthly amount like 15,000" });
+      return v ?? 0;
+    }),
+});
+
+export const limitDelete = z.object({ category: trimmed(60).pipe(z.string().min(1)) });
