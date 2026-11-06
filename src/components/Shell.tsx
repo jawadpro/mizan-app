@@ -15,6 +15,7 @@ const svg = (d: React.ReactNode) => (
 );
 const ICONS = {
   home: svg(<><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h5v-6h4v6h5V9.5" /></>),
+  calendar: svg(<><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /><path d="M8 14h2M14 14h2M8 17.5h2" /></>),
   list: svg(<><path d="M8 6h13M8 12h13M8 18h13" /><circle cx="3.5" cy="6" r="1" /><circle cx="3.5" cy="12" r="1" /><circle cx="3.5" cy="18" r="1" /></>),
   people: svg(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" /></>),
   jar: svg(<><path d="M7 4h10M8 4v3a5 5 0 0 0-3 4.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7.4A5 5 0 0 0 16 7V4" /><path d="M9 14h6" /></>),
@@ -37,6 +38,7 @@ export default function Shell({ space, children }: { space: Space; children: Rea
   const links = [
     { href: base, label: "Dashboard", icon: ICONS.home },
     { href: `${base}/transactions`, label: "Transactions", icon: ICONS.list },
+    { href: `${base}/calendar`, label: "Calendar", icon: ICONS.calendar },
     { href: `${base}/recipients`, label: "Recipients", icon: ICONS.people },
     { href: `${base}/set-asides`, label: "Set-asides", icon: ICONS.jar },
     { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
