@@ -89,7 +89,7 @@ export default function Settings() {
       {loading && !p ? <div className="card"><Loading rows={6} /></div> : p && (
         <div className="set-grid">
           <Section id="home" title="Overview page">
-            <Row title="Spending check" hint="Tips when spending runs ahead of usual, plus your monthly category limits.">
+            <Row title="Spending check" hint="A bell at the top shows a count when spending runs ahead of usual or a limit is near. Tap it for the tips and your monthly limits.">
               <Switch label="Spending check" on={p.spendingCheck} onChange={(v) => save({ spendingCheck: v })} />
             </Row>
             <Row title="Ramadan and Zakat reminder" hint="A note from 30 days before Ramadan until it ends, with a link to the Zakat page.">

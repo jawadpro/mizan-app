@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./Toast";
+import SpendingBell from "./SpendingBell";
 import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import "@/app/extra.css";
 import "@/app/badge.css";
@@ -115,9 +116,12 @@ export default function Shell({ space, children }: { space: Space; children: Rea
     <ToastProvider>
       <div className="layout">
         <aside className="sidebar">
-          <Link href={base} className="brand" aria-label="Mizan home">
-            <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
-          </Link>
+          <div className="side-brand">
+            <Link href={base} className="brand" aria-label="Mizan home">
+              <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
+            </Link>
+            {space === "app" && <SpendingBell />}
+          </div>
           <nav className="side-nav" aria-label="Main">
             {links.map((l) => (
               <Link key={l.href} href={l.href} className={`side-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined}>
@@ -145,6 +149,7 @@ export default function Shell({ space, children }: { space: Space; children: Rea
               <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
             </Link>
             <span className="topbar-title" aria-hidden>{path === base ? "" : title}</span>
+            {space === "app" && <span className="topbar-bell"><SpendingBell /></span>}
             {themeButton("icon-btn", false)}
           </header>
           <main>

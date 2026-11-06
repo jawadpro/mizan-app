@@ -15,5 +15,5 @@ export const GET = handle(async (req: Request) => {
     .filter((f) => f.purpose === "saving" && !f.ended_on && f.remaining < 0)
     .map((f) => ({ id: f.id, name: f.name, over: -f.remaining }));
   const insights = buildInsights({ today, ...data, freeToSpend: balance ? balance.balance - setAside : null, overspentFunds, warnAt: prefs.limitWarnPercent / 100 });
-  return json({ ok: true, ...insights });
+  return json({ ok: true, enabled: prefs.spendingCheck, ...insights });
 });

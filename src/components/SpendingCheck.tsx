@@ -13,8 +13,11 @@ import { useToast } from "./Toast";
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const HIDDEN_KEY = "mizan.tips.hidden";
 const SHOW = 3;
+/** Fired when tips are hidden or limits change, so the bell can update its count. */
+export const TIPS_CHANGED = "mizan:tips-changed";
+const changed = () => window.dispatchEvent(new Event(TIPS_CHANGED));
 
-function readHidden(month: string): string[] {
+export function readHidden(month: string): string[] {
   try {
     const v = JSON.parse(window.localStorage.getItem(HIDDEN_KEY) ?? "{}") as { month?: string; ids?: string[] };
     return v.month === month && Array.isArray(v.ids) ? v.ids : [];
@@ -28,12 +31,13 @@ function writeHidden(month: string, ids: string[]) {
   } catch {
     /* not remembered on this device */
   }
+  changed();
 }
 
 export type LimitEdit = { category: string; amount: string; existing: boolean };
 
-/** Month-so-far spending check: tips when spending is off track, and monthly category limits. */
-export default function SpendingCheck() {
+/** Month-so-far spending check: tips when spending is off track, and monthly category limits. Shown in the bell's panel. */
+export default function SpendingCheck({ onNavigate, onClose }: { onNavigate?: () => void; onClose?: () => void }) {
   const { data, error, loading, reload } = useData<Insights & { ok: true }>("/api/insights");
   const [hidden, setHidden] = useState<string[]>([]);
   const [all, setAll] = useState(false);
@@ -77,10 +81,13 @@ export default function SpendingCheck() {
   }
 
   return (
-    <div className="card spend-check">
+    <div className="spend-check" onClick={(e) => (e.target as HTMLElement).closest("a") && onNavigate?.()}>
       <div className="card-head">
-        <h2>Spending check{monthName ? ` · ${monthName} so far` : ""}</h2>
-        <button className="btn sm" onClick={() => setEdit({ category: "", amount: "", existing: false })} disabled={!data}>Add a limit</button>
+        <h2 id="spend-title">Spending check{monthName ? ` · ${monthName} so far` : ""}</h2>
+        <div className="toolbar">
+          <button className="btn sm" onClick={() => setEdit({ category: "", amount: "", existing: false })} disabled={!data}>Add a limit</button>
+          {onClose && <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>}
+        </div>
       </div>
 
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading && !data ? (
@@ -142,6 +149,7 @@ export default function SpendingCheck() {
             setEdit(null);
             toast(msg, "ok");
             reload();
+            changed();
           }}
         />
       )}
