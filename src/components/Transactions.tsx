@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ALL_CATEGORIES, KIND_LABEL, KINDS } from "@/lib/categories";
@@ -75,6 +76,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
             <p className="muted">Search by recipient, merchant, note, category or exact amount.</p>
           </div>
           <div className="toolbar">
+            <Link className="btn" href={space === "demo" ? "/demo/calendar" : "/app/calendar"}>Calendar view</Link>
             <a className="btn" href={resourceUrl(space, "export", filters)} download>Export CSV</a>
             {readOnly ? (
               <button className="btn primary" disabled title="The demo is read-only. Sign in to your private workspace to add transactions.">+ Add transaction</button>
