@@ -13,9 +13,11 @@ CREATE TABLE IF NOT EXISTS app.banks (
 );
 
 -- The MCB setup that used to live in code, so an existing install keeps reading MCB alerts exactly as before.
+-- Only an install that already has SMS data gets it; a new install adds its own banks on the setup page.
 INSERT INTO app.banks (position, name, senders)
 SELECT 0, 'MCB', 'MCB*, MCBBANK, MCB BANK, MCB-BANK, 6222, 8222'
-WHERE NOT EXISTS (SELECT 1 FROM app.banks);
+WHERE NOT EXISTS (SELECT 1 FROM app.banks)
+  AND (EXISTS (SELECT 1 FROM app.transactions WHERE source = 'sms') OR EXISTS (SELECT 1 FROM app.review_items));
 
 ALTER TABLE app.transactions ADD COLUMN IF NOT EXISTS bank_id uuid REFERENCES app.banks(id) ON DELETE SET NULL;
 ALTER TABLE app.review_items ADD COLUMN IF NOT EXISTS bank_id uuid REFERENCES app.banks(id) ON DELETE SET NULL;

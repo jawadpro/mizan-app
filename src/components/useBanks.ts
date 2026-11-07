@@ -9,7 +9,7 @@ export function useBanks(space: Space = "app") {
   const { data, reload } = useData<{ items: BankItem[] }>(space === "app" ? "/api/banks" : null);
   const banks = data?.items ?? [];
   const nameOf = (id: string | null | undefined) => (id ? banks.find((b) => b.id === id)?.name ?? null : null);
-  // "MCB balance" with one bank, "Bank balance" otherwise: the balance covers every account together.
+  // "<Bank> balance" with one bank, "Bank balance" otherwise: the balance covers every account together.
   const balanceName = banks.length === 1 ? `${banks[0].name} balance` : "Bank balance";
   return { banks, multi: banks.length >= 2, nameOf, reload, balanceName };
 }

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const MAX_BODY_BYTES = 4 * 1024;
 
 /**
- * Receives MCB alert SMS forwarded by an iPhone Shortcut.
+ * Receives bank alert SMS forwarded by an iPhone Shortcut.
  * Auth: `Authorization: Bearer <SMS_INGEST_TOKEN>`. The token and message text are never logged.
  */
 export const POST = handle(async (req: Request) => {

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { setupState } from "@/lib/config";
 import LoginForm from "./LoginForm";
 import "../extra.css";
 
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
 
 export default async function LoginPage() {
+  if (!(await setupState()).hasPassword) redirect("/setup");
   let signedIn = false;
   try {
     signedIn = !!(await getSession());

@@ -9,14 +9,14 @@ import type { SmsWords } from "@/lib/sms/keywords";
 import { useData } from "./useData";
 import type { BankItem } from "./useBanks";
 
-const SAMPLE = { sender: "6222", text: "PKR 6,392.60 was charged at NANDOS - MAIN BLVD, LAHORE PAK via MCB Debit Card 4321 on 16-10-2026 at 19:49. Helpline: 042111000622" };
+const EXAMPLE = "e.g. PKR 2,450.00 debited from A/C ****1234 on 15-10-2026 at 14:22 at FOODPANDA. Avl Bal PKR 85,301.17";
 
 /** Paste any alert to see how Mizan would read it with the saved settings. Runs in the browser; nothing is saved. */
 export default function MessageTester({ ownNames, version }: { ownNames: string; version: number }) {
   const banks = useData<{ items: BankItem[] }>(`/api/banks?v=${version}`).data?.items;
   const words = useData<{ words: SmsWords }>(`/api/sms-words?v=${version}`).data?.words;
-  const [text, setText] = useState(SAMPLE.text);
-  const [sender, setSender] = useState(SAMPLE.sender);
+  const [text, setText] = useState("");
+  const [sender, setSender] = useState("");
 
   const out = useMemo(() => {
     if (!banks || text.trim().length < 10) return null;
@@ -39,10 +39,10 @@ export default function MessageTester({ ownNames, version }: { ownNames: string;
       </div>
       <div className="tester">
         <label className="field">Message
-          <textarea rows={3} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} />
+          <textarea rows={3} maxLength={1000} value={text} placeholder={EXAMPLE} onChange={(e) => setText(e.target.value)} />
         </label>
         <label className="field">Sender <span className="hint">As it shows in Messages</span>
-          <input value={sender} maxLength={64} onChange={(e) => setSender(e.target.value)} />
+          <input value={sender} maxLength={64} placeholder="e.g. your bank's short code" onChange={(e) => setSender(e.target.value)} />
         </label>
       </div>
       {r && (
