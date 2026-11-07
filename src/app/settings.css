@@ -56,3 +56,29 @@
 .word:focus-within { border-color: var(--accent, currentColor); }
 .word-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 1rem; line-height: 1; padding: 4px 6px; border-radius: 999px; }
 .word-x:hover { color: var(--down-ink); }
+
+/* Bank messages: banks and the message tester */
+.bank-list { display: grid; gap: 10px; }
+.bank { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; display: grid; gap: 10px; background: var(--surface-2); }
+.bank-head { display: flex; justify-content: space-between; align-items: center; margin: -4px -4px -4px 0; }
+.bank-grid { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr); }
+.bank input { width: 100%; }
+.bank .hint, .tester .hint { font-weight: 400; color: var(--muted); font-size: 0.78rem; }
+.bank-checks { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.bank-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+.bank-check input { width: auto; margin: 0; }
+.set-name { width: min(100%, 320px); }
+.tester { display: grid; gap: 10px; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); align-items: start; }
+.tester textarea { width: 100%; resize: vertical; font-family: var(--mono); font-size: 0.82rem; line-height: 1.45; }
+.tester input { width: 100%; }
+.tester-out { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.tester-verdict { padding: 9px 12px; font-weight: 600; font-size: 0.88rem; }
+.tester-verdict.parsed { background: var(--accent-soft); color: var(--accent-ink); }
+.tester-verdict.review { background: var(--warn-bg); color: var(--warn); }
+.tester-verdict.ignored { background: var(--surface-2); color: var(--muted); }
+.tester-fields { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); font-size: 0.85rem; }
+.tester-fields dt, .tester-fields dd { margin: 0; padding: 6px 12px; border-top: 1px solid var(--border); }
+.tester-fields dt { color: var(--muted); }
+.tester-fields dd { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .bank-grid { grid-template-columns: 1fr 1fr; } .tester { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .bank-grid { grid-template-columns: 1fr; } }

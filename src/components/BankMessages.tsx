@@ -9,8 +9,8 @@ import { useToast } from "./Toast";
 type Lists = Record<WordKind, string[]>;
 const same = (a: Lists, b: Lists) => WORD_KINDS.every((k) => a[k].join("\n") === b[k].join("\n"));
 
-/** The four MCB word lists, each a repeater of words or short phrases. */
-export default function BankMessages() {
+/** The four word lists that sort bank alerts, each a repeater of words or short phrases. */
+export default function BankMessages({ onSaved }: { onSaved?: () => void }) {
   const toast = useToast();
   const saved = useData<{ words: SmsWords; defaults: SmsWords }>("/api/sms-words");
   const [lists, setLists] = useState<Lists | null>(null);
@@ -34,6 +34,7 @@ export default function BankMessages() {
       const res = await apiFetch<{ words: SmsWords }>("/api/sms-words", { method: "PUT", body: JSON.stringify(body) });
       setLists(res.words);
       setBase(res.words);
+      onSaved?.();
       toast("Bank words saved", "ok");
     } catch (e) {
       toast((e as Error).message, "error");
@@ -45,8 +46,8 @@ export default function BankMessages() {
   return (
     <div className="set-row column">
       <div className="set-text">
-        <div className="set-title">Words that sort MCB messages</div>
-        <div className="set-hint">Mizan reads each MCB alert for these words to tell what kind of payment it is. A word or phrase matches as whole words, in any capitals. If MCB starts wording an alert differently, add the new word here.</div>
+        <div className="set-title">Words that sort messages</div>
+        <div className="set-hint">Mizan reads each bank alert for these words to tell what kind of payment it is. They apply to every bank. A word or phrase matches as whole words, in any capitals. If a bank words an alert differently, add the new word here.</div>
       </div>
       {saved.error ? <ErrorBox message={saved.error} onRetry={saved.reload} /> : !lists ? <Loading rows={2} /> : (
         <div className="words-list">

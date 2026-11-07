@@ -25,7 +25,7 @@ async function registration() {
   return navigator.serviceWorker.register("/sw.js", { scope: "/" });
 }
 
-/** Lets this device get a notification when an MCB alert lands in the review inbox. */
+/** Lets this device get a notification when a bank alert lands in the review inbox. */
 export default function PushToggle() {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);

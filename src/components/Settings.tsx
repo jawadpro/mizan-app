@@ -12,6 +12,8 @@ import { useToast } from "./Toast";
 import { THEME_LABEL, useTheme, type ThemePref } from "./theme";
 import PushToggle from "./PushToggle";
 import BankMessages from "./BankMessages";
+import BankList from "./BankList";
+import MessageTester from "./MessageTester";
 import { LimitModal, type LimitEdit } from "./SpendingCheck";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
@@ -58,6 +60,9 @@ export default function Settings() {
   const [local, setLocal] = useState<Partial<Prefs>>({});
   const [edit, setEdit] = useState<LimitEdit | null>(null);
   const [theme, setTheme] = useTheme();
+  const [ownNames, setOwnNames] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const bump = () => setVersion((v) => v + 1);
   const toast = useToast();
   const p = data ? { ...data.prefs, ...local } : null;
 
@@ -149,7 +154,15 @@ export default function Settings() {
           </Section>
 
           <Section id="bank" title="Bank messages">
-            <BankMessages />
+            <BankList onSaved={bump} />
+            <Row title="Your name" hint="As banks print it in alerts. Separate several with commas. Transfers to or from this name are filed under Own accounts, not spending.">
+              <input className="set-name" aria-label="Your name as banks print it" maxLength={300} placeholder="e.g. Muhammad Ali Khan" value={ownNames ?? p.ownNames}
+                onChange={(e) => setOwnNames(e.target.value)}
+                onBlur={() => { if (ownNames !== null && ownNames !== p.ownNames) save({ ownNames }); setOwnNames(null); }}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} />
+            </Row>
+            <BankMessages onSaved={bump} />
+            <MessageTester ownNames={ownNames ?? p.ownNames} version={version} />
           </Section>
 
           <Section id="appearance" title="Appearance">
@@ -167,7 +180,7 @@ export default function Settings() {
           </Section>
 
           <Section id="data" title="Data and setup">
-            <Link className="set-link" href="/app/sms"><span><span className="set-title">SMS setup</span><span className="set-hint">Forward MCB alerts from your iPhone.</span></span><span aria-hidden>›</span></Link>
+            <Link className="set-link" href="/app/sms"><span><span className="set-title">SMS setup</span><span className="set-hint">Forward bank alerts from your iPhone.</span></span><span aria-hidden>›</span></Link>
             <Link className="set-link" href="/app/backup"><span><span className="set-title">Backups</span><span className="set-hint">Nightly copies to your Google Drive.</span></span><span aria-hidden>›</span></Link>
             <a className="set-link" href="/api/transactions/export"><span><span className="set-title">Download all transactions</span><span className="set-hint">A CSV file you can open in Excel or Sheets.</span></span><span aria-hidden>↓</span></a>
           </Section>

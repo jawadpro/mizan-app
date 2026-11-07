@@ -12,6 +12,7 @@ export type Tx = {
   account_hint: string | null;
   bank_ref: string | null;
   set_aside_id: string | null;
+  bank_id: string | null;
 };
 
 export type Analytics = {
@@ -46,6 +47,7 @@ export type ReviewItem = {
   category: string | null;
   account_hint: string | null;
   bank_ref: string | null;
+  bank_id: string | null;
 };
 
 export type SetAside = {

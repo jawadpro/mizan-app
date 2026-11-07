@@ -9,6 +9,8 @@ export const DEFAULT_PREFS = {
   duaEnglish: true,
   ramadanNotice: true,
   defaultRange: "30d" as "7d" | "30d" | "month" | "12m" | "year",
+  /** The owner's name(s) as banks print them, comma-separated, so transfers between their own accounts are recognised. */
+  ownNames: "",
 };
 export type Prefs = typeof DEFAULT_PREFS;
 
@@ -21,6 +23,7 @@ export const prefsPatch = z
     duaEnglish: z.boolean(),
     ramadanNotice: z.boolean(),
     defaultRange: z.enum(["7d", "30d", "month", "12m", "year"]),
+    ownNames: z.string().max(300).transform((s) => s.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ")),
   })
   .partial()
   .strict();

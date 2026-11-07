@@ -7,6 +7,7 @@ import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
+import { useBanks } from "./useBanks";
 import PushToggle from "./PushToggle";
 import ChargesField from "./ChargesField";
 import { useToast } from "./Toast";
@@ -18,6 +19,7 @@ export default function Review({ space }: { space: Space }) {
   const [charges, setCharges] = useState("");
   const toast = useToast();
   const readOnly = space === "demo";
+  const { nameOf } = useBanks(space);
 
   async function confirm(item: ReviewItem, d: TxDraft) {
     const withCharges = d.kind === "expense" && charges.trim() !== "";
@@ -57,7 +59,7 @@ export default function Review({ space }: { space: Space }) {
               <div className="card-head">
                 <div>
                   <span className="pill warn">{it.reason}</span>
-                  <div className="small muted" style={{ marginTop: 6 }}>From {it.sender ?? "unknown sender"} · received {formatDatePkt(it.received_at)}, {formatTimePkt(it.received_at)}</div>
+                  <div className="small muted" style={{ marginTop: 6 }}>From {it.sender ?? "unknown sender"}{nameOf(it.bank_id) ? ` (${nameOf(it.bank_id)})` : ""} · received {formatDatePkt(it.received_at)}, {formatTimePkt(it.received_at)}</div>
                 </div>
                 <div className="toolbar">
                   <button className="btn danger sm" disabled={readOnly} onClick={() => dismiss(it)}>Dismiss</button>

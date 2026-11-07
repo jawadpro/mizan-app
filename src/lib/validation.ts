@@ -32,6 +32,8 @@ export const transactionInput = z.object({
   counterparty: trimmed(120).transform((s) => s || null).nullable().optional(),
   note: trimmed(500).transform((s) => s || null).nullable().optional(),
   setAsideId: z.string().uuid().nullable().optional(),
+  /** The bank it went through; left out, an edit keeps the bank it had. */
+  bankId: z.string().uuid().nullable().optional(),
 });
 export type TransactionInput = z.infer<typeof transactionInput>;
 
@@ -50,6 +52,7 @@ export const listQuery = z.object({
   category: z.string().max(60).optional(),
   counterparty: z.string().max(120).optional(),
   source: z.enum(["manual", "sms", "demo"]).optional(),
+  bank: z.union([z.literal("none"), z.string().uuid()]).optional(),
   from: z.string().refine(isIsoDate).optional(),
   to: z.string().refine(isIsoDate).optional(),
   page: z.coerce.number().int().min(1).max(10000).default(1),
@@ -61,6 +64,7 @@ export const rangeQuery = z.object({
   from: z.string().refine(isIsoDate, "from must be YYYY-MM-DD"),
   to: z.string().refine(isIsoDate, "to must be YYYY-MM-DD"),
   granularity: z.enum(["day", "month", "year"]).default("day"),
+  bank: z.union([z.literal("none"), z.string().uuid()]).optional(),
 });
 
 export function searchParamsObject(url: string): Record<string, string> {

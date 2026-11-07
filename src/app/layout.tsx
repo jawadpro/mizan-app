@@ -7,7 +7,7 @@ const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", dis
 
 export const metadata: Metadata = {
   title: { default: "Mizan · Personal finance", template: "%s · Mizan" },
-  description: "Calm, private expense tracking in PKR, with MCB SMS import.",
+  description: "Calm, private expense tracking in PKR, with bank SMS import.",
   robots: { index: false, follow: false },
   applicationName: "Mizan",
   appleWebApp: { capable: true, title: "Mizan", statusBarStyle: "default" },

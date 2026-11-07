@@ -7,6 +7,7 @@ import { formatDatePkt } from "@/lib/time";
 import { change } from "@/lib/delta";
 import { resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
+import { useBanks } from "./useBanks";
 import { Empty, ErrorBox, Loading, Skeleton } from "./States";
 import { PRESETS, presetRange, type Preset } from "./range";
 import { useChartColors, type ChartColors } from "./theme";
@@ -68,9 +69,11 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
   const [hover, setHover] = useState<number | null>(null);
   const range = preset === "custom" ? custom : presetRange(preset);
   const granularity = gran ?? range.granularity;
-  const url = resourceUrl(space, "analytics", { from: range.from, to: range.to, granularity });
+  const { banks, multi, balanceName } = useBanks(space);
+  const [bank, setBank] = useState("");
+  const url = resourceUrl(space, "analytics", { from: range.from, to: range.to, granularity, bank: multi ? bank : undefined });
   const { data, error, loading, reload } = useData<Analytics>(url);
-  const recent = useData<{ items: Tx[] }>(resourceUrl(space, "transactions", { pageSize: 6 }));
+  const recent = useData<{ items: Tx[] }>(resourceUrl(space, "transactions", { pageSize: 6, bank: multi ? bank : undefined }));
   const base = space === "demo" ? "/demo" : "/app";
   const c = useChartColors();
 
@@ -108,6 +111,13 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
           <p className="muted small">All amounts in PKR{vs ? ` · compared with ${vs}` : ""}</p>
         </div>
         <div className="toolbar">
+          {multi && (
+            <select aria-label="Bank" value={bank} onChange={(e) => setBank(e.target.value)}>
+              <option value="">All banks</option>
+              {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ••${b.account_hint}` : ""}</option>)}
+              <option value="none">No bank (cash)</option>
+            </select>
+          )}
           <div className="seg" role="group" aria-label="Date range">
             {PRESETS.map((p) => (
               <button key={p.id} className={preset === p.id ? "on" : ""} onClick={() => { setPreset(p.id); setGran(null); if (p.id === "custom") setCustom(range); }}>
@@ -242,7 +252,7 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
               <div className="chart-head">
                 <div>
                   <h2>Balance over time</h2>
-                  <div className="hint">MCB balance at the end of each {unit}</div>
+                  <div className="hint">{space === "app" ? balanceName : "Balance"} at the end of each {unit}{multi ? ", all banks together" : ""}</div>
                 </div>
                 {balance && balance.length > 0 && (
                   <div className="chart-figure">
@@ -252,7 +262,11 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
                 )}
               </div>
               <div style={{ width: "100%", height: 240 }}>
-                {loading && !data ? <Loading rows={6} /> : !balance ? (
+                {loading && !data ? <Loading rows={6} /> : multi && bank ? (
+                  <Empty icon="⚖️" title="Shown for all banks together">
+                    <p className="small">Choose “All banks” above to see the balance over time.</p>
+                  </Empty>
+                ) : !balance ? (
                   <Empty icon="⚖️" title="Set your balance to see it here">
                     {space === "app" && <p className="small">Use “Set balance” above. Mizan then works the balance out for every day.</p>}
                   </Empty>
