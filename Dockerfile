@@ -17,5 +17,7 @@ COPY --from=build /app/migrations ./migrations
 COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/next.config.mjs ./
 COPY --from=build /app/docker/start.sh ./docker/start.sh
+# A Windows checkout may have turned the script's line endings into CRLF, which Linux cannot run.
+RUN sed -i 's/\r$//' ./docker/start.sh && chmod +x ./docker/start.sh
 EXPOSE 3000
-CMD ["./docker/start.sh"]
+CMD ["sh", "./docker/start.sh"]
