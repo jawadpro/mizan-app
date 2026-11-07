@@ -1,0 +1,13 @@
+/* Tax page */
+.tax-year-pick { min-width: 220px; }
+.tax-hero .ramadan-stats { margin-top: 8px; }
+.tax-ask { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn); }
+.tax-lines { margin-top: 12px; display: grid; }
+.tax-line { padding: 10px 0; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+.tax-line.ask { background: var(--warn-bg); margin: 0 -10px; padding: 10px; border-radius: 10px; border-top-color: transparent; }
+.tax-line-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.tax-line-head .amt { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tax-line-rule { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tax-line-rule select { max-width: 100%; }
+.tax-notes { margin: 14px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+@media (max-width: 640px) { .tax-year-pick { min-width: 0; width: 100%; } }

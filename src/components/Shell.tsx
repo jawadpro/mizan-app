@@ -21,6 +21,7 @@ const ICONS = {
   people: svg(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" /></>),
   jar: svg(<><path d="M7 4h10M8 4v3a5 5 0 0 0-3 4.6V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7.4A5 5 0 0 0 16 7V4" /><path d="M9 14h6" /></>),
   scale: svg(<><path d="M12 3v18M5 21h14M4 7h16" /><path d="M7 7l-3 7a3 3 0 0 0 6 0L7 7zM17 7l-3 7a3 3 0 0 0 6 0l-3-7z" /></>),
+  receipt: svg(<><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6M9 16h3" /></>),
   inbox: svg(<><path d="M4 13h4l2 3h4l2-3h4" /><path d="M5.5 5h13L20 13v6H4v-6z" /></>),
   phone: svg(<><rect x="6" y="2.5" width="12" height="19" rx="2.5" /><path d="M11 18.5h2" /></>),
   cloud: svg(<path d="M7 18a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.5A3.8 3.8 0 0 1 17.5 18H7z" />),
@@ -43,6 +44,7 @@ export default function Shell({ space, children }: { space: Space; children: Rea
     { href: `${base}/recipients`, label: "Recipients", icon: ICONS.people },
     { href: `${base}/set-asides`, label: "Set-asides", icon: ICONS.jar },
     { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
+    { href: `${base}/tax`, label: "Tax", icon: ICONS.receipt },
     { href: `${base}/review`, label: "Review inbox", icon: ICONS.inbox },
   ];
   const setupLinks = space === "app" ? [

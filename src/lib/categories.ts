@@ -13,7 +13,7 @@ export const OWN_ACCOUNTS = "Own accounts";
 export const CATEGORIES: Record<Kind, string[]> = {
   expense: [
     "Groceries", "Food & dining", "Transport", "Utilities", "Rent", "Shopping", "Health",
-    "Education", "Entertainment", "Charity", "Zakat", "Savings", "Transfers", "Cash withdrawal", "Bank charges", OWN_ACCOUNTS, "Uncategorized",
+    "Education", "Entertainment", "Charity", "Zakat", "Savings", "Transfers", "Cash withdrawal", "Bank charges", "Tax deducted", OWN_ACCOUNTS, "Uncategorized",
   ],
   income: ["Salary", "Freelance", "Business", "Refund", "Profit", OWN_ACCOUNTS, "Uncategorized"],
   remittance: ["Family support", "Remittance", "Uncategorized"],

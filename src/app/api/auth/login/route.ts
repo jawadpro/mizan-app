@@ -20,7 +20,8 @@ export const POST = handle(async (req: Request) => {
   }
   const s = issueSession(body?.remember !== false);
   const age = s.maxAge ? `; Max-Age=${s.maxAge}` : "";
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  // The local Docker demo runs on plain http, where some browsers drop Secure cookies.
+  const secure = process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false" ? "; Secure" : "";
   const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
   headers.append("set-cookie", `${SESSION_COOKIE}=${s.cookie}; Path=/; HttpOnly; SameSite=Lax${age}${secure}`);
   headers.append("set-cookie", `${CSRF_COOKIE}=${s.csrf}; Path=/; SameSite=Lax${age}${secure}`);

@@ -180,6 +180,12 @@ describe("real MCB alert formats", () => {
     const f = ok("6222", "PKR 250.00 plus tax has been deducted from your account as the monthly fee for SMS Alerts Service on branch transactions");
     expect(f).toMatchObject({ kind: "expense", amountPaisa: 25000, category: "Bank charges", dateSource: "received" });
   });
+  it("withholding tax is kept apart from bank fees", () => {
+    const f = ok("6222", "PKR 300.00 has been deducted from your account as Withholding Tax u/s 231AB on cash withdrawal");
+    expect(f).toMatchObject({ kind: "expense", amountPaisa: 30000, category: "Tax deducted" });
+    const g = ok("6222", "PKR 150.00 Withholding Tax has been deducted from your account on 15-10-2026");
+    expect(g).toMatchObject({ category: "Tax deducted" });
+  });
   it("IBFT received from the user's own account", () => {
     const f = ok("6222", "PKR 1,000.00 received via IBFT from ALI RAZA KHAN A/C*9012 on 18-10-2026 19:59. Tx ID 000000123456");
     expect(f).toMatchObject({ kind: "income", amountPaisa: 100000, counterparty: "Ali Raza Khan", ownAccount: true, category: "Own accounts", bankRef: "000000123456" });
