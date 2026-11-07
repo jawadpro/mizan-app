@@ -20,11 +20,6 @@
 .switch:disabled { opacity: 0.45; cursor: not-allowed; }
 .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.set-preview { margin-top: 4px; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); text-align: center; }
-.set-preview p { margin: 0; }
-.set-preview .arabic { font-family: "IndoPak Nastaleeq", "Noto Naskh Arabic", "Traditional Arabic", serif; font-size: 1.5rem; line-height: 2; }
-.set-preview .urdu { font-family: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", serif; font-size: 0.95rem; line-height: 2.2; }
-.set-preview .english { font-size: 0.84rem; font-style: italic; color: var(--muted); }
 
 .set-limits { display: grid; gap: 4px; }
 .set-limit { display: flex; justify-content: space-between; gap: 10px; width: 100%; border: 1px solid var(--border); background: var(--surface); color: inherit; font: inherit; font-size: 0.9rem; text-align: left; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }

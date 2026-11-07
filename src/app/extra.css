@@ -35,27 +35,9 @@
 .progress { height: 6px; border-radius: 99px; background: var(--bar); overflow: hidden; margin-top: 10px; }
 .progress > div { height: 100%; background: var(--accent); border-radius: 99px; }
 
-@font-face { font-family: "IndoPak Nastaleeq"; src: url("https://cdn.jsdelivr.net/gh/quran/quran.com-frontend-next@aff1a035b09b66f28047b3216edcae4c5c949a49/public/fonts/quran/hafs/nastaleeq/indopak/indopak-nastaleeq-waqf-lazim-v4.2.1.woff2") format("woff2"); font-display: swap; }
-@font-face { font-family: "Noto Nastaliq Urdu"; src: url("https://cdn.jsdelivr.net/npm/@fontsource/noto-nastaliq-urdu@5.1.0/files/noto-nastaliq-urdu-arabic-400-normal.woff2") format("woff2"); font-display: swap; }
-
-/* Dashboard top row: balance beside the dua */
+/* Dashboard top row: the balance card */
 .top-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; align-items: stretch; }
-@media (min-width: 1000px) { .top-row { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } .top-row:has(.reminder-hidden) { grid-template-columns: minmax(0, 1fr); } }
 .top-row > .card { margin-bottom: 0 !important; }
-.reminder-hidden { display: flex; justify-content: flex-end; }
-.top-row:has(.reminder-hidden) { gap: 4px; }
-.reminder { position: relative; overflow: hidden; border-radius: var(--radius); padding: 14px 18px 12px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
-.reminder::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(var(--border-strong) 1px, transparent 1px); background-size: 14px 14px; opacity: 0.55; -webkit-mask-image: linear-gradient(to bottom, #000, transparent 75%); mask-image: linear-gradient(to bottom, #000, transparent 75%); }
-.reminder > * { position: relative; }
-.reminder p { margin: 0; }
-.reminder-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
-.reminder-label { color: var(--muted); font-size: 0.84rem; font-weight: 500; }
-.reminder .btn { color: var(--muted); padding: 3px 8px; font-size: 0.78rem; }
-.reminder .btn:hover { color: var(--text); }
-.reminder .arabic { font-family: "IndoPak Nastaleeq", "Noto Naskh Arabic", "Traditional Arabic", serif; font-size: 1.8rem; line-height: 2.1; color: var(--text); text-align: center; margin-top: 4px; }
-.reminder .urdu { font-family: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", "Urdu Typesetting", serif; font-size: 1rem; line-height: 2.3; color: var(--text); text-align: center; }
-.reminder .english { font-size: 0.86rem; font-style: italic; color: var(--muted); text-align: center; margin-top: 2px; }
-.reminder-ref { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); text-align: center; margin-top: 8px; }
 
 /* Dashboard charts */
 .chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -104,7 +86,6 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
   input[type=checkbox], input[type=radio] { min-height: 0; }
   .btn { min-height: 44px; padding: 10px 16px; font-size: 0.97rem; }
   .btn.sm { min-height: 36px; padding: 6px 12px; font-size: 0.88rem; }
-  .reminder .btn.sm { min-height: 32px; }
 
   /* Segmented controls scroll sideways instead of widening the page */
   .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }

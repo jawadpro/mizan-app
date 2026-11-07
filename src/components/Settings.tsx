@@ -3,7 +3,6 @@ import "@/app/settings.css";
 import Link from "next/link";
 import { useState } from "react";
 import { formatPaisa, paisaToDecimal } from "@/lib/money";
-import { DUA } from "@/lib/dua";
 import type { Prefs } from "@/lib/preferences";
 import { apiFetch } from "./api";
 import { useData } from "./useData";
@@ -105,25 +104,6 @@ export default function Settings() {
                 {RANGES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
               </select>
             </Row>
-          </Section>
-
-          <Section id="ayah" title="Quranic ayah">
-            <Row title="Dua for provision" hint={<>Al-Qasas {DUA.ref}, shown beside your balance.</>}>
-              <Switch label="Show the dua for provision" on={p.dua} onChange={(v) => save({ dua: v })} />
-            </Row>
-            <Row title="Urdu translation" hint={DUA.source} dim={!p.dua}>
-              <Switch label="Show the Urdu translation" on={p.duaUrdu} disabled={!p.dua} onChange={(v) => save({ duaUrdu: v })} />
-            </Row>
-            <Row title="English translation" dim={!p.dua}>
-              <Switch label="Show the English translation" on={p.duaEnglish} disabled={!p.dua} onChange={(v) => save({ duaEnglish: v })} />
-            </Row>
-            {p.dua && (
-              <div className="set-preview">
-                <p className="arabic" dir="rtl" lang="ar">{DUA.arabic}</p>
-                {p.duaUrdu && <p className="urdu" dir="rtl" lang="ur">{DUA.urdu}</p>}
-                {p.duaEnglish && <p className="english">{DUA.english}</p>}
-              </div>
-            )}
           </Section>
 
           <Section id="spending" title="Spending check">

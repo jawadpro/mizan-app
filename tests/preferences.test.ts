@@ -5,10 +5,10 @@ import { buildInsights } from "@/lib/insights";
 describe("settings", () => {
   it("fills in defaults and keeps good values when one is bad", () => {
     expect(normalizePrefs(null)).toEqual(DEFAULT_PREFS);
-    expect(normalizePrefs({ dua: false, limitWarnPercent: 55, nonsense: 1 })).toEqual({ ...DEFAULT_PREFS, dua: false });
+    expect(normalizePrefs({ spendingCheck: false, limitWarnPercent: 55, nonsense: 1, dua: true })).toEqual({ ...DEFAULT_PREFS, spendingCheck: false });
   });
   it("rejects unknown keys and wrong types on save", () => {
-    expect(prefsPatch.safeParse({ dua: "no" }).success).toBe(false);
+    expect(prefsPatch.safeParse({ spendingCheck: "no" }).success).toBe(false);
     expect(prefsPatch.safeParse({ other: true }).success).toBe(false);
     expect(prefsPatch.safeParse({ limitWarnPercent: 90 }).success).toBe(true);
   });

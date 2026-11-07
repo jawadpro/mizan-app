@@ -4,9 +4,6 @@ import { z } from "zod";
 export const DEFAULT_PREFS = {
   spendingCheck: true,
   limitWarnPercent: 80,
-  dua: true,
-  duaUrdu: true,
-  duaEnglish: true,
   ramadanNotice: true,
   defaultRange: "30d" as "7d" | "30d" | "month" | "12m" | "year",
   /** The owner's name(s) as banks print them, comma-separated, so transfers between their own accounts are recognised. */
@@ -18,9 +15,6 @@ export const prefsPatch = z
   .object({
     spendingCheck: z.boolean(),
     limitWarnPercent: z.union([z.literal(70), z.literal(80), z.literal(90)]),
-    dua: z.boolean(),
-    duaUrdu: z.boolean(),
-    duaEnglish: z.boolean(),
     ramadanNotice: z.boolean(),
     defaultRange: z.enum(["7d", "30d", "month", "12m", "year"]),
     ownNames: z.string().max(300).transform((s) => s.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ")),
