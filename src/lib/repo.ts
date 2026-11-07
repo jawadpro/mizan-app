@@ -520,11 +520,11 @@ export async function updatePrefs(patch: Partial<Prefs>) {
   return next;
 }
 
-// ---- Message templates (other banks) ----
+// ---- Message templates (MCB and other banks) ----
 
 export async function listSmsTemplates(): Promise<(SmsTemplate & { id: string })[]> {
   const { rows } = await q<SmsTemplate & { id: string }>(
-    `SELECT id, bank, sender, kind, category, example, payee FROM app.sms_templates ORDER BY position, created_at`,
+    `SELECT id, bank, sender, kind, category, example, payee, hold FROM app.sms_templates ORDER BY position, created_at`,
   );
   return rows;
 }
@@ -535,8 +535,8 @@ export async function saveSmsTemplates(items: SmsTemplate[]) {
     await run(`DELETE FROM app.sms_templates`);
     for (const [i, t] of items.entries()) {
       await run(
-        `INSERT INTO app.sms_templates (position, bank, sender, kind, category, example, payee) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [i, t.bank, t.sender, t.kind, t.category, t.example, t.payee],
+        `INSERT INTO app.sms_templates (position, bank, sender, kind, category, example, payee, hold) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [i, t.bank, t.sender, t.kind, t.category, t.example, t.payee, !!t.hold],
       );
     }
   });

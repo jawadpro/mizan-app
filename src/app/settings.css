@@ -52,6 +52,8 @@
 .tpl-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .tpl textarea { width: 100%; resize: vertical; font-family: var(--mono); font-size: 0.82rem; line-height: 1.45; }
 .tpl input, .tpl select { width: 100%; }
+.tpl .tpl-hold { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.tpl .tpl-hold input { width: auto; margin: 0; }
 .tpl-check { font-size: 0.84rem; padding: 7px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
 .tpl-check.ok { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
 .tpl-check.bad { color: var(--down-ink); background: var(--down-soft); border-color: transparent; }

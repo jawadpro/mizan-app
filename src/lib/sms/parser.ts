@@ -139,6 +139,12 @@ export function findDate(text: string): { y: number; m: number; d: number; hh: n
   return { y, m: mo, d, hh, mm };
 }
 
+/** The bank's transaction reference ("Tx ID PC1100…", "Ref 123456"), upper-cased, or null. */
+export function findBankRef(text: string): string | null {
+  const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
+  return ref && /\d/.test(ref[1]) ? ref[1].toUpperCase() : null;
+}
+
 const ACRONYMS = new Set(["ATM", "BR", "KFC", "PSO", "IBFT", "PTCL", "KE", "SSGC", "SNGPL", "LESCO", "IESCO", "PK", "LTD", "PVT", "POS", "UK", "UAE", "USA"]);
 
 export function cleanParty(raw: string | undefined): string | null {
@@ -240,8 +246,7 @@ export function parseSms(input: { sender: string; text: string; receivedAt: Date
   const own = /\b(?:from|in)\s+(?:your\s+)?(?:MCB\s+)?a\/c\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
   const acct = own ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
   if (acct) fields.accountHint = acct[1];
-  const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
-  if (ref && /\d/.test(ref[1])) fields.bankRef = ref[1].toUpperCase();
+  fields.bankRef = findBankRef(text);
 
   fields.counterparty = findCounterparty(withoutBalance, fields.kind);
   const owners = (input.ownNames ?? []).map(nameKey).filter((n) => n.length >= 3);

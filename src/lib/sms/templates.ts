@@ -4,17 +4,18 @@
  * the payee become the parts that change; other numbers (dates, times, account and reference
  * numbers) match any value; every other word must match.
  *
- * Pure and dependency-free so the Settings page can check a template live in the browser.
+ * MCB's own formats are seeded into the same list (see mcb-defaults.ts), so every bank is edited
+ * in one place. Pure and dependency-free so the Settings page can check a template live in the browser.
  * The SMS text is only ever matched with regular expressions built from escaped text.
  */
 import type { Kind } from "../categories";
 import { parseAmountToPaisa } from "../money";
-import { AMOUNT_RE, BALANCE_RE, cleanParty, findDate, guessCategory, normalizeText, OTP_RE, UNSURE_RE } from "./parser";
+import { AMOUNT_RE, BALANCE_RE, cleanParty, findBankRef, findDate, guessCategory, normalizeText, OTP_RE, UNSURE_RE } from "./parser";
 
 export type SmsTemplate = {
   id?: string;
   bank: string;
-  /** Sender ID or contact name the alerts come from. Empty matches any sender. */
+  /** Sender IDs or contact names the alerts come from, comma-separated; "MCB*" matches any name starting MCB. Empty matches any sender. */
   sender: string;
   kind: Kind;
   /** Fixed category for every match; null picks one from the payee and wording. */
@@ -22,6 +23,8 @@ export type SmsTemplate = {
   example: string;
   /** The payee as written in the example, so the same position is read from later alerts. */
   payee: string;
+  /** Send every match to the Review inbox instead of importing it (e.g. transfers that may carry a charge). */
+  hold?: boolean;
 };
 
 export type TemplateReading = {
@@ -33,6 +36,7 @@ export type TemplateReading = {
   counterparty: string | null;
   category: string;
   accountHint: string | null;
+  bankRef: string | null;
 };
 
 export const MAX_TEMPLATES = 30;
@@ -89,7 +93,13 @@ export function compileTemplate(t: Pick<SmsTemplate, "example" | "payee">): { ok
   }
 }
 
-const senderMatches = (want: string, sender: string) => !want.trim() || want.trim().toUpperCase() === sender.trim().toUpperCase();
+/** Sender list, comma-separated; an entry ending in * matches any sender that starts with it ("MCB*"). Empty matches any. */
+export function senderMatches(want: string, sender: string) {
+  const s = sender.trim().toUpperCase();
+  const list = want.split(",").map((x) => x.trim().toUpperCase()).filter(Boolean);
+  if (!list.length) return true;
+  return list.some((w) => (w.endsWith("*") ? w.length > 1 && s.startsWith(w.slice(0, -1)) : s === w));
+}
 
 /** Reads one alert with one template, or null when the alert doesn't follow it. */
 export function readWithTemplate(t: SmsTemplate, input: { sender: string; text: string; receivedAt: Date }): TemplateReading | null {
@@ -120,6 +130,7 @@ export function readWithTemplate(t: SmsTemplate, input: { sender: string; text: 
     counterparty,
     category,
     accountHint: acct?.[1] ?? null,
+    bankRef: findBankRef(text),
   };
 }
 

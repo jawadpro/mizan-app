@@ -132,6 +132,7 @@ export const smsTemplatesInput = z.object({
         category: trimmed(60).transform((s) => s || null).nullable().default(null),
         example: z.string().max(1000).transform((s) => s.trim()).pipe(z.string().min(15, "Paste a full example message")),
         payee: trimmed(120).default(""),
+        hold: z.boolean().default(false),
       }),
     )
     .max(30, "Up to 30 message types"),
