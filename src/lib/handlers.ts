@@ -19,11 +19,11 @@ export async function getTransactions(space: Space, req: Request) {
 export async function getAnalytics(space: Space, req: Request) {
   const parsed = rangeQuery.safeParse(searchParamsObject(req.url));
   if (!parsed.success) throw bad(parsed.error.issues);
-  const { from, to, granularity } = parsed.data;
+  const { from, to, granularity, bank } = parsed.data;
   if (from > to) throw new HttpError(400, "from must be on or before to");
   const days = (Date.parse(to) - Date.parse(from)) / 86400e3;
   if (granularity === "day" && days > 800) throw new HttpError(400, "Use monthly or yearly view for ranges over two years");
-  return json({ ok: true, ...(await analytics(space, from, to, granularity)) });
+  return json({ ok: true, ...(await analytics(space, from, to, granularity, space === "app" ? bank : undefined)) });
 }
 
 export async function getRecipients(space: Space, req: Request) {

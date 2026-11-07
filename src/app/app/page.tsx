@@ -1,5 +1,4 @@
 import BalanceCard from "@/components/BalanceCard";
-import DailyReminder from "@/components/DailyReminder";
 import Dashboard from "@/components/Dashboard";
 import RamadanNotice from "@/components/RamadanNotice";
 import { DEFAULT_PREFS } from "@/lib/preferences";
@@ -17,7 +16,6 @@ export default async function Page() {
         <>
           <div className="top-row">
             <BalanceCard />
-            <DailyReminder shown={prefs.dua} urdu={prefs.duaUrdu} english={prefs.duaEnglish} />
           </div>
           {prefs.ramadanNotice && <RamadanNotice />}
         </>

@@ -5,7 +5,8 @@ import { HttpError } from "./http";
 import { OWN_ACCOUNTS, type Kind } from "./categories";
 import { addDays } from "./time";
 import { normalizePrefs, type Prefs } from "./preferences";
-import type { SmsTemplate } from "./sms/templates";
+import { normalizeWords, type SmsWords } from "./sms/keywords";
+import type { Bank } from "./banks";
 
 export type TxRow = {
   id: string;
@@ -19,10 +20,11 @@ export type TxRow = {
   account_hint: string | null;
   bank_ref: string | null;
   set_aside_id: string | null;
+  bank_id: string | null;
 };
 
 const txCols = (a = "") =>
-  `${a}id, ${a}kind, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note, ${a}source, ${a}account_hint, ${a}bank_ref, ${a}set_aside_id`;
+  `${a}id, ${a}kind, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note, ${a}source, ${a}account_hint, ${a}bank_ref, ${a}set_aside_id, ${a}bank_id`;
 const TX_COLS = txCols();
 const RANGE_SQL = (a: string, b: string) =>
   `occurred_at >= (${a}::date::timestamp AT TIME ZONE 'Asia/Karachi') AND occurred_at < ((${b}::date + 1)::timestamp AT TIME ZONE 'Asia/Karachi')`;
@@ -37,6 +39,8 @@ function buildWhere(f: Partial<ListQuery>) {
   if (f.kind) where.push(`kind = ${p(f.kind)}`);
   if (f.category) where.push(`category = ${p(f.category)}`);
   if (f.source) where.push(`source = ${p(f.source)}`);
+  if (f.bank === "none") where.push(`bank_id IS NULL`);
+  else if (f.bank) where.push(`bank_id = ${p(f.bank)}`);
   if (f.counterparty) where.push(`lower(counterparty) = lower(${p(f.counterparty)})`);
   if (f.from) where.push(`occurred_at >= (${p(f.from)}::date::timestamp AT TIME ZONE 'Asia/Karachi')`);
   if (f.to) where.push(`occurred_at < ((${p(f.to)}::date + 1)::timestamp AT TIME ZONE 'Asia/Karachi')`);
@@ -81,9 +85,11 @@ export async function exportTransactions(space: Space, f: Partial<ListQuery>) {
   return rows;
 }
 
-export async function analytics(space: Space, from: string, to: string, granularity: "day" | "month" | "year") {
+export async function analytics(space: Space, from: string, to: string, granularity: "day" | "month" | "year", bank?: string) {
   const s = sch(space);
-  const range = RANGE_SQL("$1", "$2");
+  // The bank filter rides along with the date range, so every figure below follows it.
+  const bankSql = bank === "none" ? " AND bank_id IS NULL" : bank ? ` AND bank_id = '${bank.replace(/[^0-9a-f-]/gi, "")}'::uuid` : "";
+  const range = RANGE_SQL("$1", "$2") + bankSql;
   const step = granularity === "day" ? "1 day" : granularity === "month" ? "1 month" : "1 year";
   const fmt = granularity === "day" ? "YYYY-MM-DD" : granularity === "month" ? "YYYY-MM" : "YYYY";
   // The previous period has the same number of days and ends the day before this one starts.
@@ -120,7 +126,8 @@ export async function analytics(space: Space, from: string, to: string, granular
       [from, to],
     ),
     q<{ days: number }>(`SELECT ($2::date - $1::date + 1)::int AS days`, [from, to]),
-    space === "app" ? balanceOverTime(from, to, granularity) : Promise.resolve(null),
+    // The balance covers all banks together, so it is left out when one bank is picked.
+    space === "app" && !bank ? balanceOverTime(from, to, granularity) : Promise.resolve(null),
   ]);
   const group = (rows: { kind: Kind; total: number; n: number }[]) => {
     const out = { expense: { total: 0, n: 0 }, income: { total: 0, n: 0 }, remittance: { total: 0, n: 0 } };
@@ -129,7 +136,7 @@ export async function analytics(space: Space, from: string, to: string, granular
   };
   const byKind = group(totals.rows);
   const prevKind = group(prevTotals.rows);
-  const pending = await q<{ n: number }>(`SELECT count(*)::int AS n FROM ${s}.review_items WHERE status='pending'`);
+  const pending = await q<{ n: number }>(`SELECT count(*)::int AS n FROM ${s}.review_items WHERE status='pending'${bankSql}`);
   return {
     from, to, granularity,
     totals: byKind,
@@ -219,20 +226,24 @@ async function withFundCheck<T>(fn: () => Promise<T>): Promise<T> {
 type Run = typeof q;
 
 /** Records a transfer's bank charge or tax as its own expense, dated with the transfer. */
-async function addBankCharge(run: Run, chargesPaisa: number, t: TransactionInput, accountHint: string | null) {
+async function addBankCharge(run: Run, chargesPaisa: number, t: TransactionInput, accountHint: string | null, bankId: string | null) {
+  // The charge is paid to the transfer's bank; with no bank on the transfer, to the first bank in Settings.
   await run(
-    `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint)
-     VALUES ('expense',$1,$2,'Bank charges','MCB',$3,'manual',$4)`,
-    [chargesPaisa, t.occurredAt, `Charges on transfer${t.counterparty ? ` to ${t.counterparty}` : ""}`.slice(0, 500), accountHint],
+    `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_id)
+     VALUES ('expense',$1,$2,'Bank charges',
+             coalesce((SELECT name FROM app.banks WHERE id = $5), (SELECT name FROM app.banks ORDER BY position, created_at LIMIT 1), 'Bank'),
+             $3,'manual',$4,
+             coalesce($5, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1)))`,
+    [chargesPaisa, t.occurredAt, `Charges on transfer${t.counterparty ? ` to ${t.counterparty}` : ""}`.slice(0, 500), accountHint, bankId],
   );
 }
 
 export async function createTransaction(t: TransactionInput, source: "manual" | "sms" = "manual") {
   const { rows } = await withFundCheck(() =>
     q<TxRow>(
-      `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, set_aside_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${TX_COLS}`,
-      [t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, source, fundOf(t)],
+      `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, set_aside_id, bank_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${TX_COLS}`,
+      [t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, source, fundOf(t), t.bankId ?? null],
     ),
   );
   return rows[0];
@@ -241,11 +252,13 @@ export async function createTransaction(t: TransactionInput, source: "manual" | 
 export async function updateTransaction(id: string, t: TransactionInput, chargesPaisa = 0) {
   return withFundCheck(() => tx(async (run) => {
     const { rows } = await run<TxRow>(
-      `UPDATE app.transactions SET kind=$2, amount_paisa=$3, occurred_at=$4, category=$5, counterparty=$6, note=$7, set_aside_id=$8, updated_at=now()
+      `UPDATE app.transactions SET kind=$2, amount_paisa=$3, occurred_at=$4, category=$5, counterparty=$6, note=$7, set_aside_id=$8,
+              bank_id = CASE WHEN $9::boolean THEN $10::uuid ELSE bank_id END, updated_at=now()
        WHERE id=$1 RETURNING ${TX_COLS}`,
-      [id, t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, fundOf(t)],
+      // A form that doesn't show the bank (one bank only) leaves it as it is.
+      [id, t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, fundOf(t), t.bankId !== undefined, t.bankId ?? null],
     );
-    if (rows[0] && chargesPaisa > 0) await addBankCharge(run, chargesPaisa, t, rows[0].account_hint);
+    if (rows[0] && chargesPaisa > 0) await addBankCharge(run, chargesPaisa, t, rows[0].account_hint, rows[0].bank_id);
     return rows[0] ?? null;
   }));
 }
@@ -269,12 +282,13 @@ export type ReviewRow = {
   category: string | null;
   account_hint: string | null;
   bank_ref: string | null;
+  bank_id: string | null;
 };
 
 export async function listReview(space: Space) {
   const { rows } = await q<ReviewRow>(
     `SELECT id, status, reason, redacted_text, sender, received_at, kind, amount_paisa::float8 AS amount_paisa, occurred_at,
-            counterparty, category, account_hint, bank_ref
+            counterparty, category, account_hint, bank_ref, bank_id
      FROM ${sch(space)}.review_items WHERE status='pending' ORDER BY received_at DESC LIMIT 200`,
   );
   return rows;
@@ -283,21 +297,22 @@ export async function listReview(space: Space) {
 /** Confirms a review item into a real transaction and discards the retained SMS excerpt. */
 export async function confirmReview(id: string, t: TransactionInput, chargesPaisa = 0) {
   return withFundCheck(() => tx(async (run) => {
-    const item = await run<{ id: string; bank_ref: string | null; account_hint: string | null; sms_import_id: string | null }>(
-      `SELECT id, bank_ref, account_hint, sms_import_id FROM app.review_items WHERE id=$1 AND status='pending' FOR UPDATE`,
+    const item = await run<{ id: string; bank_ref: string | null; account_hint: string | null; sms_import_id: string | null; bank_id: string | null }>(
+      `SELECT id, bank_ref, account_hint, sms_import_id, bank_id FROM app.review_items WHERE id=$1 AND status='pending' FOR UPDATE`,
       [id],
     );
     if (!item.rows[0]) return null;
     const it = item.rows[0];
+    const bankId = t.bankId !== undefined ? t.bankId : it.bank_id;
     const ins = await run<TxRow>(
-      `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_ref, sms_import_id, set_aside_id)
-       VALUES ($1,$2,$3,$4,$5,$6,'sms',$7,$8,$9,$10)
+      `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_ref, sms_import_id, set_aside_id, bank_id)
+       VALUES ($1,$2,$3,$4,$5,$6,'sms',$7,$8,$9,$10,$11)
        ON CONFLICT (bank_ref) WHERE bank_ref IS NOT NULL DO NOTHING
        RETURNING ${TX_COLS}`,
-      [t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, it.account_hint, it.bank_ref, it.sms_import_id, fundOf(t)],
+      [t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, it.account_hint, it.bank_ref, it.sms_import_id, fundOf(t), bankId],
     );
     if (!ins.rows[0]) return { duplicate: true as const };
-    if (chargesPaisa > 0) await addBankCharge(run, chargesPaisa, t, it.account_hint);
+    if (chargesPaisa > 0) await addBankCharge(run, chargesPaisa, t, it.account_hint, bankId);
     await run(
       `UPDATE app.review_items SET status='confirmed', transaction_id=$2, resolved_at=now(), redacted_text=NULL WHERE id=$1`,
       [id, ins.rows[0].id],
@@ -520,25 +535,46 @@ export async function updatePrefs(patch: Partial<Prefs>) {
   return next;
 }
 
-// ---- Message templates (other banks) ----
+// ---- Direction words (all banks) ----
 
-export async function listSmsTemplates(): Promise<(SmsTemplate & { id: string })[]> {
-  const { rows } = await q<SmsTemplate & { id: string }>(
-    `SELECT id, bank, sender, kind, category, example, payee FROM app.sms_templates ORDER BY position, created_at`,
+export async function getSmsWords(): Promise<SmsWords> {
+  const { rows } = await q<{ value: unknown }>(`SELECT value FROM app.sms_words WHERE id = 1`);
+  return normalizeWords(rows[0]?.value);
+}
+
+export async function saveSmsWords(words: SmsWords): Promise<SmsWords> {
+  await q(
+    `INSERT INTO app.sms_words (id, value, updated_at) VALUES (1, $1::jsonb, now())
+     ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [JSON.stringify(words)],
   );
+  return getSmsWords();
+}
+
+// ---- Banks ----
+
+export type BankRow = Bank & { id: string };
+
+export async function listBanks(): Promise<BankRow[]> {
+  const { rows } = await q<BankRow>(`SELECT id, name, senders, account_hint, auto_import, hold_transfers FROM app.banks ORDER BY position, created_at`);
   return rows;
 }
 
-/** Replaces the whole list, in the order given (the Settings page saves the repeater at once). */
-export async function saveSmsTemplates(items: SmsTemplate[]) {
+/**
+ * Saves the list in the order given. Rows keep their id, so transactions stay tagged; a bank left out
+ * is deleted and its transactions become "no bank".
+ */
+export async function saveBanks(items: Bank[]): Promise<BankRow[]> {
   await tx(async (run) => {
-    await run(`DELETE FROM app.sms_templates`);
-    for (const [i, t] of items.entries()) {
-      await run(
-        `INSERT INTO app.sms_templates (position, bank, sender, kind, category, example, payee) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [i, t.bank, t.sender, t.kind, t.category, t.example, t.payee],
-      );
+    const keep = items.map((b) => b.id).filter((x): x is string => !!x);
+    await run(`DELETE FROM app.banks WHERE NOT (id = ANY($1::uuid[]))`, [keep]);
+    for (const [i, b] of items.entries()) {
+      const vals = [i, b.name, b.senders, b.account_hint, b.auto_import, b.hold_transfers];
+      const upd = b.id
+        ? await run(`UPDATE app.banks SET position=$2, name=$3, senders=$4, account_hint=$5, auto_import=$6, hold_transfers=$7 WHERE id=$1`, [b.id, ...vals])
+        : null;
+      if (!upd?.rowCount) await run(`INSERT INTO app.banks (position, name, senders, account_hint, auto_import, hold_transfers) VALUES ($1,$2,$3,$4,$5,$6)`, vals);
     }
   });
-  return listSmsTemplates();
+  return listBanks();
 }

@@ -9,6 +9,7 @@ import { apiFetch, resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
+import { useBanks } from "./useBanks";
 import ChargesField from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
@@ -31,6 +32,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const [kind, setKind] = useState(sp.get("kind") ?? "");
   const [category, setCategory] = useState(sp.get("category") ?? "");
   const [source, setSource] = useState(sp.get("source") ?? "");
+  const [bank, setBank] = useState(sp.get("bank") ?? "");
+  const { banks, multi, nameOf } = useBanks(space);
   const [from, setFrom] = useState(sp.get("from") ?? "");
   const [to, setTo] = useState(sp.get("to") ?? "");
   const [page, setPage] = useState(1);
@@ -38,14 +41,14 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const [charges, setCharges] = useState("");
   const edit = (t: Tx | "new") => { setCharges(""); setEditing(t); };
   const dq = useDebounced(q);
-  const filters = { q: dq, kind, category, source, from, to, counterparty: fixedCounterparty };
-  useEffect(() => setPage(1), [dq, kind, category, source, from, to]);
+  const filters = { q: dq, kind, category, source, bank, from, to, counterparty: fixedCounterparty };
+  useEffect(() => setPage(1), [dq, kind, category, source, bank, from, to]);
   const url = resourceUrl(space, "transactions", { ...filters, page, pageSize: 25 });
   const { data, error, loading, reload } = useData<List>(url);
   const readOnly = space === "demo";
   // Inside a recipient's panel there is little room, so history shows as a list instead of a wide table.
   const compact = !!fixedCounterparty;
-  const hasFilters = !!(dq || kind || category || source || from || to);
+  const hasFilters = !!(dq || kind || category || source || bank || from || to);
 
   async function save(d: TxDraft, id?: string) {
     const withCharges = !!id && d.kind === "expense" && charges.trim() !== "";
@@ -106,9 +109,16 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                 <option value="sms">SMS</option>
               </select>
             )}
+            {multi && (
+              <select aria-label="Bank" value={bank} onChange={(e) => setBank(e.target.value)}>
+                <option value="">All banks</option>
+                {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <option value="none">No bank</option>
+              </select>
+            )}
             <input type="date" aria-label="From date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
             <input type="date" aria-label="To date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
-            {hasFilters && <button className="btn ghost sm" onClick={() => { setQ(""); setKind(""); setCategory(""); setSource(""); setFrom(""); setTo(""); }}>Clear</button>}
+            {hasFilters && <button className="btn ghost sm" onClick={() => { setQ(""); setKind(""); setCategory(""); setSource(""); setBank(""); setFrom(""); setTo(""); }}>Clear</button>}
           </div>
           {data && (
             <div className="small muted" style={{ marginTop: 10 }}>
@@ -134,7 +144,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       <div className="tx-row-title">
                         <span>{t.category}</span>
                         {t.kind !== "expense" && <span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span>}
-                        {t.source === "sms" && <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>SMS</span>}
+                        {t.source === "sms" && <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>{(multi && nameOf(t.bank_id)) || "SMS"}</span>}
                       </div>
                       <div className="meta"><span className="num">{formatDatePkt(t.occurred_at)}</span> · {formatTimePkt(t.occurred_at)}{t.note ? ` · ${t.note}` : ""}</div>
                     </div>
@@ -163,7 +173,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       <td>{t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}</td>
                       <td>{t.category}</td>
                       <td><span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span></td>
-                      <td>{t.source === "sms" ? <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>SMS</span> : <span className="pill">{t.source === "demo" ? "Demo" : "Manual"}</span>}</td>
+                      <td>{t.source === "sms" ? <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>{(multi && nameOf(t.bank_id)) || "SMS"}</span> : <span className="pill">{t.source === "demo" ? "Demo" : (multi && nameOf(t.bank_id)) ? `${nameOf(t.bank_id)} · Manual` : "Manual"}</span>}</td>
                       <td className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa).replace("Rs ", "Rs ")}</td>
                       {!readOnly && (
                         <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>

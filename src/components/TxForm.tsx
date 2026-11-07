@@ -6,10 +6,11 @@ import { dateToPktLocal } from "@/lib/time";
 import { ApiError } from "./api";
 import { useData } from "./useData";
 import type { SetAside } from "./types";
+import { useBanks } from "./useBanks";
 
-export type TxDraft = { kind: Kind; amount: string; occurredAt: string; category: string; counterparty: string; note: string; setAsideId: string | null };
+export type TxDraft = { kind: Kind; amount: string; occurredAt: string; category: string; counterparty: string; note: string; setAsideId: string | null; bankId: string | null };
 
-export function draftFrom(t?: Partial<{ kind: Kind | null; amount_paisa: number | null; occurred_at: string | null; category: string | null; counterparty: string | null; note: string | null; set_aside_id: string | null }>): TxDraft {
+export function draftFrom(t?: Partial<{ kind: Kind | null; amount_paisa: number | null; occurred_at: string | null; category: string | null; counterparty: string | null; note: string | null; set_aside_id: string | null; bank_id: string | null }>): TxDraft {
   const kind = t?.kind ?? "expense";
   return {
     kind,
@@ -19,6 +20,7 @@ export function draftFrom(t?: Partial<{ kind: Kind | null; amount_paisa: number 
     counterparty: t?.counterparty ?? "",
     note: t?.note ?? "",
     setAsideId: t?.set_aside_id ?? null,
+    bankId: t?.bank_id ?? null,
   };
 }
 
@@ -40,6 +42,7 @@ export default function TxForm({
   const [fields, setFields] = useState<Record<string, string[]>>({});
   const first = useRef<HTMLSelectElement>(null);
   const funds = useData<{ items: SetAside[] }>("/api/set-asides").data?.items ?? [];
+  const { banks, multi } = useBanks();
   // Parents pass a fresh onClose on every render (e.g. each keystroke in the charges box updates
   // their state). Read it through a ref so this effect runs once: re-running it would pull focus
   // back to the first field and close the phone keyboard mid-typing.
@@ -102,6 +105,14 @@ export default function TxForm({
             <label className="field full">{d.kind === "expense" ? "Paid to (recipient or merchant)" : "Received from"}
               <input maxLength={120} placeholder={d.kind === "expense" ? "e.g. Ammi, K-Electric, Imtiaz" : "e.g. Employer, Bhai"} value={d.counterparty} onChange={(e) => set("counterparty", e.target.value)} />
             </label>
+            {multi && (
+              <label className="field full">Bank
+                <select value={d.bankId ?? ""} onChange={(e) => setD((x) => ({ ...x, bankId: e.target.value || null }))}>
+                  <option value="">No bank (cash or other)</option>
+                  {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ••${b.account_hint}` : ""}</option>)}
+                </select>
+              </label>
+            )}
             {d.kind === "expense" && funds.length > 0 && (
               <label className="field full">Paid from a set-aside?
                 <select value={d.setAsideId ?? ""} onChange={(e) => setD((x) => ({ ...x, setAsideId: e.target.value || null }))}>

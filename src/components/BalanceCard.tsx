@@ -7,10 +7,12 @@ import { apiFetch, ApiError } from "./api";
 import { useData } from "./useData";
 import { ErrorBox, Skeleton } from "./States";
 import { useToast } from "./Toast";
+import { useBanks } from "./useBanks";
 import type { BalanceSummary } from "./types";
 
 /** Current bank balance: set by hand once, then moved by every transaction dated after that. */
 export default function BalanceCard() {
+  const { balanceName } = useBanks();
   const { data, error, loading, reload } = useData<BalanceSummary & { ok: true }>("/api/balance");
   const [editing, setEditing] = useState(false);
   const toast = useToast();
@@ -26,7 +28,7 @@ export default function BalanceCard() {
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
           <div className="label">
-            <span>MCB balance</span>
+            <span>{balanceName}</span>
             {pct != null && <span className={`delta ${pct >= 0 ? "good" : "bad"}`} title="Change since you last set the balance">{pct > 0 ? "+" : pct < 0 ? "−" : ""}{Math.abs(pct)}%</span>}
           </div>
           {loading && !data ? <Skeleton h={40} w={240} /> : b ? (
@@ -82,6 +84,7 @@ export default function BalanceCard() {
 }
 
 function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose: () => void; onSaved: () => void }) {
+  const { balanceName } = useBanks();
   const [amount, setAmount] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -107,14 +110,14 @@ function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose:
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="bal-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
-          <h2 id="bal-title">Current MCB balance</h2>
+          <h2 id="bal-title">Current {balanceName === "Bank balance" ? "bank balance" : balanceName}</h2>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <form onSubmit={submit}>
           <label className="field">Balance right now (PKR)
             <input inputMode="decimal" placeholder="e.g. 85,301.17" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus required />
           </label>
-          <p className="small muted" style={{ marginTop: 10 }}>Copy it from the MCB app. Payments recorded from now on will move it up or down automatically.</p>
+          <p className="small muted" style={{ marginTop: 10 }}>Copy it from your banking app. Payments recorded from now on will move it up or down automatically.</p>
           {err && <div className="alert error" style={{ marginTop: 12 }} role="alert">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>

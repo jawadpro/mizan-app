@@ -1,41 +1,24 @@
 import "server-only";
 import { env } from "../env";
 import { tx } from "../db";
-import { parseSms, redactSms, PARSER_VERSION } from "./parser";
+import { parseSms, redactSms, PARSER_VERSION, type ParseResult } from "./parser";
+import { readAlert } from "./read";
 import { smsFingerprint } from "./fingerprint";
 import { notifyReviewWaiting } from "../push";
-import { listSmsTemplates } from "../repo";
-import { matchTemplates } from "./templates";
-import type { ParseResult } from "./parser";
-import type { Kind } from "../categories";
+import { getPrefs, getSmsWords, listBanks } from "../repo";
 
-type Readable = Exclude<ParseResult, { status: "ignored" }>;
+const splitList = (s: string | undefined) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
-// MCB results that mean "this isn't an alert the MCB rules know", where templates may help.
-// Deliberate holds (transfers awaiting charges, reversals, foreign currency) stay with the owner.
-const UNKNOWN_REASONS = new Set([
-  "Sender is not a recognised MCB sender",
-  "Unfamiliar alert: no debit or credit wording",
-  "No transaction amount found (balances are ignored)",
-  "More than one candidate amount",
-]);
-
-type Reading = { kind: Kind; amountPaisa: number; occurredAt: Date; dateSource: "message" | "received"; hasExplicitTime: boolean; counterparty: string | null; category: string; accountHint?: string | null };
-
-function asParsed(rule: string, r: Reading): Readable {
-  return {
-    status: "parsed",
-    rule,
-    fields: { ...r, accountHint: r.accountHint ?? null, bankRef: null, ownAccount: false },
-  };
-}
-
-/** Tries the owner's message templates, for alerts the MCB rules don't know. */
-async function readUnknown(input: { sender: string; text: string; receivedAt: Date }, result: Readable): Promise<{ result: Readable; note: string | null }> {
-  if (result.status !== "review" || !UNKNOWN_REASONS.has(result.reason)) return { result, note: null };
-  const hit = matchTemplates(await listSmsTemplates(), input);
-  if (hit) return { result: asParsed(`template:${hit.template.bank}`.slice(0, 60), hit.reading), note: `Read with the ${hit.template.bank} message template` };
-  return { result, note: null };
+/** Reads an alert with the owner's banks, words and name from Settings. If Settings can't be loaded, the built-in MCB rules decide, so no alert is lost. */
+async function read(input: { sender: string; text: string; receivedAt: Date }): Promise<{ result: ParseResult; bankId: string | null }> {
+  const trusted = splitList(process.env.SMS_TRUSTED_SENDERS);
+  // The user's own name(s), as banks print them, so transfers between their own accounts are recognised.
+  const envNames = splitList(process.env.SMS_OWN_NAMES);
+  const [banks, words, prefs] = await Promise.all([listBanks().catch(() => null), getSmsWords().catch(() => undefined), getPrefs().catch(() => null)]);
+  const ownNames = [...envNames, ...splitList(prefs?.ownNames)];
+  if (!banks) return { result: parseSms({ ...input, trustedSenders: trusted, ownNames, words }), bankId: null };
+  const { result, bank } = readAlert(input, { banks, words, ownNames, extraTrusted: trusted });
+  return { result, bankId: bank?.id ?? null };
 }
 
 export type IngestOutcome =
@@ -47,14 +30,9 @@ export type IngestOutcome =
 class Duplicate extends Error {}
 
 export async function ingestSms(input: { sender: string; text: string; receivedAt: Date }): Promise<IngestOutcome> {
-  const trusted = (process.env.SMS_TRUSTED_SENDERS ?? "").split(",");
-  // The user's own name(s), as banks print them, so transfers between their own accounts are recognised.
-  const ownNames = (process.env.SMS_OWN_NAMES ?? "").split(",");
-  const first = parseSms({ ...input, trustedSenders: trusted, ownNames });
+  const { result, bankId } = await read(input);
   // OTPs and promotions are dropped without storing anything.
-  if (first.status === "ignored") return { status: "ignored", reason: first.reason };
-  // A template problem must never lose an alert: it then goes to review as before.
-  const { result, note: readNote } = await readUnknown(input, first).catch(() => ({ result: first, note: null }));
+  if (result.status === "ignored") return { status: "ignored", reason: result.reason };
 
   const textIsUnique = !!result.fields.bankRef || result.fields.hasExplicitTime;
   const fingerprint = smsFingerprint(env.sessionSecret(), input.sender, input.text, input.receivedAt, textIsUnique);
@@ -74,13 +52,13 @@ export async function ingestSms(input: { sender: string; text: string; receivedA
 
       if (result.status === "parsed" && auto) {
         const ins = await run<{ id: string }>(
-          `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_ref, sms_import_id)
-           VALUES ($1,$2,$3,$4,$5,$6,'sms',$7,$8,$9)
+          `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_ref, sms_import_id, bank_id)
+           VALUES ($1,$2,$3,$4,$5,$6,'sms',$7,$8,$9,$10)
            ON CONFLICT (bank_ref) WHERE bank_ref IS NOT NULL DO NOTHING RETURNING id`,
           [
             result.fields.kind, result.fields.amountPaisa, result.fields.occurredAt, result.fields.category, f.counterparty,
-            [readNote, f.dateSource === "received" ? "Date taken from when the SMS arrived" : null].filter(Boolean).join(". ") || null,
-            f.accountHint, f.bankRef, importId,
+            f.dateSource === "received" ? "Date taken from when the SMS arrived" : null,
+            f.accountHint, f.bankRef, importId, bankId,
           ],
         );
         if (!ins.rows[0]) throw new Duplicate();
@@ -90,9 +68,9 @@ export async function ingestSms(input: { sender: string; text: string; receivedA
       const reason = result.status === "review" ? result.reason : "Auto-import is turned off (SMS_AUTO_IMPORT=false)";
       // Only review items keep text, and only a redacted copy, deleted once resolved.
       const rev = await run<{ id: string }>(
-        `INSERT INTO app.review_items (sms_import_id, reason, redacted_text, sender, received_at, kind, amount_paisa, occurred_at, counterparty, category, account_hint, bank_ref)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
-        [importId, reason, redactSms(input.text), input.sender.slice(0, 64), input.receivedAt, f.kind, f.amountPaisa, f.occurredAt, f.counterparty, f.category, f.accountHint, f.bankRef],
+        `INSERT INTO app.review_items (sms_import_id, reason, redacted_text, sender, received_at, kind, amount_paisa, occurred_at, counterparty, category, account_hint, bank_ref, bank_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+        [importId, reason, redactSms(input.text), input.sender.slice(0, 64), input.receivedAt, f.kind, f.amountPaisa, f.occurredAt, f.counterparty, f.category, f.accountHint, f.bankRef, bankId],
       );
       return { status: "review", reviewId: rev.rows[0].id, reason } as const;
     });

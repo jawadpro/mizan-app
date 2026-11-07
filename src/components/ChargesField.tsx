@@ -20,7 +20,7 @@ export default function ChargesField({ amount, value, onChange, error, title }: 
         <span className="charges-icon" aria-hidden="true">%</span>
         <div>
           <label htmlFor="charges-input" className="charges-title">{title}</label>
-          <div className="small muted">MCB doesn&apos;t send an SMS for it. Leave empty if there was none.</div>
+          <div className="small muted">Banks usually don&apos;t send an SMS for it. Leave empty if there was none.</div>
         </div>
       </div>
       <div className={`charges-input${showError ? " invalid" : ""}`}>

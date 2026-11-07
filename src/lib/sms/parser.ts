@@ -12,6 +12,7 @@
 import type { Kind } from "../categories";
 import { OWN_ACCOUNTS } from "../categories";
 import { parseAmountToPaisa } from "../money";
+import { DEFAULT_SMS_WORDS, wordsRegex, type SmsWords } from "./keywords";
 
 export const PARSER_VERSION = "mcb-v1";
 export const MAX_SMS_CHARS = 1000;
@@ -68,10 +69,7 @@ export const BALANCE_RE = new RegExp(
 export const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
 const FOREIGN_RE = /\b(USD|AED|GBP|EUR|SAR|QAR|CAD|AUD|US\$)\s*[\d,]+(?:\.\d+)?/i;
 
-const DEBIT_RE = /\b(debited|debit(?:ed)?\s+from|withdrawn|withdrawal|purchase|purchased|paid|payment\s+of|spent|sent|transferred\s+to|transfer(?:red)?\s+of|charged|deducted)\b/i;
-const CREDIT_RE = /\b(credited|received|deposited|deposit\s+of)\b/i;
-const REMITTANCE_RE = /\b(home\s+remittance|remittance|inward\s+(?:transfer|remittance)|western\s+union|moneygram|remitly|wise\s+transfer|xpress\s+money|ria\s+money)\b/i;
-const OUT_TRANSFER_RE = /\b(sent\s+to|transferred\s+to|transfer(?:red)?\s+of|via\s+(?:ibft|raast)|funds?\s+transfer|interbank)\b/i;
+// Direction words (expense, income, remittance, transfer) are editable in Settings; see keywords.ts.
 export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuccessful|pending|on\s+hold|blocked|insufficient|cancel(?:led|ed)?|due\s+(?:date|amount)|minimum\s+payment|will\s+be)\b/i;
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
@@ -139,11 +137,15 @@ export function findDate(text: string): { y: number; m: number; d: number; hh: n
   return { y, m: mo, d, hh, mm };
 }
 
+const MASKED_ACCOUNT_PREFIX = /^\s*(?:[*xX#]{2,}\s*\d{2,6}|\d{2,6}\s*[*xX#]{2,})\s*[-:]?\s*/;
+const BARE_REF_RE = /(?<![A-Za-z0-9*#/])(?=[A-Z0-9]*[A-Z])((?:[A-Z]*\d){4}[A-Z0-9]{2,20})(?![A-Za-z0-9])/;
+
 const ACRONYMS = new Set(["ATM", "BR", "KFC", "PSO", "IBFT", "PTCL", "KE", "SSGC", "SNGPL", "LESCO", "IESCO", "PK", "LTD", "PVT", "POS", "UK", "UAE", "USA"]);
 
 export function cleanParty(raw: string | undefined): string | null {
   if (!raw) return null;
-  let s = raw.replace(/[*#]+/g, " ").replace(/\s+/g, " ").trim().replace(/[.,;:\-]+$/, "").trim();
+  // A masked account number glued to the name ("XX8373-MUHAMMAD ALI", "**8373 - ALI") is not part of it.
+  let s = raw.replace(MASKED_ACCOUNT_PREFIX, "").replace(/[*#]+/g, " ").replace(/\s+/g, " ").trim().replace(/[.,;:\-]+$/, "").trim();
   const bare = s.replace(BANK_SUFFIX_RE, "");
   if (bare.length >= 2 && /[A-Za-z]/.test(bare)) s = bare;
   if (s.length < 2 || s.length > 60) return null;
@@ -175,7 +177,7 @@ const BANK_SUFFIX_RE = new RegExp(
 );
 
 function findCounterparty(text: string, kind: Kind | null): string | null {
-  const party = String.raw`([A-Za-z][A-Za-z0-9&'./\- ]{1,59}?)`;
+  const party = String.raw`((?:[*#]{2,}\d{2,6}\s*[-:]\s*)?[A-Za-z][A-Za-z0-9&'./\- ]{1,59}?)`;
   const patterns: RegExp[] =
     kind === "expense"
       ? [new RegExp(String.raw`\bat\s+${party}${STOP}`, "i"), new RegExp(String.raw`\b(?:to|towards)\s+${party}${STOP}`, "i")]
@@ -200,8 +202,26 @@ function emptyFields(): ParsedFields {
 
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, " ").trim();
 
-export function parseSms(input: { sender: string; text: string; receivedAt: Date; trustedSenders?: string[]; ownNames?: string[] }): ParseResult {
+export type ParseInput = {
+  sender: string;
+  text: string;
+  receivedAt: Date;
+  trustedSenders?: string[];
+  ownNames?: string[];
+  words?: SmsWords;
+  /** Whether the sender is one of the owner's banks, when that was decided from Settings. Without it the built-in MCB senders apply. */
+  knownSender?: boolean;
+  /** Outgoing transfers wait in Review so a charge can be added (the default). */
+  holdTransfers?: boolean;
+};
+
+export function parseSms(input: ParseInput): ParseResult {
   const text = normalizeText(input.text);
+  const words = input.words ?? DEFAULT_SMS_WORDS;
+  const DEBIT_RE = wordsRegex(words.expense);
+  const CREDIT_RE = wordsRegex(words.income);
+  const REMITTANCE_RE = wordsRegex(words.remittance);
+  const OUT_TRANSFER_RE = wordsRegex(words.transfer);
   const fields = emptyFields();
 
   if (OTP_RE.test(text)) return { status: "ignored", reason: "One-time password or security message" };
@@ -242,6 +262,8 @@ export function parseSms(input: { sender: string; text: string; receivedAt: Date
   if (acct) fields.accountHint = acct[1];
   const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
   if (ref && /\d/.test(ref[1])) fields.bankRef = ref[1].toUpperCase();
+  // Some banks print the reference with no label ("… at 12:21 FT26243CK86C"): an upper-case code of letters and 4+ digits.
+  else fields.bankRef = BARE_REF_RE.exec(text)?.[1] ?? null;
 
   fields.counterparty = findCounterparty(withoutBalance, fields.kind);
   const owners = (input.ownNames ?? []).map(nameKey).filter((n) => n.length >= 3);
@@ -259,7 +281,8 @@ export function parseSms(input: { sender: string; text: string; receivedAt: Date
 
   // Decide: import only when every required fact was read unambiguously.
   const review = (reason: string): ParseResult => ({ status: "review", reason, fields });
-  if (!isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not a recognised MCB sender");
+  if (input.knownSender === false) return review("Sender isn't one of your banks in Settings");
+  if (input.knownSender === undefined && !isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not a recognised MCB sender");
   if (FOREIGN_RE.test(text)) return review("Foreign-currency amount present");
   if (UNSURE_RE.test(directional)) return review("Reversal, refund, pending or failed wording");
   if (distinct.length === 0) return review("No transaction amount found (balances are ignored)");
@@ -268,7 +291,7 @@ export function parseSms(input: { sender: string; text: string; receivedAt: Date
   if (!fields.kind) return review("Unfamiliar alert: no debit or credit wording");
 
   // Outgoing transfers can carry a separate bank charge or tax, so they always wait for the owner.
-  if (fields.kind === "expense" && OUT_TRANSFER_RE.test(directional)) return review("Transfer: add any bank charges, then confirm");
+  if (fields.kind === "expense" && input.holdTransfers !== false && OUT_TRANSFER_RE.test(directional)) return review("Transfer: add any bank charges, then confirm");
 
   const received = input.receivedAt.getTime();
   if (fields.occurredAt) {
