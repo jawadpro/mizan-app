@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/app",
     name: "Mizan",
     short_name: "Mizan",
-    description: "Private expense tracking in PKR, with MCB SMS import.",
+    description: "Private expense tracking in PKR, with bank SMS import.",
     start_url: "/app",
     scope: "/",
     display: "standalone",

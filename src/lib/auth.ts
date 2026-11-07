@@ -2,6 +2,7 @@ import "server-only";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { env } from "./env";
+import { loadConfig } from "./config";
 import { hmac, safeEqual } from "./crypto";
 
 export const SESSION_COOKIE = "mizan_session";
@@ -18,6 +19,18 @@ export function issueSession(remember: boolean): { cookie: string; csrf: string;
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = hmac(env.sessionSecret(), `session:${body}`);
   return { cookie: `${body}.${sig}`, csrf: csrfFor(payload.sid), maxAge: remember ? ttl : null };
+}
+
+/** Set-Cookie headers for a new session. */
+export function sessionHeaders(remember: boolean): Headers {
+  const s = issueSession(remember);
+  const age = s.maxAge ? `; Max-Age=${s.maxAge}` : "";
+  // The local Docker demo runs on plain http, where some browsers drop Secure cookies.
+  const secure = process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false" ? "; Secure" : "";
+  const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
+  headers.append("set-cookie", `${SESSION_COOKIE}=${s.cookie}; Path=/; HttpOnly; SameSite=Lax${age}${secure}`);
+  headers.append("set-cookie", `${CSRF_COOKIE}=${s.csrf}; Path=/; SameSite=Lax${age}${secure}`);
+  return headers;
 }
 
 function csrfFor(sid: string): string {
@@ -41,6 +54,7 @@ export function parseSession(raw: string | undefined): Session | null {
 
 /** For server components / layouts. */
 export async function getSession(): Promise<Session | null> {
+  await loadConfig();
   const jar = await cookies();
   return parseSession(jar.get(SESSION_COOKIE)?.value);
 }

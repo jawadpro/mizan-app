@@ -1,9 +1,10 @@
 import "server-only";
 import webpush from "web-push";
 import { q } from "./db";
+import { env } from "./env";
 
-// Web Push for review-inbox alerts. The VAPID key pair lives only in server-side environment
-// variables; the public half is also handed to the browser so it can subscribe.
+// Web Push for review-inbox alerts. The VAPID key pair comes from the environment, or is created on
+// the setup page and kept in the database; the public half is also handed to the browser so it can subscribe.
 
 export type PushSubscriptionInput = { endpoint: string; keys: { p256dh: string; auth: string } };
 
@@ -20,15 +21,13 @@ export function isPushEndpoint(endpoint: string): boolean {
 }
 
 export function vapidPublicKey(): string | null {
-  return process.env.VAPID_PUBLIC_KEY || null;
+  return env.vapid()?.pub ?? null;
 }
 
 function configured(): boolean {
-  const pub = process.env.VAPID_PUBLIC_KEY;
-  const priv = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
-  if (!pub || !priv || !subject) return false;
-  webpush.setVapidDetails(subject, pub, priv);
+  const v = env.vapid();
+  if (!v) return false;
+  webpush.setVapidDetails(v.subject, v.pub, v.priv);
   return true;
 }
 

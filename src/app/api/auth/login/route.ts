@@ -1,4 +1,4 @@
-import { assertSameOrigin, issueSession, SESSION_COOKIE, CSRF_COOKIE } from "@/lib/auth";
+import { assertSameOrigin, sessionHeaders } from "@/lib/auth";
 import { verifyPassword } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { errorJson, handle, json, readJson } from "@/lib/http";
@@ -18,14 +18,7 @@ export const POST = handle(async (req: Request) => {
   if (!password || !verifyPassword(password, env.adminPasswordHash())) {
     return errorJson(401, "That passphrase is not correct");
   }
-  const s = issueSession(body?.remember !== false);
-  const age = s.maxAge ? `; Max-Age=${s.maxAge}` : "";
-  // The local Docker demo runs on plain http, where some browsers drop Secure cookies.
-  const secure = process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false" ? "; Secure" : "";
-  const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
-  headers.append("set-cookie", `${SESSION_COOKIE}=${s.cookie}; Path=/; HttpOnly; SameSite=Lax${age}${secure}`);
-  headers.append("set-cookie", `${CSRF_COOKIE}=${s.csrf}; Path=/; SameSite=Lax${age}${secure}`);
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: sessionHeaders(body?.remember !== false) });
 });
 
 export function GET() {

@@ -1,0 +1,35 @@
+/* Setup page for a new install. */
+.setup-wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 60px; }
+.setup-brand { margin-bottom: 18px; }
+.setup-card { padding: 24px; }
+.setup-card h1 { font-size: 1.45rem; margin-bottom: 6px; }
+.setup-card > p, .setup-card form > p { max-width: 62ch; }
+
+.setup-steps { list-style: none; display: flex; gap: 6px; padding: 0; margin: 0 0 16px; overflow-x: auto; }
+.setup-steps li { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: max-content; color: var(--muted); font-size: 0.82rem; }
+.setup-steps li + li::before { content: ""; flex: 1 1 12px; min-width: 8px; height: 1px; background: var(--border); }
+.setup-dot { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font-size: 0.75rem; flex: none; background: var(--surface); }
+.setup-steps li.now { color: var(--text); font-weight: 600; }
+.setup-steps li.now .setup-dot { border-color: var(--text); background: var(--text); color: var(--surface); }
+.setup-steps li.done .setup-dot { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+@media (max-width: 560px) { .setup-steps li:not(.now) .setup-label { display: none; } }
+
+.setup-checks { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 10px; }
+.setup-checks li { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9rem; }
+.setup-checks li.ok { border-color: var(--accent); background: var(--accent-soft); }
+.setup-checks li.bad span { color: var(--down-ink); }
+
+.setup-form { display: grid; gap: 14px; margin: 18px 0 14px; max-width: 420px; }
+.setup-panel { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 16px 14px; }
+.setup-panel > .set-row:first-child { border-top: 0; }
+.setup-panel > .field { margin-top: 12px; }
+.setup-more { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+.setup-more summary { cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+.setup-kv { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px 0 0; font-size: 0.9rem; }
+.setup-kv > span { color: var(--muted); padding-top: 2px; }
+.setup-kv code { word-break: break-all; }
+.setup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+
+.shortcut-steps { padding-left: 18px; line-height: 1.7; margin: 12px 0 0; }
+.sms-token { display: grid; gap: 8px; }
+.sms-token-value { word-break: break-all; font-size: 0.85rem; }
