@@ -45,19 +45,14 @@
   .set-control select { width: 100%; }
 }
 
-/* Bank messages */
-.tpl-list { display: grid; gap: 10px; }
-.tpl { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; display: grid; gap: 10px; background: var(--surface-2); }
-.tpl-head { display: flex; justify-content: space-between; align-items: center; margin: -4px -4px -4px 0; }
-.tpl-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.tpl textarea { width: 100%; resize: vertical; font-family: var(--mono); font-size: 0.82rem; line-height: 1.45; }
-.tpl input, .tpl select { width: 100%; }
-.tpl .tpl-hold { display: flex; align-items: center; gap: 8px; color: var(--text); }
-.tpl .tpl-hold input { width: auto; margin: 0; }
-.tpl-check { font-size: 0.84rem; padding: 7px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
-.tpl-check.ok { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
-.tpl-check.bad { color: var(--down-ink); background: var(--down-soft); border-color: transparent; }
-@media (max-width: 760px) { .tpl-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) {
-  .tpl-grid { grid-template-columns: 1fr; }
-}
+/* Bank messages: MCB word lists */
+.words-list { display: grid; gap: 10px; }
+.words { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; display: grid; gap: 8px; background: var(--surface-2); }
+.words-head { display: grid; gap: 2px; }
+.words-items { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.word { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 0 4px 0 10px; }
+.word input { border: 0; border-radius: 0; background: transparent; padding: 5px 0; width: auto; field-sizing: content; min-width: 3ch; max-width: 100%; font-size: 0.85rem; box-shadow: none; }
+.word input:focus { outline: none; }
+.word:focus-within { border-color: var(--accent, currentColor); }
+.word-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 1rem; line-height: 1; padding: 4px 6px; border-radius: 999px; }
+.word-x:hover { color: var(--down-ink); }

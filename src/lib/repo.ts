@@ -5,7 +5,7 @@ import { HttpError } from "./http";
 import { OWN_ACCOUNTS, type Kind } from "./categories";
 import { addDays } from "./time";
 import { normalizePrefs, type Prefs } from "./preferences";
-import type { SmsTemplate } from "./sms/templates";
+import { normalizeWords, type SmsWords } from "./sms/keywords";
 
 export type TxRow = {
   id: string;
@@ -520,25 +520,18 @@ export async function updatePrefs(patch: Partial<Prefs>) {
   return next;
 }
 
-// ---- Message templates (MCB and other banks) ----
+// ---- MCB direction words ----
 
-export async function listSmsTemplates(): Promise<(SmsTemplate & { id: string })[]> {
-  const { rows } = await q<SmsTemplate & { id: string }>(
-    `SELECT id, bank, sender, kind, category, example, payee, hold FROM app.sms_templates ORDER BY position, created_at`,
-  );
-  return rows;
+export async function getSmsWords(): Promise<SmsWords> {
+  const { rows } = await q<{ value: unknown }>(`SELECT value FROM app.sms_words WHERE id = 1`);
+  return normalizeWords(rows[0]?.value);
 }
 
-/** Replaces the whole list, in the order given (the Settings page saves the repeater at once). */
-export async function saveSmsTemplates(items: SmsTemplate[]) {
-  await tx(async (run) => {
-    await run(`DELETE FROM app.sms_templates`);
-    for (const [i, t] of items.entries()) {
-      await run(
-        `INSERT INTO app.sms_templates (position, bank, sender, kind, category, example, payee, hold) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [i, t.bank, t.sender, t.kind, t.category, t.example, t.payee, !!t.hold],
-      );
-    }
-  });
-  return listSmsTemplates();
+export async function saveSmsWords(words: SmsWords): Promise<SmsWords> {
+  await q(
+    `INSERT INTO app.sms_words (id, value, updated_at) VALUES (1, $1::jsonb, now())
+     ON CONFLICT (id) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [JSON.stringify(words)],
+  );
+  return getSmsWords();
 }

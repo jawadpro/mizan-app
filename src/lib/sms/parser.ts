@@ -12,6 +12,7 @@
 import type { Kind } from "../categories";
 import { OWN_ACCOUNTS } from "../categories";
 import { parseAmountToPaisa } from "../money";
+import { DEFAULT_SMS_WORDS, wordsRegex, type SmsWords } from "./keywords";
 
 export const PARSER_VERSION = "mcb-v1";
 export const MAX_SMS_CHARS = 1000;
@@ -68,10 +69,7 @@ export const BALANCE_RE = new RegExp(
 export const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
 const FOREIGN_RE = /\b(USD|AED|GBP|EUR|SAR|QAR|CAD|AUD|US\$)\s*[\d,]+(?:\.\d+)?/i;
 
-const DEBIT_RE = /\b(debited|debit(?:ed)?\s+from|withdrawn|withdrawal|purchase|purchased|paid|payment\s+of|spent|sent|transferred\s+to|transfer(?:red)?\s+of|charged|deducted)\b/i;
-const CREDIT_RE = /\b(credited|received|deposited|deposit\s+of)\b/i;
-const REMITTANCE_RE = /\b(home\s+remittance|remittance|inward\s+(?:transfer|remittance)|western\s+union|moneygram|remitly|wise\s+transfer|xpress\s+money|ria\s+money)\b/i;
-const OUT_TRANSFER_RE = /\b(sent\s+to|transferred\s+to|transfer(?:red)?\s+of|via\s+(?:ibft|raast)|funds?\s+transfer|interbank)\b/i;
+// Direction words (expense, income, remittance, transfer) are editable in Settings; see keywords.ts.
 export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuccessful|pending|on\s+hold|blocked|insufficient|cancel(?:led|ed)?|due\s+(?:date|amount)|minimum\s+payment|will\s+be)\b/i;
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
@@ -139,12 +137,6 @@ export function findDate(text: string): { y: number; m: number; d: number; hh: n
   return { y, m: mo, d, hh, mm };
 }
 
-/** The bank's transaction reference ("Tx ID PC1100…", "Ref 123456"), upper-cased, or null. */
-export function findBankRef(text: string): string | null {
-  const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
-  return ref && /\d/.test(ref[1]) ? ref[1].toUpperCase() : null;
-}
-
 const ACRONYMS = new Set(["ATM", "BR", "KFC", "PSO", "IBFT", "PTCL", "KE", "SSGC", "SNGPL", "LESCO", "IESCO", "PK", "LTD", "PVT", "POS", "UK", "UAE", "USA"]);
 
 export function cleanParty(raw: string | undefined): string | null {
@@ -206,8 +198,13 @@ function emptyFields(): ParsedFields {
 
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, " ").trim();
 
-export function parseSms(input: { sender: string; text: string; receivedAt: Date; trustedSenders?: string[]; ownNames?: string[] }): ParseResult {
+export function parseSms(input: { sender: string; text: string; receivedAt: Date; trustedSenders?: string[]; ownNames?: string[]; words?: SmsWords }): ParseResult {
   const text = normalizeText(input.text);
+  const words = input.words ?? DEFAULT_SMS_WORDS;
+  const DEBIT_RE = wordsRegex(words.expense);
+  const CREDIT_RE = wordsRegex(words.income);
+  const REMITTANCE_RE = wordsRegex(words.remittance);
+  const OUT_TRANSFER_RE = wordsRegex(words.transfer);
   const fields = emptyFields();
 
   if (OTP_RE.test(text)) return { status: "ignored", reason: "One-time password or security message" };
@@ -246,7 +243,8 @@ export function parseSms(input: { sender: string; text: string; receivedAt: Date
   const own = /\b(?:from|in)\s+(?:your\s+)?(?:MCB\s+)?a\/c\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
   const acct = own ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
   if (acct) fields.accountHint = acct[1];
-  fields.bankRef = findBankRef(text);
+  const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
+  if (ref && /\d/.test(ref[1])) fields.bankRef = ref[1].toUpperCase();
 
   fields.counterparty = findCounterparty(withoutBalance, fields.kind);
   const owners = (input.ownNames ?? []).map(nameKey).filter((n) => n.length >= 3);
