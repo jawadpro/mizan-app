@@ -11,6 +11,8 @@ export type StoredConfig = {
   vapid_private: string | null;
   vapid_subject: string | null;
   setup_done_at: string | null;
+  /** Epoch ms; sessions issued before it are signed out (set when the passphrase changes in Settings). */
+  sessions_valid_after_ms: number | null;
 };
 
 let stored: Partial<StoredConfig> = {};
@@ -37,7 +39,10 @@ export const env = {
   hasDatabase: () => !!(process.env.DATABASE_URL || process.env.POSTGRES_URL),
   databaseUrl: () => process.env.DATABASE_URL || process.env.POSTGRES_URL || need("DATABASE_URL", null),
   sessionSecret: () => need("SESSION_SECRET", stored.session_secret, 32),
-  adminPasswordHash: () => need("ADMIN_PASSWORD_HASH", stored.password_hash, 20),
+  // A passphrase changed in Settings is saved in app.config and wins over ADMIN_PASSWORD_HASH,
+  // so the environment value only applies until the first change.
+  adminPasswordHash: () => (stored.password_hash && stored.password_hash.length >= 20 ? stored.password_hash : need("ADMIN_PASSWORD_HASH", null, 20)),
+  sessionsValidAfter: () => stored.sessions_valid_after_ms ?? 0,
   smsToken: () => need("SMS_INGEST_TOKEN", stored.sms_token, 32),
   smsAutoImport: () => (process.env.SMS_AUTO_IMPORT ?? "true").toLowerCase() !== "false",
   vapid: () => {
