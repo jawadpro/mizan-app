@@ -11,11 +11,13 @@ export const CSRF_COOKIE = "mizan_csrf";
 const REMEMBER_TTL_S = 180 * 24 * 3600;
 const SHORT_TTL_S = 12 * 3600;
 
-type Session = { sid: string; exp: number };
+/** iat is when it was issued (epoch ms) and rem whether "Remember me" was on; sessions from before both existed lack them. */
+type Session = { sid: string; exp: number; iat?: number; rem?: boolean };
 
 export function issueSession(remember: boolean): { cookie: string; csrf: string; maxAge: number | null } {
   const ttl = remember ? REMEMBER_TTL_S : SHORT_TTL_S;
-  const payload: Session = { sid: crypto.randomBytes(18).toString("base64url"), exp: Math.floor(Date.now() / 1000) + ttl };
+  const now = Date.now();
+  const payload: Session = { sid: crypto.randomBytes(18).toString("base64url"), exp: Math.floor(now / 1000) + ttl, iat: now, rem: remember };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = hmac(env.sessionSecret(), `session:${body}`);
   return { cookie: `${body}.${sig}`, csrf: csrfFor(payload.sid), maxAge: remember ? ttl : null };
@@ -33,6 +35,11 @@ export function sessionHeaders(remember: boolean): Headers {
   return headers;
 }
 
+/** Whether a session was made with "Remember me", for sessions that predate the rem flag. */
+export function wasRemembered(s: Session): boolean {
+  return typeof s.rem === "boolean" ? s.rem : s.exp - Date.now() / 1000 > SHORT_TTL_S;
+}
+
 function csrfFor(sid: string): string {
   return hmac(env.sessionSecret(), `csrf:${sid}`);
 }
@@ -46,6 +53,9 @@ export function parseSession(raw: string | undefined): Session | null {
     const s = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Session;
     if (typeof s.sid !== "string" || typeof s.exp !== "number") return null;
     if (s.exp < Date.now() / 1000) return null;
+    // Signed out by a passphrase change: anything issued before the cut-off (or with no issue time) is refused.
+    const cutoff = env.sessionsValidAfter();
+    if (cutoff && !(typeof s.iat === "number" && s.iat >= cutoff)) return null;
     return s;
   } catch {
     return null;
