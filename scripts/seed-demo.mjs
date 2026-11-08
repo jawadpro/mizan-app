@@ -10,9 +10,57 @@ await db.connect();
 
 const { rows: [{ n }] } = await db.query("SELECT count(*)::int AS n FROM app.transactions");
 if (n > 0) {
-  console.log(`[seed] ${n} transactions already exist; leaving the data alone.`);
+  // A demo made before monthly payments existed still gets a sample list, but only when the data is
+  // this script's own sample data (its made-up employer is there).
+  const { rows: [{ sample }] } = await db.query("SELECT EXISTS (SELECT 1 FROM app.transactions WHERE counterparty = 'Acme Pvt Ltd') AS sample");
+  if (sample) await seedMonthly();
+  console.log(`[seed] ${n} transactions already exist; leaving them alone.`);
   await db.end();
   process.exit(0);
+}
+
+/** Sample monthly payments: rent, bills and school fees, ticked off for past months. Only into an empty list. */
+async function seedMonthly() {
+  const { rows: [{ m }] } = await db.query("SELECT count(*)::int AS m FROM app.monthly_items");
+  if (m > 0) return;
+  const now = new Date(Date.now() + 5 * 3600_000);
+  const monthStart = (back) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1)).toISOString().slice(0, 10);
+  const start = monthStart(4);
+  const items = [
+    ["Rent", 85_000_00, "Rent", "Landlord", 2],
+    ["Electricity & gas", null, "Utilities", "K-Electric", 5],
+    ["School fees", 18_500_00, "Education", "City School", 10],
+    ["Maid", 25_000_00, "Uncategorized", null, 1],
+    ["Internet", 4_500_00, "Utilities", "PTCL", 20],
+  ];
+  const ids = {};
+  for (const [i, [name, amount, category, payee, due]] of items.entries()) {
+    ids[name] = (await db.query(
+      `INSERT INTO app.monthly_items (position, name, amount_paisa, category, payee, due_day, starts_month) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [i, name, amount, category, payee, due, start],
+    )).rows[0].id;
+  }
+  // Past months: link the rent and the first utility bill of the month, mark the rest paid outside Mizan.
+  for (let back = 4; back >= 1; back--) {
+    const ms = monthStart(back);
+    const link = async (name, sql) => {
+      const { rows } = await db.query(
+        `SELECT id FROM app.transactions WHERE kind = 'expense' AND ${sql}
+           AND occurred_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Karachi')
+           AND occurred_at < (($1::date + interval '1 month')::timestamp AT TIME ZONE 'Asia/Karachi')
+         ORDER BY occurred_at LIMIT 1`,
+        [ms],
+      );
+      await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, transaction_id) VALUES ($1,$2,'paid',$3)`, [ids[name], ms, rows[0]?.id ?? null]);
+    };
+    await link("Rent", "category = 'Rent'");
+    await link("Electricity & gas", "category = 'Utilities'");
+    await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, note) VALUES ($1,$2,'paid','Paid at the school office')`, [ids["School fees"], ms]);
+    await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, amount_paisa, note) VALUES ($1,$2,'paid',2500000,'Cash')`, [ids.Maid, ms]);
+    // One missed month, so the history shows something still open.
+    if (back !== 2) await db.query(`INSERT INTO app.monthly_marks (item_id, month, status) VALUES ($1,$2,'paid')`, [ids.Internet, ms]);
+  }
+  console.log(`[seed] added ${items.length} sample monthly payments.`);
 }
 
 // Small deterministic random generator so every demo looks the same.
@@ -70,4 +118,5 @@ for (const t of tx) {
 }
 await db.query(`INSERT INTO app.balance_anchor (id, amount_paisa, as_of) VALUES (1, $1, now()) ON CONFLICT (id) DO NOTHING`, [845_000_00]);
 console.log(`[seed] added ${tx.length} sample transactions.`);
+await seedMonthly();
 await db.end();

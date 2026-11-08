@@ -1,5 +1,6 @@
 import BalanceCard from "@/components/BalanceCard";
 import Dashboard from "@/components/Dashboard";
+import MonthlyStrip from "@/components/MonthlyStrip";
 import RamadanNotice from "@/components/RamadanNotice";
 import { DEFAULT_PREFS } from "@/lib/preferences";
 import { getPrefs } from "@/lib/repo";
@@ -17,6 +18,7 @@ export default async function Page() {
           <div className="top-row">
             <BalanceCard />
           </div>
+          <MonthlyStrip />
           {prefs.ramadanNotice && <RamadanNotice />}
         </>
       }
