@@ -424,12 +424,12 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
 
         {tab === "link" && (
           <>
-            <input className="mp-search" type="search" placeholder="Search by name, note or amount" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search transactions" />
+            <input className="mp-search" type="search" placeholder={`Search ${monthLabel(d.month, "short")} by name, note or amount`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search transactions" />
             {matches.error ? <ErrorBox message={matches.error} onRetry={matches.reload} /> : matches.loading && !matches.data ? <Loading rows={3} /> : items.length === 0 ? (
-              <p className="small muted">{search ? "No spending matches that search around this month." : `No spending found around ${monthLabel(d.month)}. Record it as a new payment instead.`}</p>
+              <p className="small muted">{search ? `No spending in ${monthLabel(d.month)} matches that search.` : `No spending found in ${monthLabel(d.month)}. Record it as a new payment instead.`}</p>
             ) : (
               <>
-              {!search && items[0].score < 50 && <p className="small muted" style={{ marginTop: 0 }}>Nothing looks like {r.name} yet, so here is all spending around {monthLabel(d.month)}. Search, or record it as new.</p>}
+              {!search && items[0].score < 50 && <p className="small muted" style={{ marginTop: 0 }}>Nothing looks like {r.name} yet, so here is all spending in {monthLabel(d.month)}. Search, or record it as new.</p>}
               <div className="mp-cands">
                 {items.map((t) => (
                   <button key={t.id} className="mp-cand" onClick={() => onMark({ status: "paid", transactionId: t.id }, hasParts ? `Payment added to ${r.name}` : `${r.name}: payment linked`)}>
