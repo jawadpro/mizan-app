@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { CATEGORIES } from "@/lib/categories";
 import { formatPaisa, paisaToDecimal } from "@/lib/money";
 import { addMonths, dueDate, monthLabel, type Month } from "@/lib/monthly";
@@ -54,6 +54,14 @@ export function paidAmount(r: Row): number {
 /** What is still to pay on a row, when it has a usual amount. */
 function remaining(r: Row): number {
   return r.amount_paisa ? Math.max(0, r.amount_paisa - r.paid) : 0;
+}
+
+const settled = (r: Row) => r.state === "paid" || r.state === "skipped";
+
+/** Still to pay (including part paid) on top in due order, then paid, then skipped. */
+export function sortForList(items: Row[]): Row[] {
+  const rank = (r: Row) => (r.state === "paid" ? 1 : r.state === "skipped" ? 2 : 0);
+  return items.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r);
 }
 
 export function summarize(d: MonthlyData) {
@@ -204,9 +212,14 @@ export default function MonthlyPayments() {
             <div className="card"><p className="muted" style={{ margin: 0 }}>Nothing was on the list in {monthLabel(data.month)}.</p></div>
           ) : (
             <div className="card mp-list">
-              {data.items.map((r) => (
-                <ItemRow key={r.id} r={r} d={data} onPay={() => setPaying(r)} onUnmark={() => unmark(r)} onEdit={() => setEditing(r)}
-                  onLink={(t) => mark(r, { status: "paid", transactionId: t.id }, `${r.name}: payment linked`)} />
+              {sortForList(data.items).map((r, i, list) => (
+                <Fragment key={r.id}>
+                  {settled(r) && (i === 0 || !settled(list[i - 1])) && (
+                    <div className="mp-divider small muted">Done this month ({list.length - i})</div>
+                  )}
+                  <ItemRow r={r} d={data} onPay={() => setPaying(r)} onUnmark={() => unmark(r)} onEdit={() => setEditing(r)}
+                    onLink={(t) => mark(r, { status: "paid", transactionId: t.id }, `${r.name}: payment linked`)} />
+                </Fragment>
               ))}
             </div>
           )}
