@@ -82,6 +82,8 @@ const CATEGORY_RULES: Array<[RegExp, string]> = [
   // names the withdrawal, so it is matched before withdrawals; a withdrawal alert that mentions tax stays a withdrawal.
   [/\b(withholding|wht|w\.h\.t|income\s+tax|advance\s+tax|tax)\b.*\b(on|for)\s+(atm\s+)?cash\s+withdrawal\b/i, "Tax deducted"],
   [/\b(atm|cash\s+withdrawal)\b/i, "Cash withdrawal"],
+  // Income tax paid to FBR, usually through a PSID (payment slip ID) from IRIS.
+  [/\b(fbr|psid|federal\s+board\s+of\s+revenue)\b/i, "Tax payment"],
   [/\b(withholding|wht|w\.h\.t|income\s+tax|advance\s+tax|tax\s+u\/s)\b/i, "Tax deducted"],
   [/\b(fee|charges?|fed|excise|annual\s+fee|sms\s+alert\s+charges?)\b/i, "Bank charges"],
   [/\b(salary|payroll)\b/i, "Salary"],

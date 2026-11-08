@@ -186,6 +186,10 @@ describe("real MCB alert formats", () => {
     const g = ok("6222", "PKR 150.00 Withholding Tax has been deducted from your account on 15-10-2026");
     expect(g).toMatchObject({ category: "Tax deducted" });
   });
+  it("income tax paid to FBR is a tax payment", () => {
+    const f = ok("6222", "PKR 25,000.00 paid to FBR for PSID 102026112345678 from your account on 15-10-2026");
+    expect(f).toMatchObject({ kind: "expense", amountPaisa: 2500000, category: "Tax payment" });
+  });
   it("IBFT received from the user's own account", () => {
     const f = ok("6222", "PKR 1,000.00 received via IBFT from ALI RAZA KHAN A/C*9012 on 18-10-2026 19:59. Tx ID 000000123456");
     expect(f).toMatchObject({ kind: "income", amountPaisa: 100000, counterparty: "Ali Raza Khan", ownAccount: true, category: "Own accounts", bankRef: "000000123456" });

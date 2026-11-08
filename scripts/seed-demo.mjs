@@ -54,6 +54,8 @@ for (let y = 2025, m = 7; day(y, m, 1) <= today; m === 12 ? (y++, m = 1) : m++) 
   if ([9, 1, 4, 10].includes(m)) on(10, (s) => add("expense", 50_000, s, 12, "Cash withdrawal", "ATM"));
   if (m === 12 || m === 6) on(22, (s) => add("expense", between(5_000, 15_000), s, 13, "Charity", "Edhi Foundation", { source: "manual" }));
 }
+// Income tax paid to FBR with a PSID.
+add("expense", 18_000, "2025-09-25", 11, "Tax payment", "FBR", { note: "Income tax for Tax Year 2025" });
 // Zakat paid in Ramadan 1447 (around March 2026).
 add("expense", 62_500, "2026-03-01", 15, "Zakat", "Masjid committee", { source: "manual" });
 // One income Mizan can't classify yet, so the Tax page asks about it.

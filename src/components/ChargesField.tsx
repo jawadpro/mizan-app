@@ -38,7 +38,7 @@ export default function ChargesField({ amount, value, onChange, error, title, ki
       {showError ? <div className="err">{error}</div> : charge && base ? (
         <div className="charges-total">Total out of your account: <strong>{formatPaisa(base + charge)}</strong></div>
       ) : (
-        <div className="small muted">{kind === "tax" ? "Saved as a separate “Tax deducted” expense. It counts towards tax already paid on the Tax page." : "Saved as a separate “Bank charges” expense on the same date."}</div>
+        <div className="small muted">{kind === "tax" ? "Saved as a separate “Tax deducted” expense on the same date, so tax stays apart from bank fees." : "Saved as a separate “Bank charges” expense on the same date."}</div>
       )}
     </div>
   );
