@@ -22,8 +22,8 @@
 .mp-check.skip { background: var(--surface-2); color: var(--muted); }
 .mp-main { display: grid; gap: 3px; min-width: 0; }
 .mp-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.mp-name { font-weight: 500; }
-.mp-row.paid .mp-name, .mp-row.skipped .mp-name { color: var(--muted); }
+.mp-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+.mp-row.paid .mp-name, .mp-row.skipped .mp-name { color: var(--muted); font-weight: 600; }
 .mp-row.skipped .mp-name { text-decoration: line-through; }
 .mp-status { font-size: 0.75rem; font-weight: 500; padding: 1px 7px; border-radius: 6px; white-space: nowrap; color: var(--muted); border: 1px solid var(--border); }
 .mp-status.paid { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
@@ -71,3 +71,5 @@
 .mp-part .btn { color: var(--muted); }
 .mp-sofar { margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
 .mp-sofar-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.mp-divider { padding: 12px 0 2px; border-top: 1px solid var(--border); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem; }
+.mp-divider + .mp-row { border-top: 0; }
