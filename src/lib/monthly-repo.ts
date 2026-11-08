@@ -57,7 +57,7 @@ export async function monthlyList(month: Month, today: string) {
     .map((r) => (r.state === "partial" && r.amount_paisa ? { ...r, amount_paisa: Math.max(1, r.amount_paisa - r.paid) } : r));
   const suggestions = new Map<string, LinkedTx & { score: number }>();
   if (open.length && first(month) <= today) {
-    const cands = await candidates(month, 5);
+    const cands = await candidates(month);
     for (const [k, v] of suggestFor(open, cands, month)) suggestions.set(k, v);
   }
   const [{ rows: bounds }, { rows: stopped }, { rows: history }] = await Promise.all([
@@ -94,26 +94,26 @@ export async function monthlyList(month: Month, today: string) {
   };
 }
 
-/** Expenses around a month that no checklist item has claimed yet. */
-async function candidates(month: Month, slackDays: number, search?: string) {
-  const params: unknown[] = [first(month), slackDays];
+/** Expenses dated in the month (Karachi time) that no checklist item has claimed yet. */
+async function candidates(month: Month, search?: string) {
+  const params: unknown[] = [first(month)];
   let extra = "";
   if (search) {
     params.push(`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
-    const conds = [`counterparty ILIKE $3`, `note ILIKE $3`, `category ILIKE $3`];
+    const conds = [`counterparty ILIKE $2`, `note ILIKE $2`, `category ILIKE $2`];
     const digits = search.replace(/[,\s]/g, "");
     if (/^\d+(\.\d{1,2})?$/.test(digits)) {
       const [w, fr = ""] = digits.split(".");
       params.push(Number(w) * 100 + Number(fr.padEnd(2, "0")));
-      conds.push(`amount_paisa = $4`);
+      conds.push(`amount_paisa = $3`);
     }
     extra = ` AND (${conds.join(" OR ")})`;
   }
   const { rows } = await q<LinkedTx>(
     `SELECT ${TX_COLS()} FROM app.transactions
      WHERE kind = 'expense'
-       AND occurred_at >= (($1::date - $2::int)::timestamp AT TIME ZONE 'Asia/Karachi')
-       AND occurred_at < ((($1::date + interval '1 month')::date + $2::int)::timestamp AT TIME ZONE 'Asia/Karachi')
+       AND occurred_at >= ($1::date::timestamp AT TIME ZONE 'Asia/Karachi')
+       AND occurred_at < (($1::date + interval '1 month')::timestamp AT TIME ZONE 'Asia/Karachi')
        AND NOT EXISTS (SELECT 1 FROM app.monthly_mark_txs l WHERE l.transaction_id = transactions.id)
        ${extra}
      ORDER BY occurred_at DESC LIMIT 400`,
@@ -132,8 +132,8 @@ export async function monthlyMatches(id: string, month: Month, search?: string) 
     [id, first(month)],
   );
   const target = item.amount_paisa && paid.total > 0 ? { ...item, amount_paisa: Math.max(1, item.amount_paisa - paid.total) } : item;
-  // With a search, look a little wider: the payment may have gone out early or late.
-  const txs = await candidates(month, search ? 20 : 10, search);
+  // Only that month's spending, with or without a search.
+  const txs = await candidates(month, search);
   return rankMatches(target, txs, month, 0).slice(0, 40);
 }
 
