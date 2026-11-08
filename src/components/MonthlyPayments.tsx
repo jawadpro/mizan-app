@@ -23,8 +23,13 @@ export type MonthlyItem = {
   ended_month: Month | null;
 };
 type Row = MonthlyItem & {
-  mark: { status: "paid" | "skipped"; transaction_id: string | null; amount_paisa: number | null; note: string | null; marked_at: string } | null;
-  tx: MonthlyTx | null;
+  mark: { status: "paid" | "skipped"; full: boolean; amount_paisa: number | null; note: string | null; marked_at: string } | null;
+  /** Every transaction linked for the month: one, or several when it was paid in parts. */
+  txs: MonthlyTx[];
+  /** Linked transactions plus any part paid outside Mizan. */
+  paid: number;
+  /** Part paid: the parts don't reach the usual amount yet. */
+  state: "paid" | "partial" | "skipped" | null;
   suggestion: (MonthlyTx & { score: number }) | null;
 };
 export type MonthlyData = {
@@ -41,29 +46,35 @@ const whole = (p: number) => formatPaisa(Math.round(p)).replace(/\.00$/, "");
 export const shortDate = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400e3);
 
-/** What was paid for a row: the linked transaction, else the amount typed in, else the usual amount. */
+/** What was paid for a row: its parts, or the usual amount when it was ticked off with no amount. */
 export function paidAmount(r: Row): number {
-  return r.tx?.amount_paisa ?? r.mark?.amount_paisa ?? r.amount_paisa ?? 0;
+  return r.state === "paid" && r.paid === 0 ? r.amount_paisa ?? 0 : r.paid;
+}
+
+/** What is still to pay on a row, when it has a usual amount. */
+function remaining(r: Row): number {
+  return r.amount_paisa ? Math.max(0, r.amount_paisa - r.paid) : 0;
 }
 
 export function summarize(d: MonthlyData) {
-  const paid = d.items.filter((r) => r.mark?.status === "paid");
-  const skipped = d.items.filter((r) => r.mark?.status === "skipped");
-  const open = d.items.filter((r) => !r.mark);
+  const paid = d.items.filter((r) => r.state === "paid");
+  const skipped = d.items.filter((r) => r.state === "skipped");
+  const open = d.items.filter((r) => r.state === null || r.state === "partial");
   const due = d.items.length - skipped.length;
   return {
     paid: paid.length,
     due,
     open,
-    paidTotal: paid.reduce((a, r) => a + paidAmount(r), 0),
-    leftTotal: open.reduce((a, r) => a + (r.amount_paisa ?? 0), 0),
+    paidTotal: d.items.reduce((a, r) => a + (r.state === "skipped" ? 0 : paidAmount(r)), 0),
+    leftTotal: open.reduce((a, r) => a + remaining(r), 0),
     unknownLeft: open.filter((r) => !r.amount_paisa).length,
   };
 }
 
 function status(r: Row, d: MonthlyData): { text: string; tone: "paid" | "skipped" | "late" | "soon" | "open" } {
-  if (r.mark?.status === "paid") return { text: "Paid", tone: "paid" };
-  if (r.mark?.status === "skipped") return { text: "Skipped", tone: "skipped" };
+  if (r.state === "paid") return { text: "Paid", tone: "paid" };
+  if (r.state === "skipped") return { text: "Skipped", tone: "skipped" };
+  if (r.state === "partial") return { text: `${whole(r.paid)} of ${whole(r.amount_paisa ?? 0)} paid`, tone: "soon" };
   const thisMonth = d.today.slice(0, 7);
   if (d.month < thisMonth) return { text: "Not paid", tone: "late" };
   if (d.month > thisMonth) return { text: "Upcoming", tone: "open" };
@@ -195,7 +206,7 @@ export default function MonthlyPayments() {
             <div className="card mp-list">
               {data.items.map((r) => (
                 <ItemRow key={r.id} r={r} d={data} onPay={() => setPaying(r)} onUnmark={() => unmark(r)} onEdit={() => setEditing(r)}
-                  onLink={(t) => mark(r, { status: "paid", transactionId: t.id }, `${r.name} marked as paid`)} />
+                  onLink={(t) => mark(r, { status: "paid", transactionId: t.id }, `${r.name}: payment linked`)} />
               ))}
             </div>
           )}
@@ -238,12 +249,13 @@ export default function MonthlyPayments() {
 function ItemRow({ r, d, onPay, onUnmark, onEdit, onLink }: { r: Row; d: MonthlyData; onPay: () => void; onUnmark: () => void; onEdit: () => void; onLink: (t: MonthlyTx) => void }) {
   const st = status(r, d);
   const due = dueDate(d.month, r.due_day);
-  const done = r.mark?.status === "paid";
+  const done = r.state === "paid";
+  const settled = r.state === "paid" || r.state === "skipped";
   return (
     <div className={`mp-row ${st.tone}`}>
-      <button className={`mp-check${done ? " on" : ""}${r.mark?.status === "skipped" ? " skip" : ""}`} onClick={r.mark ? onUnmark : onPay}
-        aria-label={r.mark ? `Undo: ${r.name} is ${r.mark.status}` : `Mark ${r.name} as paid`} title={r.mark ? "Undo" : "Mark as paid"}>
-        {done ? "✓" : r.mark?.status === "skipped" ? "–" : ""}
+      <button className={`mp-check${done ? " on" : ""}${r.state === "skipped" ? " skip" : ""}${r.state === "partial" ? " part" : ""}`} onClick={settled ? onUnmark : onPay}
+        aria-label={settled ? `Undo: ${r.name} is ${r.state}` : `Mark ${r.name} as paid`} title={settled ? "Undo" : "Mark as paid"}>
+        {done ? "✓" : r.state === "skipped" ? "–" : r.state === "partial" ? "½" : ""}
       </button>
       <div className="mp-main">
         <div className="mp-line">
@@ -255,25 +267,20 @@ function ItemRow({ r, d, onPay, onUnmark, onEdit, onLink }: { r: Row; d: Monthly
           {due && ` · due ${shortDate(due)}`}
           {` · ${r.category}`}
         </div>
-        {done && (
-          <div className="small mp-paid">
-            {r.tx ? (
-              <>Paid {whole(r.tx.amount_paisa)}{r.tx.counterparty ? ` to ${r.tx.counterparty}` : ""} on {formatDatePkt(r.tx.occurred_at)}</>
-            ) : (
-              <>Marked paid{r.mark!.amount_paisa ? ` (${whole(r.mark!.amount_paisa)})` : ""} without a transaction{r.mark!.note ? `: ${r.mark!.note}` : ""}</>
-            )}
-          </div>
-        )}
-        {r.mark?.status === "skipped" && r.mark.note && <div className="small muted">{r.mark.note}</div>}
-        {!r.mark && r.suggestion && (
+        {(r.state === "paid" || r.state === "partial") && <Parts r={r} />}
+        {r.state === "partial" && r.amount_paisa && <div className="small muted">{whole(remaining(r))} still to pay</div>}
+        {r.state === "skipped" && r.mark?.note && <div className="small muted">{r.mark.note}</div>}
+        {(r.state === null || r.state === "partial") && r.suggestion && (
           <div className="mp-suggest small">
-            <span>Looks paid: {whole(r.suggestion.amount_paisa)}{r.suggestion.counterparty ? ` to ${r.suggestion.counterparty}` : ""} on {formatDatePkt(r.suggestion.occurred_at)}</span>
+            <span>{r.state === "partial" ? "Next part looks paid" : "Looks paid"}: {whole(r.suggestion.amount_paisa)}{r.suggestion.counterparty ? ` to ${r.suggestion.counterparty}` : ""} on {formatDatePkt(r.suggestion.occurred_at)}</span>
             <button className="btn sm primary" onClick={() => onLink(r.suggestion!)}>Link it</button>
           </div>
         )}
       </div>
       <div className="mp-actions">
-        {r.mark ? (
+        {r.state === "partial" ? (
+          <button className="btn sm" onClick={onPay}>Add payment</button>
+        ) : r.mark ? (
           <button className="btn sm ghost" onClick={onPay}>Change</button>
         ) : (
           <button className="btn sm" onClick={onPay}>Mark paid</button>
@@ -284,13 +291,33 @@ function ItemRow({ r, d, onPay, onUnmark, onEdit, onLink }: { r: Row; d: Monthly
   );
 }
 
+/** The payments that settled a row: each linked transaction, and a part paid outside Mizan. */
+function Parts({ r, onRemove }: { r: Row; onRemove?: (t: MonthlyTx) => void }) {
+  const cash = r.mark?.amount_paisa;
+  if (!r.txs.length && !cash) {
+    return <div className="small mp-paid">Marked paid without a transaction{r.mark?.note ? `: ${r.mark.note}` : ""}</div>;
+  }
+  return (
+    <div className="mp-parts">
+      {r.txs.map((t) => (
+        <div key={t.id} className="small mp-paid mp-part">
+          <span>Paid {whole(t.amount_paisa)}{t.counterparty ? ` to ${t.counterparty}` : ""} on {formatDatePkt(t.occurred_at)}</span>
+          {onRemove && <button type="button" className="btn sm ghost" onClick={() => onRemove(t)} aria-label={`Unlink ${whole(t.amount_paisa)} on ${formatDatePkt(t.occurred_at)}`}>Unlink</button>}
+        </div>
+      ))}
+      {!!cash && <div className="small mp-paid">Paid {whole(cash)} without a transaction{r.mark?.note ? `: ${r.mark.note}` : ""}</div>}
+    </div>
+  );
+}
+
 type PayTab = "link" | "new" | "outside";
 
 function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData; onClose: () => void; onMark: (body: Record<string, unknown>, msg: string) => Promise<void>; onReload: () => void }) {
   const [tab, setTab] = useState<PayTab>("link");
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
-  const [amount, setAmount] = useState(r.mark?.amount_paisa ? paisaToDecimal(r.mark.amount_paisa) : r.amount_paisa ? paisaToDecimal(r.amount_paisa) : "");
+  const left = r.state === "partial" ? remaining(r) : r.amount_paisa ?? 0;
+  const [amount, setAmount] = useState(r.mark?.amount_paisa ? paisaToDecimal(r.mark.amount_paisa) : left ? paisaToDecimal(left) : "");
   const [note, setNote] = useState(r.mark?.note ?? "");
   const [recording, setRecording] = useState(false);
   const toast = useToast();
@@ -311,7 +338,7 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
     const res = await apiFetch<{ item: { id: string } }>("/api/transactions", { method: "POST", body: JSON.stringify(t) });
     try {
       await apiFetch(`/api/monthly/${r.id}/mark`, { method: "PUT", body: JSON.stringify({ month: d.month, status: "paid", transactionId: res.item.id }) });
-      toast(`${r.name} recorded and marked as paid`, "ok");
+      toast(`${r.name}: payment recorded and linked`, "ok");
     } catch {
       toast("The payment was saved, but it could not be ticked off. Try linking it.", "error");
     }
@@ -329,7 +356,7 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
         submitLabel="Save and mark paid"
         initial={draftFrom({
           kind: "expense",
-          amount_paisa: r.amount_paisa,
+          amount_paisa: left || null,
           category: r.category,
           counterparty: r.payee ?? r.name,
           note: `${r.name}, ${monthLabel(d.month)}`,
@@ -342,7 +369,17 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
   }
 
   const items = matches.data?.items ?? [];
-  const linked = r.mark?.transaction_id;
+  async function unlink(t: MonthlyTx) {
+    try {
+      await apiFetch(`/api/monthly/${r.id}/mark`, { method: "DELETE", body: JSON.stringify({ month: d.month, transactionId: t.id }) });
+      toast(`Unlinked ${whole(t.amount_paisa)} from ${r.name}`, "ok");
+      onReload();
+      onClose();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
+  const hasParts = r.txs.length > 0 || !!r.mark?.amount_paisa;
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="mp-pay-title">
@@ -353,6 +390,19 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
           </div>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
+        {hasParts && r.state !== "skipped" && (
+          <div className="mp-sofar">
+            <div className="mp-sofar-head">
+              <strong className="small">Paid so far: {whole(r.paid)}</strong>
+              {r.state === "partial" && <span className="small muted">{whole(left)} still to pay</span>}
+            </div>
+            <Parts r={r} onRemove={unlink} />
+            {r.state === "partial" && (
+              <button className="btn sm" style={{ marginTop: 8 }} onClick={() => onMark({ status: "paid", full: true }, `${r.name} marked as fully paid`)}>Mark as fully paid</button>
+            )}
+            <p className="small muted" style={{ margin: "10px 0 0" }}>{r.state === "partial" ? "Add the next part below." : "Paid in more than one part? Add another below."}</p>
+          </div>
+        )}
         <div className="seg mp-tabs" role="tablist">
           <button role="tab" aria-selected={tab === "link"} className={tab === "link" ? "on" : ""} onClick={() => setTab("link")}>Pick a transaction</button>
           <button role="tab" aria-selected={tab === "new"} className={tab === "new" ? "on" : ""} onClick={() => setTab("new")}>Record new</button>
@@ -369,9 +419,9 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
               {!search && items[0].score < 50 && <p className="small muted" style={{ marginTop: 0 }}>Nothing looks like {r.name} yet, so here is all spending around {monthLabel(d.month)}. Search, or record it as new.</p>}
               <div className="mp-cands">
                 {items.map((t) => (
-                  <button key={t.id} className={`mp-cand${t.id === linked ? " on" : ""}`} onClick={() => onMark({ status: "paid", transactionId: t.id }, `${r.name} marked as paid`)}>
+                  <button key={t.id} className="mp-cand" onClick={() => onMark({ status: "paid", transactionId: t.id }, hasParts ? `Payment added to ${r.name}` : `${r.name}: payment linked`)}>
                     <span className="mp-cand-main">
-                      <span>{t.counterparty ?? t.category}{t.score >= 50 && <span className="pill income" style={{ marginLeft: 6 }}>Likely</span>}{t.id === linked && <span className="pill" style={{ marginLeft: 6 }}>Linked</span>}</span>
+                      <span>{t.counterparty ?? t.category}{t.score >= 50 && <span className="pill income" style={{ marginLeft: 6 }}>Likely</span>}</span>
                       <span className="small muted">{formatDatePkt(t.occurred_at)} · {t.category}{t.note ? ` · ${t.note}` : ""}</span>
                     </span>
                     <span className="num">{whole(t.amount_paisa)}</span>
@@ -385,14 +435,14 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
 
         {tab === "new" && (
           <div className="mp-pane">
-            <p className="small muted">Adds the payment to your transactions and ticks {r.name} off for {monthLabel(d.month)}. Use this when it was not picked up from a bank message.</p>
+            <p className="small muted">Adds the payment to your transactions and links it to {r.name} for {monthLabel(d.month)}. Use this when it was not picked up from a bank message.</p>
             <button className="btn primary" onClick={() => setRecording(true)}>Record the payment</button>
           </div>
         )}
 
         {tab === "outside" && (
-          <form className="mp-pane" onSubmit={(e) => { e.preventDefault(); onMark({ status: "paid", amount: amount || null, note: note || null }, `${r.name} marked as paid`); }}>
-            <p className="small muted">For a payment made in cash or from an account Mizan doesn&apos;t track. It won&apos;t change your balance or spending.</p>
+          <form className="mp-pane" onSubmit={(e) => { e.preventDefault(); onMark({ status: "paid", full: true, amount: amount || null, note: note || null }, `${r.name} marked as paid`); }}>
+            <p className="small muted">For {hasParts ? "the rest, if it was" : "a payment"} made in cash or from an account Mizan doesn&apos;t track. It won&apos;t change your balance or spending, and ticks {r.name} off as fully paid.</p>
             <div className="form-grid">
               <label className="field">Amount (optional)
                 <input inputMode="decimal" placeholder="e.g. 85,000" value={amount} onChange={(e) => setAmount(e.target.value)} />

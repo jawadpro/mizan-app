@@ -102,3 +102,12 @@ export function suggestFor<I extends ItemLike & { id: string }, T extends TxLike
   }
   return out;
 }
+
+/**
+ * Whether a month's payment is complete: ticked off as fully paid, a bill with no usual amount, or parts
+ * adding up to at least 98% of the usual amount (a small shortfall is usually a fee or rounding).
+ * The SQL in monthly-repo.ts applies the same rule for the history strip.
+ */
+export function isComplete(usual: number | null, full: boolean, paidSoFar: number): boolean {
+  return full || !usual || paidSoFar * 100 >= usual * 98;
+}
