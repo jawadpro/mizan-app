@@ -42,6 +42,7 @@
 /* Dashboard charts */
 .chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .chart-head h2 { color: var(--muted); }
+.sidebar { box-shadow: var(--shadow); }
 .chart-head .hint { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
 .chart-figure { text-align: right; }
 .chart-figure .label { color: var(--muted); font-size: 0.8rem; }
@@ -75,7 +76,7 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
   .page-head { margin-bottom: 14px; gap: 12px; }
   .page-head > input, .page-head .toolbar { width: 100%; }
   .page-head .toolbar .btn { flex: 1; justify-content: center; }
-  .card { padding: 14px; }
+  .card { --pad-y: 14px; --pad-x: 14px; }
   .hide-mobile { display: none; }
   .balance-card .big { font-size: 1.85rem; }
   .kpi .value { font-size: 1.2rem; }

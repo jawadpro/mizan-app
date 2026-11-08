@@ -24,7 +24,7 @@ export default function BalanceCard() {
   const whole = (p: number, o: { sign?: boolean } = {}) => formatPaisa(Math.round(p), o).replace(/\.\d\d$/, "");
 
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card balance-hero" style={{ marginBottom: 16 }}>
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
           <div className="label">
