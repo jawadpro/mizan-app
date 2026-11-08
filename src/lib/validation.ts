@@ -159,7 +159,16 @@ export const monthlyMarkInput = z.object({
   month: month("Choose a month"),
   status: z.enum(["paid", "skipped"]),
   transactionId: z.string().uuid().nullable().optional(),
-  amount: optionalAmount("Enter an amount like 85,000"),
+  /** Marks it fully paid even if the parts add up to less than the usual amount. */
+  full: z.boolean().optional(),
+  // Left out, an existing amount or note stays as it is.
+  amount: z.string().max(20).nullable().optional().transform((s, ctx) => {
+    if (s === undefined) return undefined;
+    if (s === null || s.trim() === "") return null;
+    const v = parseAmountToPaisa(s);
+    if (v === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter an amount like 85,000" });
+    return v;
+  }),
   note: trimmed(200).transform((s) => s || null).nullable().optional(),
 });
 export type MonthlyMarkInput = z.infer<typeof monthlyMarkInput>;

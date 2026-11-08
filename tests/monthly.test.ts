@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, dueDate, isMonth, matchScore, rankMatches, suggestFor } from "@/lib/monthly";
+import { addMonths, dueDate, isComplete, isMonth, matchScore, rankMatches, suggestFor } from "@/lib/monthly";
 
 const tx = (id: string, rupees: number, date: string, category: string, counterparty: string | null, note: string | null = null) => ({
   id, amount_paisa: rupees * 100, occurred_at: `${date}T07:00:00Z`, category, counterparty, note,
@@ -56,5 +56,18 @@ describe("spotting the payment", () => {
   });
   it("suggests nothing when nothing looks right", () => {
     expect(suggestFor([rent], [tx("a", 3_000, "2026-11-04", "Groceries", "Imtiaz")], "2026-11").size).toBe(0);
+  });
+});
+
+describe("paid in parts", () => {
+  it("counts parts that reach the usual amount as paid, allowing a small shortfall", () => {
+    expect(isComplete(18_500_00, false, 9_250_00)).toBe(false);
+    expect(isComplete(18_500_00, false, 18_500_00)).toBe(true);
+    expect(isComplete(85_000_00, false, 84_000_00)).toBe(true);
+    expect(isComplete(85_000_00, false, 80_000_00)).toBe(false);
+  });
+  it("treats a bill with no usual amount, or one marked fully paid, as paid", () => {
+    expect(isComplete(null, false, 5_000_00)).toBe(true);
+    expect(isComplete(18_500_00, true, 0)).toBe(true);
   });
 });

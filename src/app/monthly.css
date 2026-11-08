@@ -63,3 +63,11 @@
   .mp-month h2 { min-width: 0; flex: 1; }
   .mp-tabs button { padding: 5px 6px; font-size: 0.8rem; }
 }
+
+/* Paid in parts */
+.mp-check.part { border-color: var(--gold); color: var(--gold); font-size: 0.72rem; }
+.mp-parts { display: grid; gap: 2px; }
+.mp-part { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mp-part .btn { color: var(--muted); }
+.mp-sofar { margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.mp-sofar-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }

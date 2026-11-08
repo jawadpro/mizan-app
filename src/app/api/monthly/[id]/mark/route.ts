@@ -14,7 +14,7 @@ async function itemId(ctx: Ctx) {
   return id;
 }
 
-/** PUT { month, status: "paid" | "skipped", transactionId?, amount?, note? } ticks an item off for a month. */
+/** PUT { month, status: "paid" | "skipped", transactionId?, full?, amount?, note? } ticks an item off or adds a part. */
 export const PUT = handle(async (req: Request, ctx: Ctx) => {
   requireSession(req);
   const id = await itemId(ctx);
@@ -26,12 +26,14 @@ export const PUT = handle(async (req: Request, ctx: Ctx) => {
   return json({ ok: true });
 });
 
-/** DELETE { month } puts it back to not paid for that month. */
+/** DELETE { month } puts it back to not paid for that month; { month, transactionId } removes just that part. */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   requireSession(req);
   const id = await itemId(ctx);
-  const body = (await readJson(req, 256)) as { month?: unknown } | null;
+  const body = (await readJson(req, 256)) as { month?: unknown; transactionId?: unknown } | null;
   if (!isMonth(body?.month)) throw new HttpError(400, "month must be YYYY-MM");
-  await unmarkMonthly(id, body.month);
+  const txId = body.transactionId;
+  if (txId !== undefined && (typeof txId !== "string" || !UUID.test(txId))) throw new HttpError(400, "transactionId must be a transaction id");
+  await unmarkMonthly(id, body.month, txId);
   return json({ ok: true });
 });

@@ -51,14 +51,15 @@ async function seedMonthly() {
          ORDER BY occurred_at LIMIT 1`,
         [ms],
       );
-      await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, transaction_id) VALUES ($1,$2,'paid',$3)`, [ids[name], ms, rows[0]?.id ?? null]);
+      await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, paid_in_full) VALUES ($1,$2,'paid',true)`, [ids[name], ms]);
+      if (rows[0]) await db.query(`INSERT INTO app.monthly_mark_txs (item_id, month, transaction_id) VALUES ($1,$2,$3)`, [ids[name], ms, rows[0].id]);
     };
     await link("Rent", "category = 'Rent'");
     await link("Electricity & gas", "category = 'Utilities'");
-    await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, note) VALUES ($1,$2,'paid','Paid at the school office')`, [ids["School fees"], ms]);
-    await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, amount_paisa, note) VALUES ($1,$2,'paid',2500000,'Cash')`, [ids.Maid, ms]);
+    await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, paid_in_full, note) VALUES ($1,$2,'paid',true,'Paid at the school office')`, [ids["School fees"], ms]);
+    await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, paid_in_full, amount_paisa, note) VALUES ($1,$2,'paid',true,2500000,'Cash')`, [ids.Maid, ms]);
     // One missed month, so the history shows something still open.
-    if (back !== 2) await db.query(`INSERT INTO app.monthly_marks (item_id, month, status) VALUES ($1,$2,'paid')`, [ids.Internet, ms]);
+    if (back !== 2) await db.query(`INSERT INTO app.monthly_marks (item_id, month, status, paid_in_full) VALUES ($1,$2,'paid',true)`, [ids.Internet, ms]);
   }
   console.log(`[seed] added ${items.length} sample monthly payments.`);
 }

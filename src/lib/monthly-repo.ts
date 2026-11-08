@@ -1,6 +1,6 @@
 import "server-only";
-import { q } from "./db";
-import { rankMatches, suggestFor, type Month } from "./monthly";
+import { q, tx } from "./db";
+import { isComplete, rankMatches, suggestFor, type Month } from "./monthly";
 import type { MonthlyItemInput, MonthlyMarkInput } from "./validation";
 
 export type MonthlyItemRow = {
@@ -14,33 +14,48 @@ export type MonthlyItemRow = {
   ended_month: Month | null;
 };
 export type LinkedTx = { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null };
-export type MonthlyMark = { status: "paid" | "skipped"; transaction_id: string | null; amount_paisa: number | null; note: string | null; marked_at: string };
+export type MonthlyMark = { status: "paid" | "skipped"; full: boolean; amount_paisa: number | null; note: string | null; marked_at: string };
+export type MonthState = "paid" | "partial" | "skipped" | null;
 
 const ITEM_COLS = (a = "") => `${a}id, ${a}name, ${a}amount_paisa::float8 AS amount_paisa, ${a}category, ${a}payee, ${a}due_day,
   to_char(${a}starts_month, 'YYYY-MM') AS starts_month, to_char(${a}ended_month, 'YYYY-MM') AS ended_month`;
 const TX_COLS = (a = "") => `${a}id, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note`;
 const first = (m: Month) => `${m}-01`;
 
+/** Sum of the transactions linked to mark "m". */
+const LINKED_SUM = `(SELECT coalesce(sum(t.amount_paisa), 0) FROM app.monthly_mark_txs l JOIN app.transactions t ON t.id = l.transaction_id
+  WHERE l.item_id = m.item_id AND l.month = m.month)`;
+/** SQL form of isComplete() in monthly.ts, for mark "m" of item "i". */
+const COMPLETE_SQL = `(m.status = 'paid' AND (m.paid_in_full OR i.amount_paisa IS NULL
+  OR (coalesce(m.amount_paisa, 0) + ${LINKED_SUM}) * 100 >= i.amount_paisa * 98))`;
+
 /** The checklist for one month: every item active in it, how it was settled, and a likely payment for the rest. */
 export async function monthlyList(month: Month, today: string) {
-  const { rows } = await q<MonthlyItemRow & { mark: MonthlyMark | null; tx: LinkedTx | null }>(
+  const { rows: raw } = await q<MonthlyItemRow & { mark: MonthlyMark | null; txs: LinkedTx[] }>(
     `SELECT ${ITEM_COLS("i.")},
             CASE WHEN m.item_id IS NULL THEN NULL ELSE json_build_object(
-              'status', m.status, 'transaction_id', m.transaction_id, 'amount_paisa', m.amount_paisa::float8,
+              'status', m.status, 'full', m.paid_in_full, 'amount_paisa', m.amount_paisa::float8,
               'note', m.note, 'marked_at', m.marked_at) END AS mark,
-            CASE WHEN t.id IS NULL THEN NULL ELSE json_build_object(
-              'id', t.id, 'amount_paisa', t.amount_paisa::float8, 'occurred_at', t.occurred_at, 'category', t.category,
-              'counterparty', t.counterparty, 'note', t.note) END AS tx
+            coalesce((SELECT json_agg(json_build_object(
+                'id', t.id, 'amount_paisa', t.amount_paisa::float8, 'occurred_at', t.occurred_at, 'category', t.category,
+                'counterparty', t.counterparty, 'note', t.note) ORDER BY t.occurred_at)
+              FROM app.monthly_mark_txs l JOIN app.transactions t ON t.id = l.transaction_id
+              WHERE l.item_id = i.id AND l.month = $1::date), '[]'::json) AS txs
      FROM app.monthly_items i
      LEFT JOIN app.monthly_marks m ON m.item_id = i.id AND m.month = $1::date
-     LEFT JOIN app.transactions t ON t.id = m.transaction_id
      WHERE (i.starts_month <= $1::date AND (i.ended_month IS NULL OR i.ended_month >= $1::date)) OR m.item_id IS NOT NULL
      ORDER BY i.due_day NULLS LAST, i.position, lower(i.name)`,
     [first(month)],
   );
-  const open = rows.filter((r) => !r.mark);
+  const rows = raw.map((r) => {
+    const paid = r.txs.reduce((a, t) => a + t.amount_paisa, 0) + (r.mark?.amount_paisa ?? 0);
+    const state: MonthState = !r.mark ? null : r.mark.status === "skipped" ? "skipped" : isComplete(r.amount_paisa, r.mark.full, paid) ? "paid" : "partial";
+    return { ...r, paid, state };
+  });
+  // Look for payments only in months that have started; for a part-paid item, look for the rest.
+  const open = rows.filter((r) => r.state === null || r.state === "partial")
+    .map((r) => (r.state === "partial" && r.amount_paisa ? { ...r, amount_paisa: Math.max(1, r.amount_paisa - r.paid) } : r));
   const suggestions = new Map<string, LinkedTx & { score: number }>();
-  // Look for payments only in months that have started.
   if (open.length && first(month) <= today) {
     const cands = await candidates(month, 5);
     for (const [k, v] of suggestFor(open, cands, month)) suggestions.set(k, v);
@@ -60,7 +75,8 @@ export async function monthlyList(month: Month, today: string) {
               (SELECT count(*) FROM app.monthly_items i
                 WHERE (i.starts_month <= g.m AND (i.ended_month IS NULL OR i.ended_month >= g.m))
                    OR EXISTS (SELECT 1 FROM app.monthly_marks k WHERE k.item_id = i.id AND k.month = g.m))::int AS due,
-              (SELECT count(*) FROM app.monthly_marks k WHERE k.month = g.m AND k.status = 'paid')::int AS paid,
+              (SELECT count(*) FROM app.monthly_marks m JOIN app.monthly_items i ON i.id = m.item_id
+                WHERE m.month = g.m AND ${COMPLETE_SQL})::int AS paid,
               (SELECT count(*) FROM app.monthly_marks k WHERE k.month = g.m AND k.status = 'skipped')::int AS skipped
        FROM generate_series($1::date - interval '5 months', $1::date, interval '1 month') AS g(m)
        ORDER BY g.m`,
@@ -78,18 +94,18 @@ export async function monthlyList(month: Month, today: string) {
   };
 }
 
-/** Expenses around a month that no checklist item has claimed yet (plus, optionally, the one an item already has). */
-async function candidates(month: Month, slackDays: number, keep: string | null = null, search?: string) {
-  const params: unknown[] = [first(month), slackDays, keep];
+/** Expenses around a month that no checklist item has claimed yet. */
+async function candidates(month: Month, slackDays: number, search?: string) {
+  const params: unknown[] = [first(month), slackDays];
   let extra = "";
   if (search) {
     params.push(`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
-    const conds = [`counterparty ILIKE $4`, `note ILIKE $4`, `category ILIKE $4`];
+    const conds = [`counterparty ILIKE $3`, `note ILIKE $3`, `category ILIKE $3`];
     const digits = search.replace(/[,\s]/g, "");
     if (/^\d+(\.\d{1,2})?$/.test(digits)) {
       const [w, fr = ""] = digits.split(".");
       params.push(Number(w) * 100 + Number(fr.padEnd(2, "0")));
-      conds.push(`amount_paisa = $5`);
+      conds.push(`amount_paisa = $4`);
     }
     extra = ` AND (${conds.join(" OR ")})`;
   }
@@ -98,7 +114,7 @@ async function candidates(month: Month, slackDays: number, keep: string | null =
      WHERE kind = 'expense'
        AND occurred_at >= (($1::date - $2::int)::timestamp AT TIME ZONE 'Asia/Karachi')
        AND occurred_at < ((($1::date + interval '1 month')::date + $2::int)::timestamp AT TIME ZONE 'Asia/Karachi')
-       AND (id = $3::uuid OR NOT EXISTS (SELECT 1 FROM app.monthly_marks mm WHERE mm.transaction_id = transactions.id))
+       AND NOT EXISTS (SELECT 1 FROM app.monthly_mark_txs l WHERE l.transaction_id = transactions.id)
        ${extra}
      ORDER BY occurred_at DESC LIMIT 400`,
     params,
@@ -106,17 +122,19 @@ async function candidates(month: Month, slackDays: number, keep: string | null =
   return rows;
 }
 
-/** Transactions to choose from when linking a payment, best guesses first. */
+/** Transactions to choose from when linking a payment, best guesses first (aimed at what is still to pay). */
 export async function monthlyMatches(id: string, month: Month, search?: string) {
   const item = await getItem(id);
   if (!item) return null;
-  const { rows: marks } = await q<{ transaction_id: string | null }>(
-    `SELECT transaction_id FROM app.monthly_marks WHERE item_id = $1 AND month = $2::date`,
+  const { rows: [paid] } = await q<{ total: number }>(
+    `SELECT coalesce(sum(t.amount_paisa), 0)::float8 AS total FROM app.monthly_mark_txs l JOIN app.transactions t ON t.id = l.transaction_id
+     WHERE l.item_id = $1 AND l.month = $2::date`,
     [id, first(month)],
   );
+  const target = item.amount_paisa && paid.total > 0 ? { ...item, amount_paisa: Math.max(1, item.amount_paisa - paid.total) } : item;
   // With a search, look a little wider: the payment may have gone out early or late.
-  const txs = await candidates(month, search ? 20 : 10, marks[0]?.transaction_id ?? null, search);
-  return rankMatches(item, txs, month, 0).slice(0, 40);
+  const txs = await candidates(month, search ? 20 : 10, search);
+  return rankMatches(target, txs, month, 0).slice(0, 40);
 }
 
 async function getItem(id: string) {
@@ -156,22 +174,61 @@ export async function deleteMonthlyItem(id: string) {
   return (rowCount ?? 0) > 0;
 }
 
+/**
+ * Ticks an item off for a month, or adds to it: a transaction adds a part, "full" says it is fully paid,
+ * amount and note record a part paid outside Mizan (only when given). Skipping clears the parts.
+ */
 export async function markMonthly(id: string, v: MonthlyMarkInput) {
   if (v.transactionId) {
     const { rows } = await q(`SELECT 1 FROM app.transactions WHERE id = $1`, [v.transactionId]);
     if (!rows.length) return "no-transaction" as const;
   }
-  const { rowCount } = await q(
-    `INSERT INTO app.monthly_marks (item_id, month, status, transaction_id, amount_paisa, note)
-     SELECT id, $2::date, $3, $4, $5, $6 FROM app.monthly_items WHERE id = $1
-     ON CONFLICT (item_id, month) DO UPDATE SET status = EXCLUDED.status, transaction_id = EXCLUDED.transaction_id,
-       amount_paisa = EXCLUDED.amount_paisa, note = EXCLUDED.note, marked_at = now()`,
-    [id, first(v.month), v.status, v.status === "paid" ? v.transactionId ?? null : null, v.status === "paid" && !v.transactionId ? v.amount ?? null : null, v.note ?? null],
-  );
-  return (rowCount ?? 0) > 0 ? ("ok" as const) : ("no-item" as const);
+  return tx(async (run) => {
+    const { rows: item } = await run(`SELECT 1 FROM app.monthly_items WHERE id = $1`, [id]);
+    if (!item.length) return "no-item" as const;
+    const m = first(v.month);
+    if (v.status === "skipped") {
+      await run(
+        `INSERT INTO app.monthly_marks (item_id, month, status, note) VALUES ($1, $2::date, 'skipped', $3)
+         ON CONFLICT (item_id, month) DO UPDATE SET status = 'skipped', paid_in_full = false, amount_paisa = NULL, note = EXCLUDED.note, marked_at = now()`,
+        [id, m, v.note ?? null],
+      );
+      await run(`DELETE FROM app.monthly_mark_txs WHERE item_id = $1 AND month = $2::date`, [id, m]);
+      return "ok" as const;
+    }
+    const setAmount = v.amount !== undefined;
+    const setNote = v.note !== undefined;
+    await run(
+      `INSERT INTO app.monthly_marks (item_id, month, status, paid_in_full, amount_paisa, note) VALUES ($1, $2::date, 'paid', $3, $4, $5)
+       ON CONFLICT (item_id, month) DO UPDATE SET status = 'paid',
+         paid_in_full = CASE WHEN monthly_marks.status = 'skipped' THEN EXCLUDED.paid_in_full ELSE monthly_marks.paid_in_full OR EXCLUDED.paid_in_full END,
+         amount_paisa = CASE WHEN $6 THEN EXCLUDED.amount_paisa WHEN monthly_marks.status = 'skipped' THEN NULL ELSE monthly_marks.amount_paisa END,
+         note = CASE WHEN $7 THEN EXCLUDED.note WHEN monthly_marks.status = 'skipped' THEN NULL ELSE monthly_marks.note END,
+         marked_at = now()`,
+      [id, m, v.full ?? false, v.amount ?? null, v.note ?? null, setAmount, setNote],
+    );
+    if (v.transactionId) {
+      await run(
+        `INSERT INTO app.monthly_mark_txs (item_id, month, transaction_id) VALUES ($1, $2::date, $3) ON CONFLICT DO NOTHING`,
+        [id, m, v.transactionId],
+      );
+    }
+    return "ok" as const;
+  });
 }
 
-export async function unmarkMonthly(id: string, month: Month) {
-  const { rowCount } = await q(`DELETE FROM app.monthly_marks WHERE item_id = $1 AND month = $2::date`, [id, first(month)]);
+/** Removes one part (a linked transaction), or with none given puts the item back to not paid for the month. */
+export async function unmarkMonthly(id: string, month: Month, transactionId?: string) {
+  if (!transactionId) {
+    const { rowCount } = await q(`DELETE FROM app.monthly_marks WHERE item_id = $1 AND month = $2::date`, [id, first(month)]);
+    return (rowCount ?? 0) > 0;
+  }
+  const { rowCount } = await q(`DELETE FROM app.monthly_mark_txs WHERE item_id = $1 AND month = $2::date AND transaction_id = $3`, [id, first(month), transactionId]);
+  // With nothing left to show for it, the month goes back to not paid.
+  await q(
+    `DELETE FROM app.monthly_marks m WHERE item_id = $1 AND month = $2::date AND status = 'paid' AND NOT paid_in_full AND amount_paisa IS NULL AND note IS NULL
+       AND NOT EXISTS (SELECT 1 FROM app.monthly_mark_txs l WHERE l.item_id = m.item_id AND l.month = m.month)`,
+    [id, first(month)],
+  );
   return (rowCount ?? 0) > 0;
 }
