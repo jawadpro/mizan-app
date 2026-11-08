@@ -10,7 +10,8 @@ let pool: Pool | undefined;
 function getPool(): Pool {
   if (!pool) {
     const url = env.databaseUrl();
-    const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+    // A database on this machine or inside Docker Compose has no TLS.
+    const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url) || process.env.DATABASE_SSL === "false";
     pool = new Pool({
       connectionString: url,
       ssl: local ? false : { rejectUnauthorized: true },

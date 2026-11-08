@@ -32,3 +32,6 @@
 .charges-input.invalid { border-color: var(--danger); }
 .charges-box .err { color: var(--danger); font-size: 0.82rem; }
 .charges-total { font-size: 0.88rem; color: var(--warn); }
+.charges-kind { display: inline-flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--warn-border); justify-self: start; }
+.charges-kind button { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted, inherit); cursor: pointer; }
+.charges-kind button.on { background: var(--warn-border); color: var(--warn); }

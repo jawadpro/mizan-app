@@ -78,8 +78,14 @@ const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4,
 const SELF_REF_RE = /^(your|ur|the|a\/c|ac|acc|account|card|mcb|wallet|you)\b/i;
 
 const CATEGORY_RULES: Array<[RegExp, string]> = [
+  // Withholding tax can be claimed against income tax, so it is kept apart from fees. Tax cut "on cash withdrawal"
+  // names the withdrawal, so it is matched before withdrawals; a withdrawal alert that mentions tax stays a withdrawal.
+  [/\b(withholding|wht|w\.h\.t|income\s+tax|advance\s+tax|tax)\b.*\b(on|for)\s+(atm\s+)?cash\s+withdrawal\b/i, "Tax deducted"],
   [/\b(atm|cash\s+withdrawal)\b/i, "Cash withdrawal"],
-  [/\b(fee|charges?|fed|excise|withholding|wht|annual\s+fee|sms\s+alert\s+charges?)\b/i, "Bank charges"],
+  // Income tax paid to FBR, usually through a PSID (payment slip ID) from IRIS.
+  [/\b(fbr|psid|federal\s+board\s+of\s+revenue)\b/i, "Tax payment"],
+  [/\b(withholding|wht|w\.h\.t|income\s+tax|advance\s+tax|tax\s+u\/s)\b/i, "Tax deducted"],
+  [/\b(fee|charges?|fed|excise|annual\s+fee|sms\s+alert\s+charges?)\b/i, "Bank charges"],
   [/\b(salary|payroll)\b/i, "Salary"],
   [/\b(k-?electric|ke\s+bill|lesco|iesco|mepco|fesco|gepco|pesco|hesco|sepco|ssgc|sngpl|ptcl|stormfiber|nayatel|wateen|jazz|zong|telenor|ufone|warid|kwsc|wasa)\b/i, "Utilities"],
   [/\b(foodpanda|kfc|nando'?s|mcdonald'?s|cheezious|domino'?s|pizza|restaurant|cafe|bakery|savour|hardee'?s)\b/i, "Food & dining"],

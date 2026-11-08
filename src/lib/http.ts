@@ -1,6 +1,7 @@
 import "server-only";
 import { AuthError } from "./auth";
 import { ConfigError } from "./env";
+import { loadConfig } from "./config";
 
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), {
@@ -51,6 +52,7 @@ export async function readJson(req: Request, maxBytes: number): Promise<unknown>
 export function handle<A extends unknown[]>(fn: (...args: A) => Promise<Response>) {
   return async (...args: A): Promise<Response> => {
     try {
+      await loadConfig();
       return await fn(...args);
     } catch (e) {
       if (e instanceof HttpError) return errorJson(e.status, e.message, e.extra);
