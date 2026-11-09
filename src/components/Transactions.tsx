@@ -11,7 +11,7 @@ import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useBanks } from "./useBanks";
-import ChargesField, { type ChargesKind } from "./ChargesField";
+import { useChargesEdit } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
 
@@ -56,9 +56,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const [to, setTo] = useState(sp.get("to") ?? "");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Tx | "new" | null>(null);
-  const [charges, setCharges] = useState("");
-  const [chargesKind, setChargesKind] = useState<ChargesKind>("fee");
-  const edit = (t: Tx | "new") => { setCharges(""); setChargesKind("fee"); setEditing(t); };
+  const chargesEdit = useChargesEdit();
+  const edit = (t: Tx | "new") => { chargesEdit.start(t); setEditing(t); };
   const dq = useDebounced(q);
   const filters = { q: dq, kind, category, source, bank, from, to, counterparty: fixedCounterparty };
   useEffect(() => setPage(1), [dq, kind, category, source, bank, from, to]);
@@ -70,10 +69,10 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const hasFilters = !!(dq || kind || category || source || bank || from || to);
 
   async function save(d: TxDraft, id?: string) {
-    const withCharges = !!id && d.kind === "expense" && charges.trim() !== "";
-    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(withCharges ? { ...d, charges, chargesKind } : d) });
+    const chargesNote = id ? chargesEdit.toastFor(d) : null;
+    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(id ? chargesEdit.body(d) : d) });
     setEditing(null);
-    toast(withCharges ? `Updated, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : id ? "Transaction updated" : "Transaction added", "ok");
+    toast(chargesNote ?? (id ? "Transaction updated" : "Transaction added"), "ok");
     reload();
   }
   async function destroy(id: string) {
@@ -110,7 +109,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
             {readOnly ? (
               <button className="btn primary" disabled title="The demo is read-only. Sign in to your private workspace to add transactions.">+ Add transaction</button>
             ) : (
-              <button className="btn primary" onClick={() => setEditing("new")}>+ Add transaction</button>
+              <button className="btn primary" onClick={() => edit("new")}>+ Add transaction</button>
             )}
           </div>
         </div>
@@ -157,7 +156,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
       <div className="card">
         {error ? <ErrorBox message={error} onRetry={reload} /> : loading && !data ? <Loading rows={8} label="Loading transactions" /> : data && data.items.length === 0 ? (
           <Empty icon={hasFilters ? "🔍" : "🌱"} title={hasFilters ? "Nothing matches these filters" : "No transactions yet"}>
-            {!hasFilters && !readOnly && <p><button className="btn primary" onClick={() => setEditing("new")}>Add your first transaction</button></p>}
+            {!hasFilters && !readOnly && <p><button className="btn primary" onClick={() => edit("new")}>Add your first transaction</button></p>}
           </Empty>
         ) : (
           <>
@@ -274,7 +273,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
             d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
-              <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
+              chargesEdit.field(d, fieldErrors.charges?.[0])
             )
           }
         />

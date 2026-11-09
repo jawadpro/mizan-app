@@ -7,6 +7,7 @@ import { addDays } from "./time";
 import { normalizePrefs, type Prefs } from "./preferences";
 import { normalizeWords, type SmsWords } from "./sms/keywords";
 import type { Bank } from "./banks";
+import { BANK_CHARGES, TAX_DEDUCTED, type ChargeEdits } from "./charges";
 
 export type TxRow = {
   id: string;
@@ -24,6 +25,9 @@ export type TxRow = {
   /** For a bank charge or tax added on a transfer: the transfer it belongs to. */
   parent_id: string | null;
 };
+
+/** A listed transaction, with the bank charges and tax already added on it (so its edit form can show them). */
+export type ListedTxRow = TxRow & { charge_fee_paisa: number | null; charge_tax_paisa: number | null };
 
 const txCols = (a = "") =>
   `${a}id, ${a}kind, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note, ${a}source, ${a}account_hint, ${a}bank_ref, ${a}set_aside_id, ${a}bank_id, ${a}parent_id`;
@@ -63,12 +67,20 @@ function buildWhere(f: Partial<ListQuery>) {
 // Transfers between the user's own accounts move the balance but are neither spending nor income.
 const NOT_OWN = `category <> '${OWN_ACCOUNTS}'`;
 
+/** Total of the charges of one category added on the listed transfer `t`, or null when there are none. */
+const chargeSum = (s: string, category: string) =>
+  `(SELECT sum(c.amount_paisa)::float8 FROM ${s}.transactions c WHERE c.parent_id = t.id AND c.category = '${category}')`;
+
 export async function listTransactions(space: Space, f: ListQuery) {
   const { sql, params } = buildWhere(f);
   const s = sch(space);
   const offset = (f.page - 1) * f.pageSize;
   const [rows, agg] = await Promise.all([
-    q<TxRow>(`SELECT ${TX_COLS} FROM ${s}.transactions ${sql} ORDER BY occurred_at DESC, created_at DESC LIMIT ${f.pageSize} OFFSET ${offset}`, params),
+    q<ListedTxRow>(
+      `SELECT ${txCols("t.")}, ${chargeSum(s, "Bank charges")} AS charge_fee_paisa, ${chargeSum(s, "Tax deducted")} AS charge_tax_paisa
+       FROM ${s}.transactions t ${sql} ORDER BY occurred_at DESC, created_at DESC LIMIT ${f.pageSize} OFFSET ${offset}`,
+      params,
+    ),
     q<{ n: number; expense: number; income: number; remittance: number }>(
       `SELECT count(*)::int AS n,
               coalesce(sum(amount_paisa) FILTER (WHERE kind='expense' AND ${NOT_OWN}),0)::float8 AS expense,
@@ -251,7 +263,27 @@ export async function createTransaction(t: TransactionInput, source: "manual" | 
   return rows[0];
 }
 
-export async function updateTransaction(id: string, t: TransactionInput, chargesPaisa = 0, chargesCategory = "Bank charges") {
+/**
+ * Sets a transfer's bank charge or tax of one category to `paisa`: changes the charge already added on it,
+ * adds one if there was none, and removes it when `paisa` is 0.
+ */
+async function setBankCharge(run: Run, parent: TxRow, paisa: number, t: TransactionInput, category: string) {
+  if (paisa <= 0) {
+    await run(`DELETE FROM app.transactions WHERE parent_id=$1 AND category=$2`, [parent.id, category]);
+    return;
+  }
+  const { rows } = await run<{ id: string }>(
+    `UPDATE app.transactions SET amount_paisa=$3, updated_at=now()
+     WHERE id = (SELECT id FROM app.transactions WHERE parent_id=$1 AND category=$2 ORDER BY created_at LIMIT 1)
+     RETURNING id`,
+    [parent.id, category, paisa],
+  );
+  // Two charges of the same kind (added twice before the box showed the first) become the one amount typed.
+  if (rows[0]) await run(`DELETE FROM app.transactions WHERE parent_id=$1 AND category=$2 AND id<>$3`, [parent.id, category, rows[0].id]);
+  else await addBankCharge(run, parent.id, paisa, t, parent.account_hint, parent.bank_id, category);
+}
+
+export async function updateTransaction(id: string, t: TransactionInput, charges: ChargeEdits = {}) {
   return withFundCheck(() => tx(async (run) => {
     const { rows } = await run<TxRow>(
       `UPDATE app.transactions SET kind=$2, amount_paisa=$3, occurred_at=$4, category=$5, counterparty=$6, note=$7, set_aside_id=$8,
@@ -260,7 +292,10 @@ export async function updateTransaction(id: string, t: TransactionInput, charges
       // A form that doesn't show the bank (one bank only) leaves it as it is.
       [id, t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, fundOf(t), t.bankId !== undefined, t.bankId ?? null],
     );
-    if (rows[0] && chargesPaisa > 0) await addBankCharge(run, rows[0].id, chargesPaisa, t, rows[0].account_hint, rows[0].bank_id, chargesCategory);
+    if (rows[0]) {
+      if (charges.fee !== undefined) await setBankCharge(run, rows[0], charges.fee, t, BANK_CHARGES);
+      if (charges.tax !== undefined) await setBankCharge(run, rows[0], charges.tax, t, TAX_DEDUCTED);
+    }
     return rows[0] ?? null;
   }));
 }
