@@ -152,9 +152,8 @@ function IphoneStep({ endpoint, back, next }: { endpoint: string; back: () => vo
   return (
     <>
       <h1>Forward alerts from your iPhone</h1>
-      <p className="muted">A Shortcuts automation sends each bank SMS to Mizan as it arrives. You can do this now or later from SMS setup in the menu.</p>
+      <p className="muted">Two ready-made Shortcuts send each bank SMS to Mizan as it arrives. Open this page on your iPhone to add them. You can also do this later from SMS setup in the menu.</p>
       <div className="setup-panel">
-        <div className="setup-kv"><span>URL</span><code>{endpoint}</code></div>
         <div className="setup-kv"><span>Token</span><SmsToken /></div>
       </div>
       <div className="setup-panel"><ShortcutSteps endpoint={endpoint} /></div>

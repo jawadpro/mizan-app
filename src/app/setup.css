@@ -33,3 +33,11 @@
 .shortcut-steps { padding-left: 18px; line-height: 1.7; margin: 12px 0 0; }
 .sms-token { display: grid; gap: 8px; }
 .sms-token-value { word-break: break-all; font-size: 0.85rem; }
+
+.shortcut-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+.shortcut-card { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); text-decoration: none; font-size: 0.86rem; }
+.shortcut-card span { color: var(--muted); }
+.shortcut-card:hover { background: var(--hover); }
+.shortcut-card .shortcut-add { color: var(--accent-ink); font-weight: 600; margin-top: 4px; }
+.shortcut-url { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+.shortcut-url code { word-break: break-all; }
