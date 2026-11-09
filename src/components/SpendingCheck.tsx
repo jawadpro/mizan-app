@@ -9,6 +9,7 @@ import { apiFetch, ApiError } from "./api";
 import { useData } from "./useData";
 import { ErrorBox, Skeleton } from "./States";
 import { useToast } from "./Toast";
+import CloseButton from "./CloseButton";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const HIDDEN_KEY = "mizan.tips.hidden";
@@ -86,7 +87,7 @@ export default function SpendingCheck({ onNavigate, onClose }: { onNavigate?: ()
         <h2 id="spend-title">Spending check{monthName ? ` · ${monthName} so far` : ""}</h2>
         <div className="toolbar">
           <button className="btn sm" onClick={() => setEdit({ category: "", amount: "", existing: false })} disabled={!data}>Add a limit</button>
-          {onClose && <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>}
+          {onClose && <CloseButton onClick={onClose} />}
         </div>
       </div>
 
@@ -216,7 +217,7 @@ export function LimitModal({ edit, taken, onClose, onSaved }: { edit: LimitEdit;
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="limit-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
           <h2 id="limit-title">{edit.category ? `${edit.category} monthly limit` : "Monthly spending limit"}</h2>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={submit}>
           {!edit.category && (

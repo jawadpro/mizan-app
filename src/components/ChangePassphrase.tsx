@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { apiFetch, type ApiError } from "./api";
+import CloseButton from "./CloseButton";
 
 const MIN = 12;
 
@@ -44,7 +45,7 @@ export function ChangePassphraseModal({ onClose, onDone }: { onClose: () => void
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="pass-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
           <h2 id="pass-title">Change passphrase</h2>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close" disabled={busy}>✕</button>
+          <CloseButton onClick={onClose} disabled={busy} />
         </div>
         <form onSubmit={submit} className="pass-form">
           {/* A hidden username helps password managers save the new passphrase against Mizan. */}
