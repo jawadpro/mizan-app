@@ -18,3 +18,19 @@ export function readCharges(body: unknown): number {
   if (c === null) throw new HttpError(400, "Please fix the highlighted fields", { fields: { charges: ["Enter charges like 150 or 150.50"] } });
   return c;
 }
+
+/** New amounts for the bank charge and tax on a transfer being edited; a missing kind is left as it is, 0 removes it. */
+export type ChargeEdits = { fee?: number; tax?: number };
+
+/** Reads the edit form's charge boxes: `{ fee?: string, tax?: string }`, where an empty box means none. */
+export function readChargeEdits(body: unknown): ChargeEdits {
+  const raw = (body as { chargeEdits?: unknown } | null)?.chargeEdits;
+  if (!raw || typeof raw !== "object") return {};
+  const out: ChargeEdits = {};
+  for (const k of ["fee", "tax"] as const) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (v === undefined) continue;
+    out[k] = readCharges({ charges: typeof v === "string" ? v : "x" });
+  }
+  return out;
+}
