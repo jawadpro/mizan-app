@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { CATEGORIES, KIND_LABEL, KINDS, type Kind } from "@/lib/categories";
-import { paisaToDecimal } from "@/lib/money";
+import { getDisplayCurrency, paisaToDecimal } from "@/lib/money";
 import { dateToPktLocal } from "@/lib/time";
 import { ApiError } from "./api";
 import { useData } from "./useData";
@@ -111,7 +111,7 @@ export default function TxForm({
                 {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
               </select>
             </label>
-            <label className="field">Amount (PKR)
+            <label className="field">Amount ({getDisplayCurrency()})
               <input inputMode="decimal" placeholder="e.g. 2,450.00" value={d.amount} onChange={(e) => set("amount", e.target.value)} required aria-invalid={!!fields.amount} />
               {fields.amount && <span className="err">{fields.amount[0]}</span>}
             </label>

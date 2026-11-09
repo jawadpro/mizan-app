@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatPaisa } from "@/lib/money";
+import { formatPaisa, getDisplayCurrency } from "@/lib/money";
 import { formatDatePkt } from "@/lib/time";
 import { change } from "@/lib/delta";
 import { resourceUrl, type Space } from "./api";
@@ -19,7 +19,7 @@ const SERIES_LABEL: Record<Series, string> = { expense: "Expenses", income: "Inc
 
 /** Whole rupees for headline figures; the exact paisa stay in tooltips and tables. */
 const rs = (p: number, opts: { sign?: boolean } = {}) => formatPaisa(Math.round(p), opts).replace(/\.\d\d$/, "");
-const compact = (p: number) => formatPaisa(Math.round(p), { compact: true }).replace("Rs ", "");
+const compact = (p: number) => formatPaisa(Math.round(p), { compact: true, symbol: false });
 
 function bucketLabel(b: string, g: Gran, long = false) {
   if (g === "year") return b;
@@ -108,7 +108,7 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
       <div className="page-head">
         <div>
           <h1>Overview</h1>
-          <p className="muted small">All amounts in PKR{vs ? ` · compared with ${vs}` : ""}</p>
+          <p className="muted small">All amounts in {getDisplayCurrency()}{vs ? ` · compared with ${vs}` : ""}</p>
         </div>
         <div className="toolbar">
           {multi && (

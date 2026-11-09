@@ -205,7 +205,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       <td>{t.category}</td>
                       <td><span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span></td>
                       <td>{t.source === "sms" ? <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>{(multi && nameOf(t.bank_id)) || "SMS"}</span> : <span className="pill">{t.source === "demo" ? "Demo" : (multi && nameOf(t.bank_id)) ? `${nameOf(t.bank_id)} · Manual` : "Manual"}</span>}</td>
-                      <td className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa).replace("Rs ", "Rs ")}</td>
+                      <td className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa).replace(" ", "\u00a0")}</td>
                       {!readOnly && (
                         <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}

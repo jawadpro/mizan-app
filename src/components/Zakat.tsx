@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "./api";
 import { useToast } from "./Toast";
 import "@/app/zakat.css";
-import { formatPaisa, parseAmountToPaisa } from "@/lib/money";
+import { currencySymbol, formatPaisa, getDisplayCurrency, parseAmountToPaisa } from "@/lib/money";
 import { formatDatePkt, formatTimePkt, isIsoDate, todayPkt } from "@/lib/time";
 import { computeZakat, NISAB_TOLA, type NisabBasis } from "@/lib/zakat";
 import { useData } from "./useData";
@@ -194,7 +194,7 @@ export default function Zakat() {
             <div className="small muted" style={{ marginTop: 12 }}>
               {live.loading && !live.data ? "Fetching live gold and silver prices…" : live.data ? (
                 <>
-                  Live prices: gold {formatPaisa(live.data.goldPerTola)} and silver {formatPaisa(live.data.silverPerTola)} per tola, updated {formatDatePkt(live.data.pricesAt)} {formatTimePkt(live.data.pricesAt)} (1 USD = Rs {live.data.pkrPerUsd.toFixed(2)}).
+                  Live prices: gold {formatPaisa(live.data.goldPerTola)} and silver {formatPaisa(live.data.silverPerTola)} per tola, updated {formatDatePkt(live.data.pricesAt)} {formatTimePkt(live.data.pricesAt)}{getDisplayCurrency() === "USD" ? "" : ` (1 USD = ${currencySymbol()} ${live.data.pkrPerUsd.toFixed(2)})`}.
                   {" "}These come from international spot rates via {live.data.source}. Local sarafa rates are usually a little higher, so type your own price above if you prefer them.
                 </>
               ) : (

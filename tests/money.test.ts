@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPaisa, paisaToDecimal, parseAmountToPaisa } from "@/lib/money";
+import { formatPaisa, getDisplayCurrency, paisaToDecimal, parseAmountToPaisa, setDisplayCurrency } from "@/lib/money";
 import { pktLocalToDate, dateToPktLocal } from "@/lib/time";
 
 describe("money", () => {
@@ -17,6 +17,23 @@ describe("money", () => {
     expect(formatPaisa(50)).toBe("Rs 0.50");
     expect(paisaToDecimal(123450)).toBe("1234.50");
     expect(formatPaisa(28500000, { compact: true })).toBe("Rs 2.9 L");
+  });
+  it("formats in another currency with thousands grouping", () => {
+    expect(formatPaisa(12345678901, { currency: "USD" })).toBe("$ 123,456,789.01");
+    expect(formatPaisa(-150000, { currency: "GBP", compact: true })).toBe("−£ 1.5k");
+    expect(formatPaisa(250000000, { currency: "AED", compact: true })).toBe("AED 2.5M");
+    expect(formatPaisa(12345678, { currency: "INR" })).toBe("₹ 1,23,456.78");
+    expect(formatPaisa(28500000, { compact: true, symbol: false })).toBe("2.9 L");
+  });
+  it("uses the chosen display currency and ignores unknown codes", () => {
+    try {
+      setDisplayCurrency("EUR");
+      expect(formatPaisa(100050)).toBe("€ 1,000.50");
+      setDisplayCurrency("XYZ");
+      expect(getDisplayCurrency()).toBe("PKR");
+    } finally {
+      setDisplayCurrency("PKR");
+    }
   });
 });
 

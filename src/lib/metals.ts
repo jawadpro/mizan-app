@@ -2,7 +2,7 @@ import "server-only";
 import { tolaPricePaisa } from "./zakat";
 
 // Free, keyless sources: gold-api.com for spot metal prices (USD per troy ounce) and
-// open.er-api.com for USD to PKR. Responses are untrusted, so every field is checked.
+// open.er-api.com for USD to the chosen currency. Responses are untrusted, so every field is checked.
 const GOLD_URL = "https://api.gold-api.com/price/XAU";
 const SILVER_URL = "https://api.gold-api.com/price/XAG";
 const FX_URL = "https://open.er-api.com/v6/latest/USD";
@@ -29,14 +29,17 @@ function spot(j: unknown): { usd: number; at: string } {
   return { usd: o.price, at };
 }
 
-export async function fetchMetalPrices(): Promise<MetalPrices> {
+/** Prices per tola in the given currency (PKR unless the owner chose another in Settings). */
+export async function fetchMetalPrices(currency = "PKR"): Promise<MetalPrices> {
   const [g, s, fx] = await Promise.all([getJson(GOLD_URL), getJson(SILVER_URL), getJson(FX_URL)]);
   const gold = spot(g);
   const silver = spot(s);
-  const f = fx as { result?: unknown; rates?: { PKR?: unknown }; time_last_update_unix?: unknown };
-  const pkr = f?.result === "success" && typeof f.rates?.PKR === "number" ? f.rates.PKR : NaN;
+  const f = fx as { result?: unknown; rates?: Record<string, unknown>; time_last_update_unix?: unknown };
+  const rate = f?.result === "success" ? f.rates?.[currency] : undefined;
+  const pkr = typeof rate === "number" ? rate : NaN;
   // Guard against a broken feed producing an absurd rate.
-  if (!(pkr > 50 && pkr < 2000)) throw new Error("unexpected exchange rate");
+  const ok = currency === "PKR" ? pkr > 50 && pkr < 2000 : currency === "USD" ? pkr === 1 : pkr > 0.1 && pkr < 100000;
+  if (!ok) throw new Error("unexpected exchange rate");
   const goldPerTola = tolaPricePaisa(gold.usd, pkr);
   const silverPerTola = tolaPricePaisa(silver.usd, pkr);
   if (!goldPerTola || !silverPerTola) throw new Error("unexpected metal price");

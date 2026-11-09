@@ -1,7 +1,7 @@
 // Spending check: plain rules that look at the month so far and say when spending is off track.
 // Pure functions only, so the rules can be tested without a database. All money is paisa.
 
-import { formatPaisa } from "./money";
+import { currencyInfo, formatPaisa } from "./money";
 
 /** Giving and saving are never "overspending", so they are left out of pace and spike checks. */
 export const NOT_CONTROLLABLE = new Set(["Zakat", "Charity", "Savings"]);
@@ -54,9 +54,11 @@ export type Insights = {
 };
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
+/** Thresholds below are in rupees; this scales them to the chosen currency (Rs 5,000 is about $50). */
+const scaled = (paisa: number) => Math.max(100, Math.round(paisa * currencyInfo().scale));
 /** Rounds a suggested limit up to a tidy figure: nearest Rs 500 under Rs 10k, else Rs 1,000. */
 export function tidyLimit(p: number) {
-  const step = p < 1_000_000 ? 50_000 : 100_000;
+  const step = p < scaled(1_000_000) ? scaled(50_000) : scaled(100_000);
   return Math.max(step, Math.ceil(p / step) * step);
 }
 const ordinal = (n: number) => {
@@ -73,8 +75,8 @@ export function daysInMonth(isoDate: string) {
 /** Pace checks need a few days of data before a projection means anything. */
 const MIN_DAYS_FOR_PROJECTION = 7;
 /** Rs 5,000 overall, Rs 2,000 for one category: smaller swings are noise, not a problem. */
-const PACE_MIN_GAP = 500_000;
-const SPIKE_MIN_GAP = 200_000;
+const PACE_MIN_GAP = () => scaled(500_000);
+const SPIKE_MIN_GAP = () => scaled(200_000);
 
 export function buildInsights(i: InsightInput): Insights {
   const day = Number(i.today.slice(8, 10));
@@ -127,7 +129,7 @@ export function buildInsights(i: InsightInput): Insights {
   // 2. Overall pace against the same days of recent months.
   const spent = sum(i.monthByCategory);
   const usualSoFar = n > 0 ? Math.round(sum(i.baselineSameDays) / n) : null;
-  if (usualSoFar != null && usualSoFar > 0 && spent > usualSoFar * 1.2 && spent - usualSoFar >= PACE_MIN_GAP) {
+  if (usualSoFar != null && usualSoFar > 0 && spent > usualSoFar * 1.2 && spent - usualSoFar >= PACE_MIN_GAP()) {
     // Name the category that pushed it up the most.
     const drivers = Object.keys(i.monthByCategory)
       .filter(controllable)
@@ -156,7 +158,7 @@ export function buildInsights(i: InsightInput): Insights {
     const spikes = Object.keys(i.monthByCategory)
       .filter((c) => controllable(c) && !limitOf.has(c) && c !== paceDriver)
       .map((c) => ({ c, now: i.monthByCategory[c], usual: (i.baselineSameDays[c] ?? 0) / n, month: (i.baselineFull[c] ?? 0) / n }))
-      .filter((x) => x.now - x.usual >= SPIKE_MIN_GAP && (x.usual === 0 ? x.month > 0 && x.now > x.month : x.now > x.usual * 1.5))
+      .filter((x) => x.now - x.usual >= SPIKE_MIN_GAP() && (x.usual === 0 ? x.month > 0 && x.now > x.month : x.now > x.usual * 1.5))
       .sort((a, b) => b.now - b.usual - (a.now - a.usual))
       .slice(0, 2);
     for (const s of spikes) {
