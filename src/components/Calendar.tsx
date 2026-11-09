@@ -166,6 +166,12 @@ export default function Calendar({ space }: { space: Space }) {
     toast(withCharges ? `Updated, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : id ? "Transaction updated" : "Transaction added", "ok");
     reload();
   }
+  async function destroy(id: string) {
+    await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+    setEditing(null);
+    toast("Transaction deleted", "ok");
+    reload();
+  }
   async function remove(t: Tx) {
     if (!window.confirm(`Delete ${formatPaisa(t.amount_paisa)} ${t.counterparty ? `to ${t.counterparty}` : ""}? This can't be undone.`)) return;
     try {
@@ -269,6 +275,7 @@ export default function Calendar({ space }: { space: Space }) {
           initial={editing === "new" ? { ...draftFrom(), ...(newDay && newDay !== today ? { occurredAt: `${newDay}T12:00` } : {}) } : draftFrom(editing)}
           onClose={() => setEditing(null)}
           onSubmit={(d) => save(d, editing === "new" ? undefined : editing.id)}
+          onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
             d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
               <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
