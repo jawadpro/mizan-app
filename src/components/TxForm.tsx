@@ -25,13 +25,15 @@ export function draftFrom(t?: Partial<{ kind: Kind | null; amount_paisa: number 
 }
 
 export default function TxForm({
-  title, initial, submitLabel, onSubmit, onClose, children, extra,
+  title, initial, submitLabel, onSubmit, onClose, onDelete, children, extra,
 }: {
   title: string;
   initial: TxDraft;
   submitLabel: string;
   onSubmit: (d: TxDraft) => Promise<void>;
   onClose: () => void;
+  /** When editing, shows a Delete button that asks once more before removing the transaction. */
+  onDelete?: () => Promise<void>;
   children?: React.ReactNode;
   /** Extra inputs shown at the end of the form; receives the server's field errors. */
   extra?: (d: TxDraft, fieldErrors: Record<string, string[]>) => React.ReactNode;
@@ -40,6 +42,7 @@ export default function TxForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string[]>>({});
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const first = useRef<HTMLSelectElement>(null);
   const funds = useData<{ items: SetAside[] }>("/api/set-asides").data?.items ?? [];
   const { banks, multi } = useBanks();
@@ -69,6 +72,20 @@ export default function TxForm({
       const a = ex as ApiError;
       setErr(a.message);
       setFields(a.fields ?? {});
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!onDelete) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await onDelete();
+    } catch (ex) {
+      setErr((ex as Error).message);
+      setConfirmDelete(false);
     } finally {
       setBusy(false);
     }
@@ -128,10 +145,21 @@ export default function TxForm({
             {extra?.(d, fields)}
           </div>
           {err && <div className="alert error" style={{ marginTop: 14 }} role="alert">{err}</div>}
-          <div className="modal-foot">
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button>
-          </div>
+          {confirmDelete ? (
+            <div className="delete-confirm" role="alert">
+              <p>Delete this {d.kind === "expense" ? "expense" : "transaction"} for good? It will be removed from your totals and can&apos;t be undone.</p>
+              <div className="modal-foot">
+                <button type="button" className="btn" onClick={() => setConfirmDelete(false)} disabled={busy} autoFocus>Keep it</button>
+                <button type="button" className="btn danger-solid" onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button>
+              </div>
+            </div>
+          ) : (
+            <div className={`modal-foot${onDelete ? " with-delete" : ""}`}>
+              {onDelete && <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)} disabled={busy}>Delete</button>}
+              <button type="button" className="btn" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn primary" disabled={busy}>{busy ? "Saving…" : submitLabel}</button>
+            </div>
+          )}
         </form>
       </div>
     </div>
