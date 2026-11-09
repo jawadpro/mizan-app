@@ -333,3 +333,4 @@ table.tx tr:has(+ tr.day-row) td { border-bottom: 0; }
 .tx-cards > .day-head, .tx-list > .day-head { margin: 0 calc(-1 * var(--pad-x, 18px)); padding-left: var(--pad-x, 18px); padding-right: var(--pad-x, 18px); }
 .tx-cards > .day-head:first-child { margin-top: calc(-1 * var(--pad-y, 16px)); border-top: 0; border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0; }
 .tx-card:has(+ .day-head), .tx-row:has(+ .day-head) { border-bottom: 0; }
+.modal:focus { outline: none; }

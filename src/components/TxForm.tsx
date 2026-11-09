@@ -51,8 +51,12 @@ export default function TxForm({
   // back to the first field and close the phone keyboard mid-typing.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const dialog = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    first.current?.focus();
+    // With a mouse and keyboard, start on the first field. On a touch screen, focusing a select pops
+    // its picker open, so focus the dialog itself instead (screen readers still land inside it).
+    if (window.matchMedia("(pointer: fine)").matches) first.current?.focus();
+    else dialog.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -93,7 +97,7 @@ export default function TxForm({
 
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="txform-title">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="txform-title" ref={dialog} tabIndex={-1}>
         <div className="modal-head">
           <h2 id="txform-title">{title}</h2>
           <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
