@@ -56,6 +56,9 @@ export default function MessageTester({ ownNames, version }: { ownNames: string;
               <dt>Type</dt><dd>{f.kind ? KIND_LABEL[f.kind] : none("unclear")}</dd>
               <dt>Amount</dt><dd className="num">{f.amountPaisa ? formatPaisa(f.amountPaisa) : none()}</dd>
               <dt>{f.kind === "expense" ? "Paid to" : "From"}</dt><dd>{f.counterparty ?? none()}</dd>
+              {f.kind === "expense" && f.chargesPaisa ? (
+                <><dt>Bank charges</dt><dd className="num">{formatPaisa(f.chargesPaisa)} <span className="muted">saved as its own expense · {formatPaisa((f.amountPaisa ?? 0) + f.chargesPaisa)} out in total</span></dd></>
+              ) : null}
               <dt>Category</dt><dd>{f.category ?? (f.kind ? "Uncategorized" : none())}</dd>
               <dt>Date</dt><dd className="num">{f.occurredAt ? `${formatDatePkt(f.occurredAt)}${f.hasExplicitTime ? `, ${formatTimePkt(f.occurredAt)}` : ""}` : none("time it arrives")}</dd>
               <dt>Account</dt><dd className="num">{f.accountHint ? `••${f.accountHint}` : none()}</dd>
