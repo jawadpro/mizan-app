@@ -3,8 +3,8 @@ import { useToast } from "./Toast";
 
 /** Ready-made Shortcuts, shared from iCloud. Each user adds them and points them at their own Mizan. */
 export const SHORTCUTS = {
-  main: { name: "Expense Manager", url: "https://www.icloud.com/shortcuts/3600c130b51644a08061cfa967a1f0dd" },
-  queue: { name: "Import Queued Messages", url: "https://www.icloud.com/shortcuts/cd9fee2b7f9c4774ac677dbc600a043e" },
+  main: { name: "Expense Manager", url: "https://www.icloud.com/shortcuts/05108bb6124e42d9bce37b938b44ee9b" },
+  queue: { name: "Import Queued Messages", url: "https://www.icloud.com/shortcuts/008b0d8f41ea4ea3bfa9f497ceefb7a3" },
 };
 
 function CopyUrl({ endpoint }: { endpoint: string }) {
