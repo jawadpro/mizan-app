@@ -1,7 +1,7 @@
 // All samples below are SYNTHETIC. They imitate common Pakistani bank alert wording and are
 // NOT verified MCB formats. Add redacted real MCB samples here before trusting auto-import.
 import { describe, expect, it } from "vitest";
-import { isTrustedSender, parseSms, redactSms } from "@/lib/sms/parser";
+import { findCharges, isTrustedSender, parseSms, redactSms } from "@/lib/sms/parser";
 
 const receivedAt = new Date("2026-10-15T09:30:00Z"); // 14:30 PKT
 const p = (text: string, sender = "MCB") => parseSms({ sender, text, receivedAt });
@@ -259,5 +259,39 @@ describe("real JS Bank alert formats", () => {
     expect(r.status).toBe("parsed");
     if (r.status !== "parsed") return;
     expect(r.fields).toMatchObject({ kind: "expense", counterparty: "Food Panda", category: "Food & dining" });
+  });
+});
+
+// Real Bank Alfalah alerts, November 2026, line breaks as received. Account digits and refs kept as received.
+describe("real Bank Alfalah alert formats", () => {
+  const parse = (text: string, receivedAt: string) => parseSms({ sender: "Bank Alfalah", text, receivedAt: new Date(receivedAt), knownSender: true });
+
+  it("reads the tax/charges printed beside a debit as a separate charge, not a second amount or the category", () => {
+    const r = parse("Dear Customer,\r\nPKR 10,000.00 and Tax/Charges 5.00 Debited from your A/C: 8350-1***6011 on 7-Nov-26 at 21:44:25\r\nBal: Reply with AB\r\n021111225111", "2026-11-07T16:45:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "expense", amountPaisa: 1000000, chargesPaisa: 500, category: "Uncategorized", accountHint: "6011" });
+    expect(r.fields.occurredAt.toISOString()).toBe("2026-11-07T16:44:00.000Z");
+  });
+
+  it("incoming FT, with the BAF bank suffix stripped from the sender's name", () => {
+    const r = parse("PKR 30,000.00 received from MUHAMMAD SAAD BAF in your BAF A/C **6011 on 6-Nov-26 21:34:24 via FT Tx ID FT263100NG3HR7L2", "2026-11-06T16:35:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "income", amountPaisa: 3000000, counterparty: "Muhammad Saad", accountHint: "6011", bankRef: "FT263100NG3HR7L2", chargesPaisa: null });
+  });
+
+  it("credit with no payer named", () => {
+    const r = parse("Dear Customer,\r\nPKR 1,501,777.07 Credited to your A/C: 8350-1***4436 on 5-Nov-26 at 17:53:56\r\nBal: Reply with AB\r\n021111225111", "2026-11-05T13:00:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "income", amountPaisa: 150177707, counterparty: null, accountHint: "4436" });
+  });
+
+  it("other ways banks print a charge beside the amount", () => {
+    expect(findCharges("PKR 5,000 transferred to ALI plus charges PKR 25.00 on 7-Nov-26")).toBe(2500);
+    expect(findCharges("PKR 5,000 debited incl. FED Rs. 12.50")).toBe(1250);
+    // MCB's "plus tax" names no figure, so there is no separate charge.
+    expect(findCharges("PKR 250.00 plus tax has been deducted from your account")).toBeNull();
   });
 });

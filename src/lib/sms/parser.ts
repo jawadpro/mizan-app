@@ -29,6 +29,8 @@ export type ParsedFields = {
   hasExplicitTime: boolean;
   /** The counterparty is one of the user's own names, so this moves money between their own accounts. */
   ownAccount: boolean;
+  /** A bank charge or tax the alert names next to the amount ("PKR 10,000.00 and Tax/Charges 5.00"), saved as its own expense. */
+  chargesPaisa: number | null;
 };
 
 export type ParseResult =
@@ -66,6 +68,21 @@ export const BALANCE_RE = new RegExp(
   String.raw`\b(?:avl\.?|avail\.?|available|current|closing|ledger|new|remaining|total)?\s*(?:a\/c\s*)?bal(?:ance)?\.?\s*(?:is|:|=|of)?\s*${CUR}?\s*:?\s*-?${NUM}\s*(?:cr|dr)?`,
   "gi",
 );
+// A charge or tax printed beside the amount (Bank Alfalah: "PKR 10,000.00 and Tax/Charges 5.00 Debited"). Read, then removed
+// so it is neither a second amount nor a reason to call the whole payment a bank charge. "plus tax" with no figure stays.
+export const CHARGES_RE = new RegExp(
+  String.raw`\s*(?:\band|\bplus|\bincl(?:uding|\.)?|\+|&)\s+(?:(?:bank|service|transaction)\s+)?(?:tax(?:es)?|charges?|fees?|fed|wht)(?:\s*(?:\/|&|and)\s*(?:tax(?:es)?|charges?|fees?|fed|wht))?\s*(?:of\s+)?:?\s*${CUR}?\s*:?\s*${NUM}`,
+  "i",
+);
+
+/** The bank charge or tax named beside the amount, in paisa, or null. */
+export function findCharges(text: string): number | null {
+  const m = CHARGES_RE.exec(normalizeText(text));
+  if (!m) return null;
+  const v = parseAmountToPaisa(m[2] ? `${m[1]}.${m[2]}` : m[1]);
+  return v && v > 0 ? v : null;
+}
+
 export const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
 const FOREIGN_RE = /\b(USD|AED|GBP|EUR|SAR|QAR|CAD|AUD|US\$)\s*[\d,]+(?:\.\d+)?/i;
 
@@ -176,7 +193,7 @@ const STOP = String.raw`(?=\s+(?:on|dated|ref|reference|via|using|with|through|f
 // MCB transfer alerts append the recipient's bank or wallet to their name ("SARA AHMED UBL").
 const BANK_SUFFIX_RE = new RegExp(
   String.raw`\s+(?:${[
-    "Bank Alfalah", "Alfalah", "Bank Al Habib", "Al Habib", "Allied Bank", "ABL", "Askari Bank", "Askari", "BankIslami", "Bank Islami",
+    "Bank Alfalah", "Alfalah", "BAF", "Bank Al Habib", "Al Habib", "Allied Bank", "ABL", "Askari Bank", "Askari", "BankIslami", "Bank Islami",
     "Bank of Punjab", "BOP", "Dubai Islamic Bank", "Dubai Islamic", "DIB", "Faysal Bank", "Faysal", "Habib Metro", "HabibMetro", "HBL",
     "JS Bank", "MCB", "MCB Islamic", "Meezan Bank", "Meezan", "National Bank", "NBP", "Soneri Bank", "Soneri", "Standard Chartered", "SCB",
     "Silk Bank", "Sindh Bank", "Summit Bank", "UBL", "Al Baraka", "Albaraka", "SadaPay", "NayaPay", "JazzCash", "Easypaisa", "Easy Paisa",
@@ -216,7 +233,7 @@ export function guessCategory(text: string): string | null {
 }
 
 function emptyFields(): ParsedFields {
-  return { kind: null, amountPaisa: null, occurredAt: null, dateSource: "received", counterparty: null, category: null, accountHint: null, bankRef: null, hasExplicitTime: false, ownAccount: false };
+  return { kind: null, amountPaisa: null, occurredAt: null, dateSource: "received", counterparty: null, category: null, accountHint: null, bankRef: null, hasExplicitTime: false, ownAccount: false, chargesPaisa: null };
 }
 
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, " ").trim();
@@ -245,8 +262,9 @@ export function parseSms(input: ParseInput): ParseResult {
 
   if (OTP_RE.test(text)) return { status: "ignored", reason: "One-time password or security message" };
 
-  // Remove phrases where credit/debit name a card type rather than a direction.
-  const directional = text.replace(/\b(credit|debit)\s+card\b/gi, "card");
+  fields.chargesPaisa = findCharges(text);
+  // Remove phrases where credit/debit name a card type rather than a direction, and a charge printed beside the amount.
+  const directional = text.replace(/\b(credit|debit)\s+card\b/gi, "card").replace(CHARGES_RE, " ");
 
   const withoutBalance = directional.replace(BALANCE_RE, " [balance] ");
   const amounts = Array.from(withoutBalance.matchAll(AMOUNT_RE))
@@ -277,7 +295,7 @@ export function parseSms(input: ParseInput): ParseResult {
 
   // Prefer the user's own account ("from A/C *1234", "in your MCB A/C*1234") over the other party's.
   const own = /\b(?:from|in)\s+(?:your\s+)?(?:MCB\s+)?a\/c\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
-  const acct = own ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
+  const acct = own ?? /\ba\/c\s*:?\s*[\d\-]{0,12}[*xX#]{2,}\s*(\d{3,4})\b/i.exec(text) ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
   if (acct) fields.accountHint = acct[1];
   const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
   if (ref && /\d/.test(ref[1])) fields.bankRef = ref[1].toUpperCase();
