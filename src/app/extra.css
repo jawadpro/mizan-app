@@ -79,7 +79,21 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
   .card { --pad-y: 14px; --pad-x: 14px; }
   .hide-mobile { display: none; }
   .balance-card .big { font-size: 1.85rem; }
-  .kpi .value { font-size: 1.2rem; }
+  /* "This period" on phones: net flow leads as a full-width card, the three totals follow as roomy rows. */
+  .kpis { grid-template-columns: 1fr; }
+  .card.kpi.net { order: -1; }
+  .card.kpi.net .value { font-size: 1.5rem; margin-top: 4px; }
+  .card.kpi.net .sub { margin-top: 2px; }
+  .card.kpi:not(.net) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name value" "sub delta"; align-items: center; column-gap: 12px; row-gap: 3px; border-top: 1px solid var(--border); border-left: 3px solid var(--border-strong); padding-top: 11px; padding-bottom: 11px; }
+  .card.kpi.expense { border-left-color: var(--down); }
+  .card.kpi.income { border-left-color: var(--accent); }
+  .card.kpi.remittance { border-left-color: var(--remit); }
+  .card.kpi:not(.net) .label { display: contents; }
+  .card.kpi:not(.net) .label > span:first-child { grid-area: name; color: var(--text); font-size: 0.92rem; font-weight: 500; }
+  .card.kpi:not(.net) .label .delta { grid-area: delta; justify-self: end; }
+  .card.kpi:not(.net) .value { grid-area: value; justify-self: end; margin-top: 0; font-size: 1.12rem; }
+  .card.kpi:not(.net) .value .trend { display: none; }
+  .card.kpi:not(.net) .sub { grid-area: sub; margin-top: 0; font-size: 0.78rem; }
   .chart-figure .value { font-size: 1.15rem; }
 
   /* iOS zooms into inputs smaller than 16px, so keep them at 16px */
@@ -103,10 +117,16 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
 }
 @media (max-width: 860px) {
   .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); border-top: 1px solid var(--border); padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-right)); }
-  .tabbar a, .tabbar button { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 50px; justify-content: center; border: 0; background: none; font: inherit; font-size: 0.68rem; font-weight: 500; color: var(--faint); text-decoration: none; border-radius: 12px; cursor: pointer; }
-  .tabbar svg { width: 22px; height: 22px; }
-  .tabbar a.active, .tabbar button.active { color: var(--text); }
+  .tabbar { --tb-pl: max(6px, env(safe-area-inset-left)); --tb-pr: max(6px, env(safe-area-inset-right)); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .tabbar a, .tabbar button { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 50px; justify-content: center; border: 0; background: none; font: inherit; font-size: 0.68rem; font-weight: 500; color: var(--faint); text-decoration: none; border-radius: 12px; cursor: pointer; -webkit-touch-callout: none; transition: color 0.2s ease; }
+  .tabbar svg { width: 22px; height: 22px; transition: transform 0.25s cubic-bezier(0.3, 1.4, 0.5, 1); }
+  .tabbar a.active, .tabbar button.active { color: var(--accent-ink); font-weight: 600; }
   .tabbar a.active svg, .tabbar button.active svg { stroke-width: 2.2; }
+  .tabbar a:active svg, .tabbar button:active svg { transform: scale(0.88); }
+  /* One pill slides between tabs; it moves on tap, before the next page has arrived. */
+  .tab-pill { position: absolute; top: 6px; left: var(--tb-pl); height: 50px; width: calc((100% - var(--tb-pl) - var(--tb-pr)) / 5); transform: translateX(calc(var(--tab-i, 0) * 100%)); transition: transform 0.34s cubic-bezier(0.32, 1.25, 0.5, 1); pointer-events: none; }
+  .tab-pill::before { content: ""; position: absolute; inset: 0 5px; border-radius: 15px; background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent); }
+  @media (prefers-reduced-motion: reduce) { .tab-pill, .tabbar svg { transition: none; } }
 
   .sheet-back { display: grid; place-items: end stretch; position: fixed; inset: 0; z-index: 55; background: var(--overlay); }
   .sheet { background: var(--surface); border-top: 1px solid var(--border); border-radius: 18px 18px 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: var(--shadow-lg); }
