@@ -2,6 +2,7 @@ import { z } from "zod";
 import { KINDS } from "./categories";
 import { parseAmountToPaisa } from "./money";
 import { isIsoDate, pktLocalToDate } from "./time";
+import { isMonth } from "./monthly";
 
 const trimmed = (max: number) =>
   z
@@ -126,3 +127,48 @@ export const limitInput = z.object({
 
 export const limitDelete = z.object({ category: trimmed(60).pipe(z.string().min(1)) });
 
+
+const month = (msg: string) => z.string().refine(isMonth, msg);
+const optionalAmount = (msg: string) =>
+  z
+    .string()
+    .max(20)
+    .nullable()
+    .optional()
+    .transform((s, ctx) => {
+      if (s == null || s.trim() === "") return null;
+      const v = parseAmountToPaisa(s);
+      if (v === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+      return v;
+    });
+
+export const monthlyItemInput = z
+  .object({
+    name: trimmed(60).pipe(z.string().min(1, "Give it a name, e.g. Rent")),
+    amount: optionalAmount("Enter an amount like 85,000, or leave it empty if it changes"),
+    category: trimmed(60).pipe(z.string().min(1, "Choose a category")),
+    payee: trimmed(120).transform((s) => s || null).nullable().optional().transform((s) => s ?? null),
+    dueDay: z.number().int().min(1, "Pick a day from 1 to 31").max(31, "Pick a day from 1 to 31").nullable().optional().transform((n) => n ?? null),
+    startsMonth: month("Choose the first month"),
+    endedMonth: month("Choose a valid last month").nullable().optional().transform((s) => s ?? null),
+  })
+  .refine((v) => !v.endedMonth || v.endedMonth >= v.startsMonth, { message: "The last month can't be before the first", path: ["endedMonth"] });
+export type MonthlyItemInput = z.infer<typeof monthlyItemInput>;
+
+export const monthlyMarkInput = z.object({
+  month: month("Choose a month"),
+  status: z.enum(["paid", "skipped"]),
+  transactionId: z.string().uuid().nullable().optional(),
+  /** Marks it fully paid even if the parts add up to less than the usual amount. */
+  full: z.boolean().optional(),
+  // Left out, an existing amount or note stays as it is.
+  amount: z.string().max(20).nullable().optional().transform((s, ctx) => {
+    if (s === undefined) return undefined;
+    if (s === null || s.trim() === "") return null;
+    const v = parseAmountToPaisa(s);
+    if (v === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter an amount like 85,000" });
+    return v;
+  }),
+  note: trimmed(200).transform((s) => s || null).nullable().optional(),
+});
+export type MonthlyMarkInput = z.infer<typeof monthlyMarkInput>;

@@ -9,10 +9,11 @@ import {
 import { apiFetch, resourceUrl, type Space } from "./api";
 import { ErrorBox } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
-import ChargesField from "./ChargesField";
+import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
 import "@/app/calendar.css";
+import CloseButton from "./CloseButton";
 
 type Page = { items: Tx[]; total: number };
 type Ev = Tx & { day: string; minutes: number };
@@ -88,6 +89,7 @@ export default function Calendar({ space }: { space: Space }) {
   const [editing, setEditing] = useState<Tx | "new" | null>(null);
   const [newDay, setNewDay] = useState<string | null>(null);
   const [charges, setCharges] = useState("");
+  const [chargesKind, setChargesKind] = useState<ChargesKind>("fee");
   const readOnly = space === "demo";
 
   useEffect(() => {
@@ -160,9 +162,15 @@ export default function Calendar({ space }: { space: Space }) {
 
   async function save(d: TxDraft, id?: string) {
     const withCharges = !!id && d.kind === "expense" && charges.trim() !== "";
-    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(withCharges ? { ...d, charges } : d) });
+    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(withCharges ? { ...d, charges, chargesKind } : d) });
     setEditing(null);
-    toast(withCharges ? "Updated, with the bank charges as a separate expense." : id ? "Transaction updated" : "Transaction added", "ok");
+    toast(withCharges ? `Updated, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : id ? "Transaction updated" : "Transaction added", "ok");
+    reload();
+  }
+  async function destroy(id: string) {
+    await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+    setEditing(null);
+    toast("Transaction deleted", "ok");
     reload();
   }
   async function remove(t: Tx) {
@@ -242,7 +250,7 @@ export default function Calendar({ space }: { space: Space }) {
           <div className="modal cal-detail" role="dialog" aria-modal="true" aria-labelledby="cal-detail-title">
             <div className="modal-head">
               <h2 id="cal-detail-title"><span className={`cal-dot ${open.kind}`} aria-hidden />{titleOf(open)}</h2>
-              <button className="btn ghost sm" onClick={() => setOpen(null)} aria-label="Close">✕</button>
+              <CloseButton onClick={() => setOpen(null)} />
             </div>
             <div className={`cal-detail-amt amt ${open.kind}`}>{sign(open.kind)}{formatPaisa(open.amount_paisa)}</div>
             <dl className="cal-detail-list">
@@ -254,7 +262,7 @@ export default function Calendar({ space }: { space: Space }) {
             {!readOnly && (
               <div className="modal-foot">
                 <button className="btn danger" onClick={() => remove(open)}>Delete</button>
-                <button className="btn primary" onClick={() => { setCharges(""); setEditing(open); setOpen(null); }}>Edit</button>
+                <button className="btn primary" onClick={() => { setCharges(""); setChargesKind("fee"); setEditing(open); setOpen(null); }}>Edit</button>
               </div>
             )}
           </div>
@@ -268,9 +276,10 @@ export default function Calendar({ space }: { space: Space }) {
           initial={editing === "new" ? { ...draftFrom(), ...(newDay && newDay !== today ? { occurredAt: `${newDay}T12:00` } : {}) } : draftFrom(editing)}
           onClose={() => setEditing(null)}
           onSubmit={(d) => save(d, editing === "new" ? undefined : editing.id)}
+          onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
-            d.kind === "expense" && d.category !== "Bank charges" && (
-              <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} error={fieldErrors.charges?.[0]} />
+            d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
+              <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
             )
           }
         />

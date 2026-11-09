@@ -9,6 +9,7 @@ import { ErrorBox, Skeleton } from "./States";
 import { useToast } from "./Toast";
 import { useBanks } from "./useBanks";
 import type { BalanceSummary } from "./types";
+import CloseButton from "./CloseButton";
 
 /** Current bank balance: set by hand once, then moved by every transaction dated after that. */
 export default function BalanceCard() {
@@ -24,7 +25,7 @@ export default function BalanceCard() {
   const whole = (p: number, o: { sign?: boolean } = {}) => formatPaisa(Math.round(p), o).replace(/\.\d\d$/, "");
 
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card balance-hero" style={{ marginBottom: 16 }}>
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
           <div className="label">
@@ -111,7 +112,7 @@ function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose:
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="bal-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
           <h2 id="bal-title">Current {balanceName === "Bank balance" ? "bank balance" : balanceName}</h2>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={submit}>
           <label className="field">Balance right now (PKR)

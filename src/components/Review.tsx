@@ -9,7 +9,7 @@ import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useBanks } from "./useBanks";
 import PushToggle from "./PushToggle";
-import ChargesField from "./ChargesField";
+import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { ReviewItem } from "./types";
 
@@ -17,15 +17,16 @@ export default function Review({ space }: { space: Space }) {
   const { data, error, loading, reload } = useData<{ items: ReviewItem[] }>(resourceUrl(space, "review"));
   const [confirming, setConfirming] = useState<ReviewItem | null>(null);
   const [charges, setCharges] = useState("");
+  const [chargesKind, setChargesKind] = useState<ChargesKind>("fee");
   const toast = useToast();
   const readOnly = space === "demo";
   const { nameOf } = useBanks(space);
 
   async function confirm(item: ReviewItem, d: TxDraft) {
     const withCharges = d.kind === "expense" && charges.trim() !== "";
-    await apiFetch(`/api/review/${item.id}`, { method: "POST", body: JSON.stringify({ action: "confirm", transaction: d, charges: withCharges ? charges : undefined }) });
+    await apiFetch(`/api/review/${item.id}`, { method: "POST", body: JSON.stringify({ action: "confirm", transaction: d, charges: withCharges ? charges : undefined, chargesKind: withCharges ? chargesKind : undefined }) });
     setConfirming(null);
-    toast(withCharges ? "Confirmed, with the bank charges as a separate expense." : "Confirmed. It now counts in your analytics.", "ok");
+    toast(withCharges ? `Confirmed, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : "Confirmed. It now counts in your analytics.", "ok");
     reload();
     window.dispatchEvent(new Event(REVIEW_CHANGED));
   }
@@ -63,7 +64,7 @@ export default function Review({ space }: { space: Space }) {
                 </div>
                 <div className="toolbar">
                   <button className="btn danger sm" disabled={readOnly} onClick={() => dismiss(it)}>Dismiss</button>
-                  <button className="btn primary sm" disabled={readOnly} title={readOnly ? "The demo is read-only" : undefined} onClick={() => { setCharges(""); setConfirming(it); }}>Review & confirm</button>
+                  <button className="btn primary sm" disabled={readOnly} title={readOnly ? "The demo is read-only" : undefined} onClick={() => { setCharges(""); setChargesKind("fee"); setConfirming(it); }}>Review & confirm</button>
                 </div>
               </div>
               {it.redacted_text && <div className="redacted" aria-label="Redacted SMS text">{it.redacted_text}</div>}
@@ -87,7 +88,7 @@ export default function Review({ space }: { space: Space }) {
           onSubmit={(d) => confirm(confirming, d)}
           extra={(d, fieldErrors) =>
             d.kind === "expense" && (
-              <ChargesField title="Bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} error={fieldErrors.charges?.[0]} />
+              <ChargesField title="Bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
             )
           }
         >

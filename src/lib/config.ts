@@ -7,7 +7,9 @@ import { env, setStoredConfig, type StoredConfig } from "./env";
 // The settings the setup page saves (passphrase, signing secret, SMS token, notification keys).
 // Read once per instance and kept for a short while; before setup is finished it is read every time.
 
-const COLS = "session_secret, password_hash, sms_token, vapid_public, vapid_private, vapid_subject, setup_done_at";
+const COLS =
+  "session_secret, password_hash, sms_token, vapid_public, vapid_private, vapid_subject, setup_done_at, " +
+  "(extract(epoch from sessions_valid_after) * 1000)::float8 AS sessions_valid_after_ms";
 const TTL_MS = 30_000;
 let loadedAt = 0;
 let complete = false;
@@ -108,4 +110,20 @@ export async function regenerateSmsToken(): Promise<string> {
   await q(`UPDATE app.config SET sms_token = $1, updated_at = now() WHERE id = 1`, [token]);
   await loadConfig(true);
   return token;
+}
+
+/**
+ * Saves a new passphrase. It wins over ADMIN_PASSWORD_HASH from then on, and every session issued
+ * before now is signed out. Returns the cut-off (epoch ms) so the caller can issue a fresh session after it.
+ */
+export async function changePassphrase(password: string): Promise<number> {
+  const cutoff = Date.now();
+  await q(
+    `INSERT INTO app.config AS c (id, password_hash, sessions_valid_after) VALUES (1, $1, to_timestamp($2::float8 / 1000))
+     ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash,
+       sessions_valid_after = EXCLUDED.sessions_valid_after, updated_at = now()`,
+    [hashPassword(password), cutoff],
+  );
+  await loadConfig(true);
+  return cutoff;
 }

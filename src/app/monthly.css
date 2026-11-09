@@ -1,0 +1,75 @@
+/* Monthly payments checklist */
+.mp-head { margin-bottom: 12px; }
+.mp-month { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mp-month h2 { font-size: 1.15rem; color: var(--text); margin: 0 4px; min-width: 9.5em; text-align: center; }
+.mp-month .btn.ghost { font-size: 1.2rem; line-height: 1; padding: 2px 10px; }
+.mp-count { margin-top: 14px; font-size: 1rem; }
+.mp-count strong { font-weight: 500; font-size: 1.35rem; }
+.mp-totals { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.mp-history { display: flex; gap: 6px; margin-top: 14px; overflow-x: auto; padding-bottom: 2px; }
+.mp-hist { display: grid; gap: 1px; justify-items: center; min-width: 54px; padding: 5px 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.mp-hist .num { font-size: 0.8rem; color: var(--warn, var(--down-ink)); }
+.mp-hist.done .num { color: var(--accent-ink); }
+.mp-hist.on { border-color: var(--text); color: var(--text); }
+.mp-hist:hover { background: var(--hover); }
+
+.mp-list { padding: 4px 18px; }
+.mp-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--border); }
+.mp-row:first-child { border-top: 0; }
+.mp-check { width: 26px; height: 26px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--on-accent); font: inherit; font-weight: 700; font-size: 0.85rem; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.mp-check:hover { border-color: var(--accent); }
+.mp-check.on { background: var(--accent); border-color: var(--accent); }
+.mp-check.skip { background: var(--surface-2); color: var(--muted); }
+.mp-main { display: grid; gap: 3px; min-width: 0; }
+.mp-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mp-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+.mp-row.paid .mp-name, .mp-row.skipped .mp-name { color: var(--muted); font-weight: 600; }
+.mp-row.skipped .mp-name { text-decoration: line-through; }
+.mp-status { font-size: 0.75rem; font-weight: 500; padding: 1px 7px; border-radius: 6px; white-space: nowrap; color: var(--muted); border: 1px solid var(--border); }
+.mp-status.paid { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
+.mp-status.late { color: var(--down-ink); background: var(--down-soft); border-color: transparent; }
+.mp-status.soon { color: var(--gold); background: var(--gold-soft); border-color: transparent; }
+.mp-paid { color: var(--accent-ink); }
+.mp-suggest { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; padding: 7px 10px; border-radius: 9px; background: var(--surface-2); border: 1px dashed var(--border-strong); }
+.mp-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+.mp-stopped { margin-top: 12px; }
+.mp-stopped summary { cursor: pointer; }
+.mp-stopped-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.mp-stopped[open] summary { margin-bottom: 8px; }
+
+.mp-tabs { display: flex; width: 100%; margin-bottom: 14px; }
+.mp-tabs button { flex: 1; }
+.mp-search { width: 100%; margin-bottom: 10px; }
+.mp-cands { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+.mp-cand { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.mp-cand:hover { background: var(--hover); border-color: var(--border-strong); }
+.mp-cand.on { border-color: var(--accent); }
+.mp-cand-main { display: grid; gap: 2px; min-width: 0; }
+.mp-cand-main .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-pane p { margin-top: 0; }
+.mp-foot { flex-wrap: wrap; }
+
+/* Dashboard strip */
+.mp-strip { margin-bottom: 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; text-decoration: none; color: inherit; }
+.mp-strip:hover { border-color: var(--border-strong); }
+.mp-strip .progress { flex: 1 1 120px; margin-top: 0; min-width: 100px; }
+.mp-strip-title { font-weight: 500; }
+
+@media (max-width: 560px) {
+  .mp-list { padding: 2px 14px; }
+  .mp-row { grid-template-columns: auto minmax(0, 1fr); }
+  .mp-actions { grid-column: 2; justify-content: flex-start; }
+  .mp-month h2 { min-width: 0; flex: 1; }
+  .mp-tabs button { padding: 5px 6px; font-size: 0.8rem; }
+}
+
+/* Paid in parts */
+.mp-check.part { border-color: var(--gold); color: var(--gold); font-size: 0.72rem; }
+.mp-parts { display: grid; gap: 2px; }
+.mp-part { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mp-part .btn { color: var(--muted); }
+.mp-sofar { margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.mp-sofar-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.mp-divider { padding: 12px 0 2px; border-top: 1px solid var(--border); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem; }
+.mp-divider + .mp-row { border-top: 0; }

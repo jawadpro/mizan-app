@@ -10,7 +10,7 @@ if (!url) {
   process.exit(0);
 }
 
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url) || process.env.DATABASE_SSL === "false";
 const client = new pg.Client({ connectionString: url, ssl: local ? false : { rejectUnauthorized: true } });
 await client.connect();
 try {

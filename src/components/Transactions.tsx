@@ -1,20 +1,38 @@
 "use client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ALL_CATEGORIES, KIND_LABEL, KINDS } from "@/lib/categories";
 import { formatPaisa } from "@/lib/money";
-import { formatDatePkt, formatTimePkt } from "@/lib/time";
+import { dayLabelPkt, formatTimePkt, groupByDayPkt } from "@/lib/time";
+import { groupCharges } from "@/lib/nest";
 import { apiFetch, resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useBanks } from "./useBanks";
-import ChargesField from "./ChargesField";
+import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
 
 type List = { items: Tx[]; total: number; page: number; pageSize: number; sums: { expense: number; income: number; remittance: number } };
+
+/** The line shown for a charge tucked under its transfer, e.g. "Charges on this transfer". */
+function chargeLabel(c: Tx) {
+  return c.category === "Tax deducted" ? "Tax on this transfer" : "Charges on this transfer";
+}
+
+/** What a day's transactions add up to, shown on the right of its header. */
+function DayTotals({ items }: { items: Tx[] }) {
+  const out = items.reduce((n, t) => n + (t.kind === "expense" ? t.amount_paisa : 0), 0);
+  const inn = items.reduce((n, t) => n + (t.kind !== "expense" ? t.amount_paisa : 0), 0);
+  return (
+    <span className="day-totals">
+      {out > 0 && <span className="amt expense">−{formatPaisa(out)}</span>}
+      {inn > 0 && <span className="amt income">+{formatPaisa(inn)}</span>}
+    </span>
+  );
+}
 
 function useDebounced<T>(v: T, ms = 300) {
   const [d, setD] = useState(v);
@@ -39,7 +57,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Tx | "new" | null>(null);
   const [charges, setCharges] = useState("");
-  const edit = (t: Tx | "new") => { setCharges(""); setEditing(t); };
+  const [chargesKind, setChargesKind] = useState<ChargesKind>("fee");
+  const edit = (t: Tx | "new") => { setCharges(""); setChargesKind("fee"); setEditing(t); };
   const dq = useDebounced(q);
   const filters = { q: dq, kind, category, source, bank, from, to, counterparty: fixedCounterparty };
   useEffect(() => setPage(1), [dq, kind, category, source, bank, from, to]);
@@ -52,9 +71,15 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
 
   async function save(d: TxDraft, id?: string) {
     const withCharges = !!id && d.kind === "expense" && charges.trim() !== "";
-    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(withCharges ? { ...d, charges } : d) });
+    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(withCharges ? { ...d, charges, chargesKind } : d) });
     setEditing(null);
-    toast(withCharges ? "Updated, with the bank charges as a separate expense." : id ? "Transaction updated" : "Transaction added", "ok");
+    toast(withCharges ? `Updated, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : id ? "Transaction updated" : "Transaction added", "ok");
+    reload();
+  }
+  async function destroy(id: string) {
+    await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+    setEditing(null);
+    toast("Transaction deleted", "ok");
     reload();
   }
   async function remove(t: Tx) {
@@ -68,6 +93,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
     }
   }
 
+  const days = data ? groupByDayPkt(data.items) : [];
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
@@ -138,7 +164,9 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
             {compact ? (
               <div className="tx-list" style={{ opacity: loading ? 0.55 : 1 }}>
                 <div className="card-head" style={{ marginBottom: 2 }}><h2>History</h2><span className="muted small">{data!.total} transaction{data!.total === 1 ? "" : "s"}</span></div>
-                {data!.items.map((t) => (
+                {days.map((g) => (<Fragment key={g.day}>
+                  <div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div>
+                  {g.items.map((t) => (
                   <div key={t.id} className="tx-row">
                     <div className="tx-row-main">
                       <div className="tx-row-title">
@@ -146,7 +174,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         {t.kind !== "expense" && <span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span>}
                         {t.source === "sms" && <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>{(multi && nameOf(t.bank_id)) || "SMS"}</span>}
                       </div>
-                      <div className="meta"><span className="num">{formatDatePkt(t.occurred_at)}</span> · {formatTimePkt(t.occurred_at)}{t.note ? ` · ${t.note}` : ""}</div>
+                      <div className="meta"><span className="num">{formatTimePkt(t.occurred_at)}</span>{t.note ? ` · ${t.note}` : ""}</div>
                     </div>
                     <div className="tx-row-side">
                       <div className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
@@ -158,18 +186,21 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       )}
                     </div>
                   </div>
-                ))}
+                  ))}
+                </Fragment>))}
               </div>
             ) : (<>
             <div className="table-wrap responsive">
               <table className="tx">
                 <thead>
-                  <tr><th>Date</th><th>Recipient / source</th><th>Category</th><th>Type</th><th>Source</th><th className="amt">Amount</th>{!readOnly && <th><span className="sr-only">Actions</span></th>}</tr>
+                  <tr><th>Time</th><th>Recipient / source</th><th>Category</th><th>Type</th><th>Source</th><th className="amt">Amount</th>{!readOnly && <th><span className="sr-only">Actions</span></th>}</tr>
                 </thead>
                 <tbody style={{ opacity: loading ? 0.55 : 1 }}>
-                  {data!.items.map((t) => (
-                    <tr key={t.id}>
-                      <td className="num" style={{ whiteSpace: "nowrap" }}>{formatDatePkt(t.occurred_at)}<div className="small muted">{formatTimePkt(t.occurred_at)}</div></td>
+                  {days.map((g) => (<Fragment key={g.day}>
+                    <tr className="day-row"><td colSpan={readOnly ? 6 : 7}><div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div></td></tr>
+                    {groupCharges(g.items).map(({ t, charges }) => (<Fragment key={t.id}>
+                    <tr className={charges.length ? "has-charges" : undefined}>
+                      <td className="num muted" style={{ whiteSpace: "nowrap" }}>{formatTimePkt(t.occurred_at)}</td>
                       <td>{t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}</td>
                       <td>{t.category}</td>
                       <td><span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span></td>
@@ -179,20 +210,45 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}
                     </tr>
-                  ))}
+                    {charges.map((c, i) => (
+                      <tr key={c.id} className={`charge-row${i === charges.length - 1 ? " last" : ""}`}>
+                        <td></td>
+                        <td><span className="charge-elbow" aria-hidden="true" />{chargeLabel(c)}</td>
+                        <td>{c.category}</td>
+                        <td></td>
+                        <td>{multi && nameOf(c.bank_id) ? <span className="muted small">{nameOf(c.bank_id)}</span> : null}</td>
+                        <td className={`amt ${c.kind}`}>−{formatPaisa(c.amount_paisa)}</td>
+                        {!readOnly && (
+                          <td><div className="row-actions"><button className="btn sm" onClick={() => edit(c)}>Edit</button><button className="btn sm danger" onClick={() => remove(c)}>Delete</button></div></td>
+                        )}
+                      </tr>
+                    ))}
+                    </Fragment>))}
+                  </Fragment>))}
                 </tbody>
               </table>
             </div>
             <div className="tx-cards">
-              {data!.items.map((t) => (
-                <div key={t.id} className="tx-card" onClick={() => !readOnly && edit(t)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
+              {days.map((g) => (<Fragment key={g.day}>
+                <div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div>
+                {groupCharges(g.items).map(({ t, charges }) => (
+                <div key={t.id} className={charges.length ? "tx-group" : "tx-group plain"}>
+                <div className="tx-card" onClick={() => !readOnly && edit(t)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{t.counterparty ?? t.category}</div>
-                    <div className="meta">{formatDatePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
+                    <div className="meta">{formatTimePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
                   </div>
                   <div className={`amt ${t.kind}`} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
                 </div>
-              ))}
+                {charges.map((c) => (
+                  <div key={c.id} className="charge-child" onClick={() => !readOnly && edit(c)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
+                    <span><strong>{c.category}</strong>{multi && nameOf(c.bank_id) ? ` · ${nameOf(c.bank_id)}` : ""}</span>
+                    <span className={`amt ${c.kind}`}>−{formatPaisa(c.amount_paisa)}</span>
+                  </div>
+                ))}
+                </div>
+                ))}
+              </Fragment>))}
             </div>
             </>)}
             {pages > 1 && (
@@ -215,9 +271,10 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           initial={editing === "new" ? draftFrom() : draftFrom(editing)}
           onClose={() => setEditing(null)}
           onSubmit={(d) => save(d, editing === "new" ? undefined : editing.id)}
+          onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
-            d.kind === "expense" && d.category !== "Bank charges" && (
-              <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} error={fieldErrors.charges?.[0]} />
+            d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
+              <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
             )
           }
         />

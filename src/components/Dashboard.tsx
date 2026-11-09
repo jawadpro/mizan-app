@@ -167,7 +167,7 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
             const cur = data?.totals[x.k];
             const was = prev?.totals[x.k];
             return (
-              <div key={x.k} className="card kpi">
+              <div key={x.k} className={`card kpi ${x.k}`}>
                 <div className="label">
                   <span><span className={`dot ${x.k}`} />{x.label}</span>
                   {data && was && <Delta cur={cur!.total} prev={was.total} higherIsGood={x.good} vs={vs} />}
@@ -182,7 +182,7 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
               </div>
             );
           })}
-          <div className="card kpi">
+          <div className="card kpi net">
             <div className="label">
               <span>Net flow</span>
               {data && prev && <Delta cur={data.net} prev={prev.net} higherIsGood vs={vs} />}

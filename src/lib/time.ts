@@ -41,3 +41,31 @@ export function formatDatePkt(d: Date | string): string {
 export function formatTimePkt(d: Date | string): string {
   return dtfTime.format(new Date(d));
 }
+
+/** Karachi calendar day (YYYY-MM-DD) a timestamp falls on. */
+export function dayKeyPkt(d: Date | string): string {
+  return todayPkt(new Date(d));
+}
+
+const dtfDay = new Intl.DateTimeFormat("en-PK", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+const dtfDayYear = new Intl.DateTimeFormat("en-PK", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
+/** "Today", "Yesterday", "Mon, 3 Nov", or with the year when it isn't this year. */
+export function dayLabelPkt(dayKey: string, now = new Date()): string {
+  const today = todayPkt(now);
+  if (dayKey === today) return "Today";
+  if (dayKey === addDays(today, -1)) return "Yesterday";
+  const d = new Date(`${dayKey}T12:00:00Z`);
+  return (dayKey.slice(0, 4) === today.slice(0, 4) ? dtfDay : dtfDayYear).format(d);
+}
+
+/** Splits a newest-first list into runs that share a Karachi day. */
+export function groupByDayPkt<T extends { occurred_at: string }>(items: T[]): { day: string; items: T[] }[] {
+  const out: { day: string; items: T[] }[] = [];
+  for (const t of items) {
+    const day = dayKeyPkt(t.occurred_at);
+    const last = out[out.length - 1];
+    if (last && last.day === day) last.items.push(t);
+    else out.push({ day, items: [t] });
+  }
+  return out;
+}

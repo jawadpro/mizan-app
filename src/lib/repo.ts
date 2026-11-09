@@ -21,10 +21,12 @@ export type TxRow = {
   bank_ref: string | null;
   set_aside_id: string | null;
   bank_id: string | null;
+  /** For a bank charge or tax added on a transfer: the transfer it belongs to. */
+  parent_id: string | null;
 };
 
 const txCols = (a = "") =>
-  `${a}id, ${a}kind, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note, ${a}source, ${a}account_hint, ${a}bank_ref, ${a}set_aside_id, ${a}bank_id`;
+  `${a}id, ${a}kind, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note, ${a}source, ${a}account_hint, ${a}bank_ref, ${a}set_aside_id, ${a}bank_id, ${a}parent_id`;
 const TX_COLS = txCols();
 const RANGE_SQL = (a: string, b: string) =>
   `occurred_at >= (${a}::date::timestamp AT TIME ZONE 'Asia/Karachi') AND occurred_at < ((${b}::date + 1)::timestamp AT TIME ZONE 'Asia/Karachi')`;
@@ -225,16 +227,16 @@ async function withFundCheck<T>(fn: () => Promise<T>): Promise<T> {
 
 type Run = typeof q;
 
-/** Records a transfer's bank charge or tax as its own expense, dated with the transfer. */
-async function addBankCharge(run: Run, chargesPaisa: number, t: TransactionInput, accountHint: string | null, bankId: string | null) {
+/** Records a transfer's bank charge or tax as its own expense ("Bank charges" or "Tax deducted"), dated with the transfer. */
+async function addBankCharge(run: Run, parentId: string, chargesPaisa: number, t: TransactionInput, accountHint: string | null, bankId: string | null, category = "Bank charges") {
   // The charge is paid to the transfer's bank; with no bank on the transfer, to the first bank in Settings.
   await run(
-    `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_id)
-     VALUES ('expense',$1,$2,'Bank charges',
+    `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_id, parent_id)
+     VALUES ('expense',$1,$2,$6,
              coalesce((SELECT name FROM app.banks WHERE id = $5), (SELECT name FROM app.banks ORDER BY position, created_at LIMIT 1), 'Bank'),
              $3,'manual',$4,
-             coalesce($5, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1)))`,
-    [chargesPaisa, t.occurredAt, `Charges on transfer${t.counterparty ? ` to ${t.counterparty}` : ""}`.slice(0, 500), accountHint, bankId],
+             coalesce($5, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1)),$7)`,
+    [chargesPaisa, t.occurredAt, `${category === "Bank charges" ? "Charges" : "Tax"} on transfer${t.counterparty ? ` to ${t.counterparty}` : ""}`.slice(0, 500), accountHint, bankId, category, parentId],
   );
 }
 
@@ -249,7 +251,7 @@ export async function createTransaction(t: TransactionInput, source: "manual" | 
   return rows[0];
 }
 
-export async function updateTransaction(id: string, t: TransactionInput, chargesPaisa = 0) {
+export async function updateTransaction(id: string, t: TransactionInput, chargesPaisa = 0, chargesCategory = "Bank charges") {
   return withFundCheck(() => tx(async (run) => {
     const { rows } = await run<TxRow>(
       `UPDATE app.transactions SET kind=$2, amount_paisa=$3, occurred_at=$4, category=$5, counterparty=$6, note=$7, set_aside_id=$8,
@@ -258,7 +260,7 @@ export async function updateTransaction(id: string, t: TransactionInput, charges
       // A form that doesn't show the bank (one bank only) leaves it as it is.
       [id, t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, fundOf(t), t.bankId !== undefined, t.bankId ?? null],
     );
-    if (rows[0] && chargesPaisa > 0) await addBankCharge(run, chargesPaisa, t, rows[0].account_hint, rows[0].bank_id);
+    if (rows[0] && chargesPaisa > 0) await addBankCharge(run, rows[0].id, chargesPaisa, t, rows[0].account_hint, rows[0].bank_id, chargesCategory);
     return rows[0] ?? null;
   }));
 }
@@ -295,7 +297,7 @@ export async function listReview(space: Space) {
 }
 
 /** Confirms a review item into a real transaction and discards the retained SMS excerpt. */
-export async function confirmReview(id: string, t: TransactionInput, chargesPaisa = 0) {
+export async function confirmReview(id: string, t: TransactionInput, chargesPaisa = 0, chargesCategory = "Bank charges") {
   return withFundCheck(() => tx(async (run) => {
     const item = await run<{ id: string; bank_ref: string | null; account_hint: string | null; sms_import_id: string | null; bank_id: string | null }>(
       `SELECT id, bank_ref, account_hint, sms_import_id, bank_id FROM app.review_items WHERE id=$1 AND status='pending' FOR UPDATE`,
@@ -312,7 +314,7 @@ export async function confirmReview(id: string, t: TransactionInput, chargesPais
       [t.kind, t.amount, t.occurredAt, t.category, t.counterparty ?? null, t.note ?? null, it.account_hint, it.bank_ref, it.sms_import_id, fundOf(t), bankId],
     );
     if (!ins.rows[0]) return { duplicate: true as const };
-    if (chargesPaisa > 0) await addBankCharge(run, chargesPaisa, t, it.account_hint, bankId);
+    if (chargesPaisa > 0) await addBankCharge(run, ins.rows[0].id, chargesPaisa, t, it.account_hint, bankId, chargesCategory);
     await run(
       `UPDATE app.review_items SET status='confirmed', transaction_id=$2, resolved_at=now(), redacted_text=NULL WHERE id=$1`,
       [id, ins.rows[0].id],

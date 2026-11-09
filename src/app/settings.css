@@ -77,3 +77,9 @@
 .tester-fields dd { overflow-wrap: anywhere; }
 @media (max-width: 760px) { .bank-grid { grid-template-columns: 1fr 1fr; } .tester { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .bank-grid { grid-template-columns: 1fr; } }
+
+/* Change passphrase */
+.pass-form { display: grid; gap: 12px; }
+.pass-form .modal-foot { margin-top: 0; }
+.pass-show { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; }
+.pass-show input { width: auto; }
