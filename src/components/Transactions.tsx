@@ -5,6 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import { ALL_CATEGORIES, KIND_LABEL, KINDS } from "@/lib/categories";
 import { formatPaisa } from "@/lib/money";
 import { dayLabelPkt, formatTimePkt, groupByDayPkt } from "@/lib/time";
+import { groupCharges } from "@/lib/nest";
 import { apiFetch, resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
@@ -15,6 +16,11 @@ import { useToast } from "./Toast";
 import type { Tx } from "./types";
 
 type List = { items: Tx[]; total: number; page: number; pageSize: number; sums: { expense: number; income: number; remittance: number } };
+
+/** The line shown for a charge tucked under its transfer, e.g. "Charges on this transfer". */
+function chargeLabel(c: Tx) {
+  return c.category === "Tax deducted" ? "Tax on this transfer" : "Charges on this transfer";
+}
 
 /** What a day's transactions add up to, shown on the right of its header. */
 function DayTotals({ items }: { items: Tx[] }) {
@@ -192,8 +198,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                 <tbody style={{ opacity: loading ? 0.55 : 1 }}>
                   {days.map((g) => (<Fragment key={g.day}>
                     <tr className="day-row"><td colSpan={readOnly ? 6 : 7}><div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div></td></tr>
-                    {g.items.map((t) => (
-                    <tr key={t.id}>
+                    {groupCharges(g.items).map(({ t, charges }) => (<Fragment key={t.id}>
+                    <tr className={charges.length ? "has-charges" : undefined}>
                       <td className="num muted" style={{ whiteSpace: "nowrap" }}>{formatTimePkt(t.occurred_at)}</td>
                       <td>{t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}</td>
                       <td>{t.category}</td>
@@ -204,7 +210,20 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}
                     </tr>
+                    {charges.map((c, i) => (
+                      <tr key={c.id} className={`charge-row${i === charges.length - 1 ? " last" : ""}`}>
+                        <td></td>
+                        <td><span className="charge-elbow" aria-hidden="true" />{chargeLabel(c)}</td>
+                        <td>{c.category}</td>
+                        <td></td>
+                        <td>{multi && nameOf(c.bank_id) ? <span className="muted small">{nameOf(c.bank_id)}</span> : null}</td>
+                        <td className={`amt ${c.kind}`}>−{formatPaisa(c.amount_paisa)}</td>
+                        {!readOnly && (
+                          <td><div className="row-actions"><button className="btn sm" onClick={() => edit(c)}>Edit</button><button className="btn sm danger" onClick={() => remove(c)}>Delete</button></div></td>
+                        )}
+                      </tr>
                     ))}
+                    </Fragment>))}
                   </Fragment>))}
                 </tbody>
               </table>
@@ -212,13 +231,21 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
             <div className="tx-cards">
               {days.map((g) => (<Fragment key={g.day}>
                 <div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div>
-                {g.items.map((t) => (
-                <div key={t.id} className="tx-card" onClick={() => !readOnly && edit(t)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
+                {groupCharges(g.items).map(({ t, charges }) => (
+                <div key={t.id} className={charges.length ? "tx-group" : "tx-group plain"}>
+                <div className="tx-card" onClick={() => !readOnly && edit(t)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{t.counterparty ?? t.category}</div>
                     <div className="meta">{formatTimePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
                   </div>
                   <div className={`amt ${t.kind}`} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
+                </div>
+                {charges.map((c) => (
+                  <div key={c.id} className="charge-child" onClick={() => !readOnly && edit(c)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
+                    <span><strong>{c.category}</strong>{multi && nameOf(c.bank_id) ? ` · ${nameOf(c.bank_id)}` : ""}</span>
+                    <span className={`amt ${c.kind}`}>−{formatPaisa(c.amount_paisa)}</span>
+                  </div>
+                ))}
                 </div>
                 ))}
               </Fragment>))}
