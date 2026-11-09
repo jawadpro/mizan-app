@@ -1,7 +1,7 @@
 // All samples below are SYNTHETIC. They imitate common Pakistani bank alert wording and are
 // NOT verified MCB formats. Add redacted real MCB samples here before trusting auto-import.
 import { describe, expect, it } from "vitest";
-import { isTrustedSender, parseSms, redactSms } from "@/lib/sms/parser";
+import { findCharges, isTrustedSender, parseSms, redactSms } from "@/lib/sms/parser";
 
 const receivedAt = new Date("2026-10-15T09:30:00Z"); // 14:30 PKT
 const p = (text: string, sender = "MCB") => parseSms({ sender, text, receivedAt });
@@ -222,5 +222,76 @@ describe("real MCB alert formats", () => {
     if (r.status !== "review") return;
     expect(r.fields.ownAccount).toBe(false);
     expect(r.fields.category).toBe("Transfers");
+  });
+});
+
+// Real JS Bank alerts (sender "JS BANK"), August and September 2026. Account digits and refs kept as received.
+describe("real JS Bank alert formats", () => {
+  const parse = (text: string, receivedAt: string) => parseSms({ sender: "JS BANK", text, receivedAt: new Date(receivedAt), knownSender: true });
+
+  it("inward remittance, with no sender named and 'credited by PKR' not taken as a name", () => {
+    const r = parse("Acct. 15XXXX8 credited by  PKR 33,378.01 due to Inward Remittance at 13:25 hrs on 10/09/2026. Helpline:111-654-321", "2026-09-10T08:30:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "remittance", amountPaisa: 3337801, counterparty: null, category: "Remittance" });
+    expect(r.fields.occurredAt.toISOString()).toBe("2026-09-10T08:25:00.000Z");
+  });
+
+  it("Mobile IBFT out, with the masked account stripped from the name, held for charges", () => {
+    const r = parse("Your A/c XX4248 is debited by PKR 7,150.00 via Mobile IBFT to XX4718-RAHIMA YASIN on 31-08-2026 at 16:02 FT26243L6Q10 Helpline:111-654-321", "2026-08-31T11:05:00Z");
+    expect(r.status).toBe("review");
+    if (r.status !== "review") return;
+    expect(r.reason).toMatch(/^Transfer/);
+    expect(r.fields).toMatchObject({ kind: "expense", amountPaisa: 715000, counterparty: "Rahima Yasin", category: "Transfers", accountHint: "4248", bankRef: "FT26243L6Q10" });
+    expect(r.fields.occurredAt?.toISOString()).toBe("2026-08-31T11:02:00.000Z");
+  });
+
+  it("credit whose payer comes after 'at' behind a merchant number", () => {
+    const r = parse("Your A/c XX4248 is credited by PKR 4,097.89 at 23:57 on 22-08-2026 at 762316/FOOD PANDA FT26236BP37B Helpline:111-654-321", "2026-08-22T19:00:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "income", amountPaisa: 409789, counterparty: "Food Panda", accountHint: "4248", bankRef: "FT26236BP37B" });
+    expect(r.fields.occurredAt.toISOString()).toBe("2026-08-22T18:57:00.000Z");
+  });
+
+  it("a card spend at the same kind of merchant field reads the name and category", () => {
+    const r = parse("Your A/c XX4248 is debited by PKR 1,250.00 at 20:10 on 22-08-2026 at 762316/FOOD PANDA FT26236BP99Z Helpline:111-654-321", "2026-08-22T16:00:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "expense", counterparty: "Food Panda", category: "Food & dining" });
+  });
+});
+
+// Real Bank Alfalah alerts, November 2026, line breaks as received. Account digits and refs kept as received.
+describe("real Bank Alfalah alert formats", () => {
+  const parse = (text: string, receivedAt: string) => parseSms({ sender: "Bank Alfalah", text, receivedAt: new Date(receivedAt), knownSender: true });
+
+  it("reads the tax/charges printed beside a debit as a separate charge, not a second amount or the category", () => {
+    const r = parse("Dear Customer,\r\nPKR 10,000.00 and Tax/Charges 5.00 Debited from your A/C: 8350-1***6011 on 7-Nov-26 at 21:44:25\r\nBal: Reply with AB\r\n021111225111", "2026-11-07T16:45:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "expense", amountPaisa: 1000000, chargesPaisa: 500, category: "Uncategorized", accountHint: "6011" });
+    expect(r.fields.occurredAt.toISOString()).toBe("2026-11-07T16:44:00.000Z");
+  });
+
+  it("incoming FT, with the BAF bank suffix stripped from the sender's name", () => {
+    const r = parse("PKR 30,000.00 received from MUHAMMAD SAAD BAF in your BAF A/C **6011 on 6-Nov-26 21:34:24 via FT Tx ID FT263100NG3HR7L2", "2026-11-06T16:35:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "income", amountPaisa: 3000000, counterparty: "Muhammad Saad", accountHint: "6011", bankRef: "FT263100NG3HR7L2", chargesPaisa: null });
+  });
+
+  it("credit with no payer named", () => {
+    const r = parse("Dear Customer,\r\nPKR 1,501,777.07 Credited to your A/C: 8350-1***4436 on 5-Nov-26 at 17:53:56\r\nBal: Reply with AB\r\n021111225111", "2026-11-05T13:00:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "income", amountPaisa: 150177707, counterparty: null, accountHint: "4436" });
+  });
+
+  it("other ways banks print a charge beside the amount", () => {
+    expect(findCharges("PKR 5,000 transferred to ALI plus charges PKR 25.00 on 7-Nov-26")).toBe(2500);
+    expect(findCharges("PKR 5,000 debited incl. FED Rs. 12.50")).toBe(1250);
+    // MCB's "plus tax" names no figure, so there is no separate charge.
+    expect(findCharges("PKR 250.00 plus tax has been deducted from your account")).toBeNull();
   });
 });

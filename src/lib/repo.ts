@@ -240,7 +240,7 @@ async function withFundCheck<T>(fn: () => Promise<T>): Promise<T> {
 type Run = typeof q;
 
 /** Records a transfer's bank charge or tax as its own expense ("Bank charges" or "Tax deducted"), dated with the transfer. */
-async function addBankCharge(run: Run, parentId: string, chargesPaisa: number, t: TransactionInput, accountHint: string | null, bankId: string | null, category = "Bank charges") {
+export async function addBankCharge(run: Run, parentId: string, chargesPaisa: number, t: Pick<TransactionInput, "occurredAt" | "counterparty">, accountHint: string | null, bankId: string | null, category = "Bank charges") {
   // The charge is paid to the transfer's bank; with no bank on the transfer, to the first bank in Settings.
   await run(
     `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_id, parent_id)

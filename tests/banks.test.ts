@@ -40,19 +40,22 @@ describe("an existing install reads MCB alerts exactly as before", () => {
 });
 
 describe("banks from Settings", () => {
-  const ubl: Bank & { id: string } = { id: "b-ubl", name: "UBL", senders: "UBL", account_hint: "4248", auto_import: true, hold_transfers: true };
+  // A JS Bank alert, with transfers set to import straight away.
+  const ubl: Bank & { id: string } = { id: "b-js", name: "JS Bank", senders: "JS BANK", account_hint: "4248", auto_import: true, hold_transfers: false };
   const pasted = "Your A/c XX4248 is debited by PKR 7,800.00 via Mobile IBFT to XX8373-MUHAMMAD JAWAD ILYAS on 31-08-2026 at 12:21 FT26243CK86C Helpline:111-654-321";
   const at = new Date("2026-08-31T07:22:00Z");
 
   it("reads another bank's alert once its sender is added", () => {
-    expect(readAlert({ sender: "UBL", text: pasted, receivedAt: at }, { banks: [mcb] }).result).toMatchObject({ status: "review", reason: "Sender isn't one of your banks in Settings" });
-    const { result, bank } = readAlert({ sender: "UBL", text: pasted, receivedAt: at }, { banks: [mcb, ubl], ownNames: ["Muhammad Jawad Ilyas"] });
-    expect(bank?.name).toBe("UBL");
+    expect(readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [mcb] }).result).toMatchObject({ status: "review", reason: "Sender isn't one of your banks in Settings" });
+    const { result, bank } = readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [mcb, ubl], ownNames: ["Muhammad Jawad Ilyas"] });
+    expect(bank?.name).toBe("JS Bank");
     expect(result).toMatchObject({ status: "parsed", fields: { kind: "expense", amountPaisa: 780000, counterparty: "Muhammad Jawad Ilyas", ownAccount: true, category: "Own accounts", accountHint: "4248", bankRef: "FT26243CK86C" } });
+    // With transfer holds on, a Mobile IBFT waits in Review for any bank charge.
+    expect(readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [{ ...ubl, hold_transfers: true }] }).result).toMatchObject({ status: "review", reason: "Transfer: add any bank charges, then confirm" });
   });
   it("auto-import off and transfer holds are per bank", () => {
-    const off = readAlert({ sender: "UBL", text: pasted, receivedAt: at }, { banks: [{ ...ubl, auto_import: false }] });
-    expect(off.result).toMatchObject({ status: "review", reason: "Automatic import is off for UBL" });
+    const off = readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [{ ...ubl, auto_import: false }] });
+    expect(off.result).toMatchObject({ status: "review", reason: "Automatic import is off for JS Bank" });
     const transfer = ALERTS[5];
     expect(readAlert({ sender: transfer[0], text: transfer[1], receivedAt }, { banks: [mcb] }).result.status).toBe("review");
     expect(readAlert({ sender: transfer[0], text: transfer[1], receivedAt }, { banks: [{ ...mcb, hold_transfers: false }] }).result.status).toBe("parsed");
