@@ -73,7 +73,7 @@ function Chip({ ev, onOpen, showTime }: { ev: Ev; onOpen: (e: Ev) => void; showT
     >
       {showTime && <span className="cal-chip-time">{formatTimePkt(ev.occurred_at)}</span>}
       <span className="cal-chip-amt">{sign(ev.kind)}{rs(ev.amount_paisa)}</span>
-      <span className="cal-chip-short">{sign(ev.kind)}{formatPaisa(ev.amount_paisa, { compact: true }).replace("Rs ", "")}</span>
+      <span className="cal-chip-short">{sign(ev.kind)}{formatPaisa(ev.amount_paisa, { compact: true, symbol: false })}</span>
       <span className="cal-chip-title">{titleOf(ev)}</span>
     </button>
   );
@@ -321,7 +321,7 @@ function MonthGrid({ days, anchor, today, byDay, spentOn, onOpen, onDay }: GridP
                 <button type="button" className="cal-daynum" onClick={(e) => { e.stopPropagation(); onDay(d); }} aria-label={`${longDate(d)}, ${evs.length} transaction${evs.length === 1 ? "" : "s"}`}>
                   {dayNum(d) === 1 ? shortDate(d) : dayNum(d)}
                 </button>
-                {spent > 0 && <span className="cal-cell-total">−{formatPaisa(spent, { compact: true }).replace("Rs ", "")}</span>}
+                {spent > 0 && <span className="cal-cell-total">−{formatPaisa(spent, { compact: true, symbol: false })}</span>}
               </div>
               <div className="cal-cell-evs">
                 {evs.slice(0, extra > 0 ? MAX - 1 : MAX).map((e) => <Chip key={e.id} ev={e} onOpen={onOpen} />)}
@@ -369,7 +369,7 @@ function TimeGrid({ days, today, byDay, spentOn, onOpen, onDay, single }: GridPr
             <button type="button" key={d} className={`cal-col-head${d === today ? " today" : ""}`} onClick={() => onDay(d)} disabled={single}>
               <span className="cal-col-wd">{WEEKDAYS[weekdayIndex(d)]}</span>
               <span className="cal-col-num">{dayNum(d)}</span>
-              <span className="cal-col-total">{spent > 0 ? `−${formatPaisa(spent, { compact: true }).replace("Rs ", "")}` : single && n === 0 ? "No transactions" : " "}</span>
+              <span className="cal-col-total">{spent > 0 ? `−${formatPaisa(spent, { compact: true, symbol: false })}` : single && n === 0 ? "No transactions" : " "}</span>
             </button>
           );
         })}

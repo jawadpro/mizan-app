@@ -8,6 +8,7 @@ import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import "@/app/extra.css";
 import "@/app/badge.css";
 import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
+import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
@@ -33,7 +34,9 @@ const ICONS = {
   dark: svg(<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />),
 };
 
-export default function Shell({ space, children }: { space: Space; children: React.ReactNode }) {
+export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: { space: Space; children: React.ReactNode; currency?: string }) {
+  // Set before any child renders, on the server and in the browser, so every amount uses the chosen currency.
+  setDisplayCurrency(currency);
   const path = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const base = space === "demo" ? "/demo" : "/app";

@@ -3,7 +3,7 @@ import "@/app/spending.css";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, OWN_ACCOUNTS } from "@/lib/categories";
-import { formatPaisa, paisaToDecimal } from "@/lib/money";
+import { formatPaisa, getDisplayCurrency, paisaToDecimal } from "@/lib/money";
 import type { Insights, Tip, TipAction } from "@/lib/insights";
 import { apiFetch, ApiError } from "./api";
 import { useData } from "./useData";
@@ -227,7 +227,7 @@ export function LimitModal({ edit, taken, onClose, onSaved }: { edit: LimitEdit;
               </select>
             </label>
           )}
-          <label className="field" style={{ marginTop: edit.category ? 0 : 12 }}>Limit each month (PKR)
+          <label className="field" style={{ marginTop: edit.category ? 0 : 12 }}>Limit each month ({getDisplayCurrency()})
             <input inputMode="decimal" placeholder="e.g. 15,000" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus required />
           </label>
           <p className="small muted" style={{ marginTop: 10 }}>

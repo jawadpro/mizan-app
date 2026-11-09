@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatPaisa, paisaToDecimal } from "@/lib/money";
+import { formatPaisa, getDisplayCurrency, paisaToDecimal } from "@/lib/money";
 import { formatDatePkt, formatTimePkt } from "@/lib/time";
 import { apiFetch, ApiError } from "./api";
 import { useData } from "./useData";
@@ -115,7 +115,7 @@ function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose:
           <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={submit}>
-          <label className="field">Balance right now (PKR)
+          <label className="field">Balance right now ({getDisplayCurrency()})
             <input inputMode="decimal" placeholder="e.g. 85,301.17" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus required />
           </label>
           <p className="small muted" style={{ marginTop: 10 }}>Copy it from your banking app. Payments recorded from now on will move it up or down automatically.</p>

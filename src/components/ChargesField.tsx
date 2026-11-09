@@ -1,5 +1,5 @@
 "use client";
-import { formatPaisa, parseAmountToPaisa } from "@/lib/money";
+import { currencySymbol, formatPaisa, parseAmountToPaisa } from "@/lib/money";
 import "@/app/charges.css";
 
 export type ChargesKind = "fee" | "tax";
@@ -32,7 +32,7 @@ export default function ChargesField({ amount, value, onChange, error, title, ki
         <button type="button" role="radio" aria-checked={kind === "tax"} className={kind === "tax" ? "on" : ""} onClick={() => onKindChange("tax")}>Tax deducted</button>
       </div>
       <div className={`charges-input${showError ? " invalid" : ""}`}>
-        <span>Rs</span>
+        <span>{currencySymbol()}</span>
         <input id="charges-input" inputMode="decimal" placeholder="0.00" value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={showError} />
       </div>
       {showError ? <div className="err">{error}</div> : charge && base ? (
