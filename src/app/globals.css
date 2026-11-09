@@ -323,3 +323,13 @@ pre { background: var(--surface-2); border: 1px solid var(--border); border-radi
 .tx-row-side .btn.sm { padding: 2px 7px; font-size: 0.78rem; min-height: 0; color: var(--muted); }
 .tx-row-side .btn.sm.danger { color: var(--down-ink); }
 @media (max-width: 720px) { .tx-row-side .btn.sm { min-height: 32px; padding: 4px 9px; } }
+
+/* Day headers split the activity list into Today, Yesterday and earlier days. */
+.day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 10px; background: var(--surface-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 0.8rem; font-weight: 600; color: var(--text); }
+.day-totals { display: inline-flex; gap: 10px; font-size: 0.78rem; font-weight: 500; white-space: nowrap; }
+table.tx tr.day-row td { padding: 0; border-bottom: 0; background: transparent !important; }
+table.tx tr.day-row:first-child .day-head { border-top: 0; }
+table.tx tr:has(+ tr.day-row) td { border-bottom: 0; }
+.tx-cards > .day-head, .tx-list > .day-head { margin: 0 calc(-1 * var(--pad-x, 18px)); padding-left: var(--pad-x, 18px); padding-right: var(--pad-x, 18px); }
+.tx-cards > .day-head:first-child { margin-top: calc(-1 * var(--pad-y, 16px)); border-top: 0; border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0; }
+.tx-card:has(+ .day-head), .tx-row:has(+ .day-head) { border-bottom: 0; }

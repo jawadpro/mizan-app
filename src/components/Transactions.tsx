@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ALL_CATEGORIES, KIND_LABEL, KINDS } from "@/lib/categories";
 import { formatPaisa } from "@/lib/money";
-import { formatDatePkt, formatTimePkt } from "@/lib/time";
+import { dayLabelPkt, formatTimePkt, groupByDayPkt } from "@/lib/time";
 import { apiFetch, resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
@@ -15,6 +15,18 @@ import { useToast } from "./Toast";
 import type { Tx } from "./types";
 
 type List = { items: Tx[]; total: number; page: number; pageSize: number; sums: { expense: number; income: number; remittance: number } };
+
+/** What a day's transactions add up to, shown on the right of its header. */
+function DayTotals({ items }: { items: Tx[] }) {
+  const out = items.reduce((n, t) => n + (t.kind === "expense" ? t.amount_paisa : 0), 0);
+  const inn = items.reduce((n, t) => n + (t.kind !== "expense" ? t.amount_paisa : 0), 0);
+  return (
+    <span className="day-totals">
+      {out > 0 && <span className="amt expense">−{formatPaisa(out)}</span>}
+      {inn > 0 && <span className="amt income">+{formatPaisa(inn)}</span>}
+    </span>
+  );
+}
 
 function useDebounced<T>(v: T, ms = 300) {
   const [d, setD] = useState(v);
@@ -75,6 +87,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
     }
   }
 
+  const days = data ? groupByDayPkt(data.items) : [];
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
@@ -145,7 +158,9 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
             {compact ? (
               <div className="tx-list" style={{ opacity: loading ? 0.55 : 1 }}>
                 <div className="card-head" style={{ marginBottom: 2 }}><h2>History</h2><span className="muted small">{data!.total} transaction{data!.total === 1 ? "" : "s"}</span></div>
-                {data!.items.map((t) => (
+                {days.map((g) => (<Fragment key={g.day}>
+                  <div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div>
+                  {g.items.map((t) => (
                   <div key={t.id} className="tx-row">
                     <div className="tx-row-main">
                       <div className="tx-row-title">
@@ -153,7 +168,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         {t.kind !== "expense" && <span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span>}
                         {t.source === "sms" && <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>{(multi && nameOf(t.bank_id)) || "SMS"}</span>}
                       </div>
-                      <div className="meta"><span className="num">{formatDatePkt(t.occurred_at)}</span> · {formatTimePkt(t.occurred_at)}{t.note ? ` · ${t.note}` : ""}</div>
+                      <div className="meta"><span className="num">{formatTimePkt(t.occurred_at)}</span>{t.note ? ` · ${t.note}` : ""}</div>
                     </div>
                     <div className="tx-row-side">
                       <div className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
@@ -165,18 +180,21 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       )}
                     </div>
                   </div>
-                ))}
+                  ))}
+                </Fragment>))}
               </div>
             ) : (<>
             <div className="table-wrap responsive">
               <table className="tx">
                 <thead>
-                  <tr><th>Date</th><th>Recipient / source</th><th>Category</th><th>Type</th><th>Source</th><th className="amt">Amount</th>{!readOnly && <th><span className="sr-only">Actions</span></th>}</tr>
+                  <tr><th>Time</th><th>Recipient / source</th><th>Category</th><th>Type</th><th>Source</th><th className="amt">Amount</th>{!readOnly && <th><span className="sr-only">Actions</span></th>}</tr>
                 </thead>
                 <tbody style={{ opacity: loading ? 0.55 : 1 }}>
-                  {data!.items.map((t) => (
+                  {days.map((g) => (<Fragment key={g.day}>
+                    <tr className="day-row"><td colSpan={readOnly ? 6 : 7}><div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div></td></tr>
+                    {g.items.map((t) => (
                     <tr key={t.id}>
-                      <td className="num" style={{ whiteSpace: "nowrap" }}>{formatDatePkt(t.occurred_at)}<div className="small muted">{formatTimePkt(t.occurred_at)}</div></td>
+                      <td className="num muted" style={{ whiteSpace: "nowrap" }}>{formatTimePkt(t.occurred_at)}</td>
                       <td>{t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}</td>
                       <td>{t.category}</td>
                       <td><span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span></td>
@@ -186,20 +204,24 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}
                     </tr>
-                  ))}
+                    ))}
+                  </Fragment>))}
                 </tbody>
               </table>
             </div>
             <div className="tx-cards">
-              {data!.items.map((t) => (
+              {days.map((g) => (<Fragment key={g.day}>
+                <div className="day-head"><span>{dayLabelPkt(g.day)}</span><DayTotals items={g.items} /></div>
+                {g.items.map((t) => (
                 <div key={t.id} className="tx-card" onClick={() => !readOnly && edit(t)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{t.counterparty ?? t.category}</div>
-                    <div className="meta">{formatDatePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
+                    <div className="meta">{formatTimePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
                   </div>
                   <div className={`amt ${t.kind}`} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
                 </div>
-              ))}
+                ))}
+              </Fragment>))}
             </div>
             </>)}
             {pages > 1 && (
