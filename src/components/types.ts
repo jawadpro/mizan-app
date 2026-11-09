@@ -13,6 +13,7 @@ export type Tx = {
   bank_ref: string | null;
   set_aside_id: string | null;
   bank_id: string | null;
+  parent_id: string | null;
 };
 
 export type Analytics = {
