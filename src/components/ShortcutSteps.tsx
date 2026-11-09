@@ -34,19 +34,19 @@ export default function ShortcutSteps({ endpoint }: { endpoint: string }) {
       <div className="shortcut-cards">
         <a className="shortcut-card" href={SHORTCUTS.main.url} target="_blank" rel="noopener noreferrer">
           <strong>{SHORTCUTS.main.name}</strong>
-          <span>Sends each bank alert to Mizan. With no internet, it saves the alert in a queue folder instead, so nothing is lost.</span>
+          <span>Runs when a bank SMS arrives. It saves the message (text, sender and time) as a file in your Shortcuts folder, sends it to Mizan, then deletes the file. With no internet the send fails and the file stays, so the alert waits in the queue.</span>
           <span className="shortcut-add">Add Shortcut ↗</span>
         </a>
         <a className="shortcut-card" href={SHORTCUTS.queue.url} target="_blank" rel="noopener noreferrer">
           <strong>{SHORTCUTS.queue.name}</strong>
-          <span>Run it yourself when you&apos;re back online. It sends the queued alerts to Mizan and clears the queue.</span>
+          <span>Run it yourself when you&apos;re back online. It sends every alert still waiting in the queue to Mizan and deletes each one once it&apos;s sent.</span>
           <span className="shortcut-add">Add Shortcut ↗</span>
         </a>
       </div>
       <ol className="shortcut-steps">
         <li>On your iPhone, tap <strong>Add Shortcut</strong> on both cards above.</li>
         <li>
-          When asked (or by opening each Shortcut and editing it), enter your Mizan <strong>URL</strong> and <strong>SMS token</strong>:
+          Point both Shortcuts at your Mizan. Open each one and find <strong>Get contents of</strong>: replace the URL with yours, then tap the arrow beside it and, under <strong>Headers</strong>, replace the token after <code>Bearer </code> in <strong>Authorization</strong> with yours. (If iPhone asks for them while adding, enter them there instead.)
           <div className="shortcut-url"><code>{endpoint}</code><CopyUrl endpoint={endpoint} /></div>
           <span className="small muted">The token is shown on this page; use Copy for Shortcut.</span>
         </li>
