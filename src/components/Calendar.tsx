@@ -13,6 +13,7 @@ import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
 import "@/app/calendar.css";
+import CloseButton from "./CloseButton";
 
 type Page = { items: Tx[]; total: number };
 type Ev = Tx & { day: string; minutes: number };
@@ -249,7 +250,7 @@ export default function Calendar({ space }: { space: Space }) {
           <div className="modal cal-detail" role="dialog" aria-modal="true" aria-labelledby="cal-detail-title">
             <div className="modal-head">
               <h2 id="cal-detail-title"><span className={`cal-dot ${open.kind}`} aria-hidden />{titleOf(open)}</h2>
-              <button className="btn ghost sm" onClick={() => setOpen(null)} aria-label="Close">✕</button>
+              <CloseButton onClick={() => setOpen(null)} />
             </div>
             <div className={`cal-detail-amt amt ${open.kind}`}>{sign(open.kind)}{formatPaisa(open.amount_paisa)}</div>
             <dl className="cal-detail-list">

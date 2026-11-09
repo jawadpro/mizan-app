@@ -7,6 +7,7 @@ import { ApiError } from "./api";
 import { useData } from "./useData";
 import type { SetAside } from "./types";
 import { useBanks } from "./useBanks";
+import CloseButton from "./CloseButton";
 
 export type TxDraft = { kind: Kind; amount: string; occurredAt: string; category: string; counterparty: string; note: string; setAsideId: string | null; bankId: string | null };
 
@@ -100,7 +101,7 @@ export default function TxForm({
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="txform-title" ref={dialog} tabIndex={-1}>
         <div className="modal-head">
           <h2 id="txform-title">{title}</h2>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
         {children}
         <form onSubmit={submit} noValidate>

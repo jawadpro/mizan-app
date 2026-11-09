@@ -10,6 +10,7 @@ import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useToast } from "./Toast";
 import "@/app/monthly.css";
+import CloseButton from "./CloseButton";
 
 export type MonthlyTx = { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null };
 export type MonthlyItem = {
@@ -401,7 +402,7 @@ function PayDialog({ r, d, onClose, onMark, onReload }: { r: Row; d: MonthlyData
             <h2 id="mp-pay-title">{r.name}</h2>
             <div className="small muted">{monthLabel(d.month)}{r.amount_paisa ? ` · usually ${whole(r.amount_paisa)}` : ""}</div>
           </div>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
         {hasParts && r.state !== "skipped" && (
           <div className="mp-sofar">
@@ -524,7 +525,7 @@ function ItemForm({ initial, month, startMonth, onClose, onSaved, onStop, onDele
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="mp-item-title">
         <div className="modal-head">
           <h2 id="mp-item-title">{initial ? "Edit monthly payment" : "Add a monthly payment"}</h2>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={submit} noValidate>
           <div className="form-grid">

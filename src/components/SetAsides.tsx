@@ -8,6 +8,7 @@ import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useToast } from "./Toast";
 import type { SetAside, Tx } from "./types";
+import CloseButton from "./CloseButton";
 
 const APPLIES: Record<SetAside["applies_to"], string> = {
   remittance: "every remittance",
@@ -233,7 +234,7 @@ function SetAsideForm({ initial, onClose, onSaved }: { initial: SetAside | null;
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="sa-title">
         <div className="modal-head">
           <h2 id="sa-title">{initial ? "Edit set-aside" : "New set-aside"}</h2>
-          <button className="btn ghost sm" onClick={onClose} aria-label="Close">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={submit} noValidate>
           <div className="form-grid">
