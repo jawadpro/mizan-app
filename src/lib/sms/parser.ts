@@ -74,6 +74,8 @@ export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuc
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
 
+/** An amount is not a name ("credited by PKR 4,097.89"). */
+const CURRENCY_START_RE = /^(?:pkr|rs\.?|rupees|usd|aed|gbp|eur|sar)(?![a-z])/i;
 /** Words that disqualify a captured counterparty (it refers to the user's own account). */
 const SELF_REF_RE = /^(your|ur|the|a\/c|ac|acc|account|card|mcb|wallet|you)\b/i;
 
@@ -88,7 +90,7 @@ const CATEGORY_RULES: Array<[RegExp, string]> = [
   [/\b(fee|charges?|fed|excise|annual\s+fee|sms\s+alert\s+charges?)\b/i, "Bank charges"],
   [/\b(salary|payroll)\b/i, "Salary"],
   [/\b(k-?electric|ke\s+bill|lesco|iesco|mepco|fesco|gepco|pesco|hesco|sepco|ssgc|sngpl|ptcl|stormfiber|nayatel|wateen|jazz|zong|telenor|ufone|warid|kwsc|wasa)\b/i, "Utilities"],
-  [/\b(foodpanda|kfc|nando'?s|mcdonald'?s|cheezious|domino'?s|pizza|restaurant|cafe|bakery|savour|hardee'?s)\b/i, "Food & dining"],
+  [/\b(food\s*panda|kfc|nando'?s|mcdonald'?s|cheezious|domino'?s|pizza|restaurant|cafe|bakery|savour|hardee'?s)\b/i, "Food & dining"],
   [/\b(careem|uber|bykea|indrive|yango|pso|shell|total\s*parco|attock|fuel|petrol|motorway|m-tag)\b/i, "Transport"],
   [/\b(imtiaz|carrefour|naheed|metro\s+cash|chase\s+up|al-?fatah|greenvalley|grocer(?:y|s)?|mart)\b/i, "Groceries"],
   [/\b(daraz|khaadi|sapphire|gul\s*ahmed|outfitters|amazon|aliexpress|temu)\b/i, "Shopping"],
@@ -156,6 +158,7 @@ export function cleanParty(raw: string | undefined): string | null {
   if (bare.length >= 2 && /[A-Za-z]/.test(bare)) s = bare;
   if (s.length < 2 || s.length > 60) return null;
   if (SELF_REF_RE.test(s)) return null;
+  if (CURRENCY_START_RE.test(s)) return null;
   if (!/[A-Za-z]/.test(s)) return null;
   if (/\d{5,}/.test(s)) return null;
   // Alerts often SHOUT names; title-case them but keep well-known acronyms.
@@ -182,16 +185,26 @@ const BANK_SUFFIX_RE = new RegExp(
   "i",
 );
 
+// Trailing helpline numbers and unlabelled reference codes are not part of a name ("… at 762316/FOOD PANDA FT26236BP37B Helpline:111-654-321").
+const HELPLINE_RE = /\s*\b(?:helpline|call|uan)\s*:?\s*[\d\- ]{7,}.*$/i;
+const TRAILING_REF_RE = new RegExp(String.raw`\s+${BARE_REF_RE.source}`, "g");
+
 function findCounterparty(text: string, kind: Kind | null): string | null {
-  const party = String.raw`((?:[*#]{2,}\d{2,6}\s*[-:]\s*)?[A-Za-z][A-Za-z0-9&'./\- ]{1,59}?)`;
-  const patterns: RegExp[] =
+  // A merchant or terminal number may come before the name ("at 762316/FOOD PANDA"); it is dropped.
+  const party = String.raw`(?:\d{3,12}\s*\/\s*)?((?:[*#xX]{2,}\d{2,6}\s*[-:]\s*)?[A-Za-z][A-Za-z0-9&'./\- ]{1,59}?)`;
+  const at = String.raw`\bat\s+${party}${STOP}`;
+  const patterns: string[] =
     kind === "expense"
-      ? [new RegExp(String.raw`\bat\s+${party}${STOP}`, "i"), new RegExp(String.raw`\b(?:to|towards)\s+${party}${STOP}`, "i")]
-      : [new RegExp(String.raw`\b(?:from|by|sender)\s*:?\s+${party}${STOP}`, "i")];
-  for (const re of patterns) {
-    const m = re.exec(text);
-    const c = cleanParty(m?.[1]);
-    if (c) return c;
+      ? [at, String.raw`\b(?:to|towards)\s+${party}${STOP}`]
+      : // Some banks name who paid with "at" instead of "from" (JS Bank: "credited by PKR … at 762316/FOOD PANDA").
+        [String.raw`\b(?:from|by|sender)\s*:?\s+${party}${STOP}`, at];
+  const body = text.replace(HELPLINE_RE, "").replace(TRAILING_REF_RE, "");
+  for (const src of patterns) {
+    // Every place the word appears is tried: "credited by PKR …" is skipped, a later "by NAME" is not.
+    for (const m of body.matchAll(new RegExp(src, "gi"))) {
+      const c = cleanParty(m[1]);
+      if (c) return c;
+    }
   }
   return null;
 }

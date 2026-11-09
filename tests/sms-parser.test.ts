@@ -224,3 +224,40 @@ describe("real MCB alert formats", () => {
     expect(r.fields.category).toBe("Transfers");
   });
 });
+
+// Real JS Bank alerts (sender "JS BANK"), August and September 2026. Account digits and refs kept as received.
+describe("real JS Bank alert formats", () => {
+  const parse = (text: string, receivedAt: string) => parseSms({ sender: "JS BANK", text, receivedAt: new Date(receivedAt), knownSender: true });
+
+  it("inward remittance, with no sender named and 'credited by PKR' not taken as a name", () => {
+    const r = parse("Acct. 15XXXX8 credited by  PKR 33,378.01 due to Inward Remittance at 13:25 hrs on 10/09/2026. Helpline:111-654-321", "2026-09-10T08:30:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "remittance", amountPaisa: 3337801, counterparty: null, category: "Remittance" });
+    expect(r.fields.occurredAt.toISOString()).toBe("2026-09-10T08:25:00.000Z");
+  });
+
+  it("Mobile IBFT out, with the masked account stripped from the name, held for charges", () => {
+    const r = parse("Your A/c XX4248 is debited by PKR 7,150.00 via Mobile IBFT to XX4718-RAHIMA YASIN on 31-08-2026 at 16:02 FT26243L6Q10 Helpline:111-654-321", "2026-08-31T11:05:00Z");
+    expect(r.status).toBe("review");
+    if (r.status !== "review") return;
+    expect(r.reason).toMatch(/^Transfer/);
+    expect(r.fields).toMatchObject({ kind: "expense", amountPaisa: 715000, counterparty: "Rahima Yasin", category: "Transfers", accountHint: "4248", bankRef: "FT26243L6Q10" });
+    expect(r.fields.occurredAt?.toISOString()).toBe("2026-08-31T11:02:00.000Z");
+  });
+
+  it("credit whose payer comes after 'at' behind a merchant number", () => {
+    const r = parse("Your A/c XX4248 is credited by PKR 4,097.89 at 23:57 on 22-08-2026 at 762316/FOOD PANDA FT26236BP37B Helpline:111-654-321", "2026-08-22T19:00:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "income", amountPaisa: 409789, counterparty: "Food Panda", accountHint: "4248", bankRef: "FT26236BP37B" });
+    expect(r.fields.occurredAt.toISOString()).toBe("2026-08-22T18:57:00.000Z");
+  });
+
+  it("a card spend at the same kind of merchant field reads the name and category", () => {
+    const r = parse("Your A/c XX4248 is debited by PKR 1,250.00 at 20:10 on 22-08-2026 at 762316/FOOD PANDA FT26236BP99Z Helpline:111-654-321", "2026-08-22T16:00:00Z");
+    expect(r.status).toBe("parsed");
+    if (r.status !== "parsed") return;
+    expect(r.fields).toMatchObject({ kind: "expense", counterparty: "Food Panda", category: "Food & dining" });
+  });
+});

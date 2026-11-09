@@ -19,7 +19,7 @@ export const DEFAULT_SMS_WORDS: SmsWords = {
   expense: ["debited", "debit from", "withdrawn", "withdrawal", "purchase", "purchased", "paid", "payment of", "spent", "sent", "transferred to", "transfer of", "transferred of", "charged", "deducted"],
   income: ["credited", "received", "deposited", "deposit of"],
   remittance: ["home remittance", "remittance", "inward transfer", "inward remittance", "western union", "moneygram", "remitly", "wise transfer", "xpress money", "ria money"],
-  transfer: ["sent to", "transferred to", "transfer of", "transferred of", "via ibft", "via raast", "fund transfer", "funds transfer", "interbank"],
+  transfer: ["sent to", "transferred to", "transfer of", "transferred of", "via ibft", "via mobile ibft", "via raast", "fund transfer", "funds transfer", "interbank"],
 };
 
 export const MAX_WORDS = 40;
