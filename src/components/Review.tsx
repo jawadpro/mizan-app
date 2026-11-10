@@ -12,6 +12,13 @@ import PushToggle from "./PushToggle";
 import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { ReviewItem } from "./types";
+import { findCharges } from "@/lib/sms/parser";
+
+/** A charge the alert itself names ("and Tax/Charges 5.00") fills the charges box, ready to confirm. */
+function chargesIn(it: ReviewItem): string {
+  const c = it.kind === "expense" && it.redacted_text ? findCharges(it.redacted_text) : null;
+  return c ? (c / 100).toFixed(2) : "";
+}
 
 export default function Review({ space }: { space: Space }) {
   const { data, error, loading, reload } = useData<{ items: ReviewItem[] }>(resourceUrl(space, "review"));
@@ -64,7 +71,7 @@ export default function Review({ space }: { space: Space }) {
                 </div>
                 <div className="toolbar">
                   <button className="btn danger sm" disabled={readOnly} onClick={() => dismiss(it)}>Dismiss</button>
-                  <button className="btn primary sm" disabled={readOnly} title={readOnly ? "The demo is read-only" : undefined} onClick={() => { setCharges(""); setChargesKind("fee"); setConfirming(it); }}>Review & confirm</button>
+                  <button className="btn primary sm" disabled={readOnly} title={readOnly ? "The demo is read-only" : undefined} onClick={() => { setCharges(chargesIn(it)); setChargesKind("fee"); setConfirming(it); }}>Review & confirm</button>
                 </div>
               </div>
               {it.redacted_text && <div className="redacted" aria-label="Redacted SMS text">{it.redacted_text}</div>}

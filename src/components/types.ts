@@ -14,6 +14,9 @@ export type Tx = {
   set_aside_id: string | null;
   bank_id: string | null;
   parent_id: string | null;
+  /** Bank charges and tax already added on this transfer (from the list), or null when there are none. */
+  charge_fee_paisa?: number | null;
+  charge_tax_paisa?: number | null;
 };
 
 export type Analytics = {

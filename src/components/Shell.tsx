@@ -8,6 +8,7 @@ import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import "@/app/extra.css";
 import "@/app/badge.css";
 import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
+import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
@@ -33,7 +34,9 @@ const ICONS = {
   dark: svg(<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />),
 };
 
-export default function Shell({ space, children }: { space: Space; children: React.ReactNode }) {
+export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: { space: Space; children: React.ReactNode; currency?: string }) {
+  // Set before any child renders, on the server and in the browser, so every amount uses the chosen currency.
+  setDisplayCurrency(currency);
   const path = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const base = space === "demo" ? "/demo" : "/app";
@@ -62,9 +65,16 @@ export default function Shell({ space, children }: { space: Space; children: Rea
     { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
   ];
   const moreLinks = allLinks.filter((l) => !tabs.some((t) => t.href === l.href));
-  const inMore = moreLinks.some((l) => l.href === path);
 
-  useEffect(() => setMoreOpen(false), [path]);
+  // The tab you tap lights up at once, before the page arrives, then follows the real path.
+  const [tapped, setTapped] = useState<string | null>(null);
+  const current = tapped ?? path;
+  const onTab = tabs.findIndex((t) => t.href === current);
+  const tabIndex = moreOpen || onTab < 0 ? tabs.length : onTab;
+  useEffect(() => {
+    setMoreOpen(false);
+    setTapped(null);
+  }, [path]);
 
   // How many SMS alerts wait in the review inbox; refreshed on navigation, focus and after a review.
   const [pending, setPending] = useState(0);
@@ -159,14 +169,19 @@ export default function Shell({ space, children }: { space: Space; children: Rea
           </main>
         </div>
       </div>
-      <nav className="tabbar" aria-label="Main">
-        {tabs.map((t) => (
-          <Link key={t.href} href={t.href} className={path === t.href ? "active" : ""} aria-current={path === t.href ? "page" : undefined}>
-            {t.icon}
-            <span>{t.label}</span>
-          </Link>
-        ))}
-        <button type="button" className={inMore || moreOpen ? "active" : ""} onClick={() => setMoreOpen(true)} aria-haspopup="dialog" aria-expanded={moreOpen}>
+      <nav className="tabbar" aria-label="Main" style={{ "--tab-i": tabIndex } as React.CSSProperties}>
+        <span className="tab-pill" aria-hidden />
+        {tabs.map((t) => {
+          const on = !moreOpen && current === t.href;
+          return (
+            // Full prefetch: each tab's page is fetched ahead, so a tap swaps the screen without waiting on the server.
+            <Link key={t.href} href={t.href} prefetch className={on ? "active" : ""} aria-current={on ? "page" : undefined} onClick={() => setTapped(t.href === path ? null : t.href)}>
+              {t.icon}
+              <span>{t.label}</span>
+            </Link>
+          );
+        })}
+        <button type="button" className={tabIndex === tabs.length ? "active" : ""} onClick={() => setMoreOpen(true)} aria-haspopup="dialog" aria-expanded={moreOpen}>
           <span className="tab-icon">
             {ICONS.more}
             {pending > 0 && <span className="count-badge on-icon" aria-label={`${pending} to review`}>{pending > 99 ? "99+" : pending}</span>}

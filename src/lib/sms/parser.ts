@@ -29,6 +29,8 @@ export type ParsedFields = {
   hasExplicitTime: boolean;
   /** The counterparty is one of the user's own names, so this moves money between their own accounts. */
   ownAccount: boolean;
+  /** A bank charge or tax the alert names next to the amount ("PKR 10,000.00 and Tax/Charges 5.00"), saved as its own expense. */
+  chargesPaisa: number | null;
 };
 
 export type ParseResult =
@@ -66,6 +68,21 @@ export const BALANCE_RE = new RegExp(
   String.raw`\b(?:avl\.?|avail\.?|available|current|closing|ledger|new|remaining|total)?\s*(?:a\/c\s*)?bal(?:ance)?\.?\s*(?:is|:|=|of)?\s*${CUR}?\s*:?\s*-?${NUM}\s*(?:cr|dr)?`,
   "gi",
 );
+// A charge or tax printed beside the amount (Bank Alfalah: "PKR 10,000.00 and Tax/Charges 5.00 Debited"). Read, then removed
+// so it is neither a second amount nor a reason to call the whole payment a bank charge. "plus tax" with no figure stays.
+export const CHARGES_RE = new RegExp(
+  String.raw`\s*(?:\band|\bplus|\bincl(?:uding|\.)?|\+|&)\s+(?:(?:bank|service|transaction)\s+)?(?:tax(?:es)?|charges?|fees?|fed|wht)(?:\s*(?:\/|&|and)\s*(?:tax(?:es)?|charges?|fees?|fed|wht))?\s*(?:of\s+)?:?\s*${CUR}?\s*:?\s*${NUM}`,
+  "i",
+);
+
+/** The bank charge or tax named beside the amount, in paisa, or null. */
+export function findCharges(text: string): number | null {
+  const m = CHARGES_RE.exec(normalizeText(text));
+  if (!m) return null;
+  const v = parseAmountToPaisa(m[2] ? `${m[1]}.${m[2]}` : m[1]);
+  return v && v > 0 ? v : null;
+}
+
 export const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
 const FOREIGN_RE = /\b(USD|AED|GBP|EUR|SAR|QAR|CAD|AUD|US\$)\s*[\d,]+(?:\.\d+)?/i;
 
@@ -74,6 +91,8 @@ export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuc
 
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
 
+/** An amount is not a name ("credited by PKR 4,097.89"). */
+const CURRENCY_START_RE = /^(?:pkr|rs\.?|rupees|usd|aed|gbp|eur|sar)(?![a-z])/i;
 /** Words that disqualify a captured counterparty (it refers to the user's own account). */
 const SELF_REF_RE = /^(your|ur|the|a\/c|ac|acc|account|card|mcb|wallet|you)\b/i;
 
@@ -88,7 +107,7 @@ const CATEGORY_RULES: Array<[RegExp, string]> = [
   [/\b(fee|charges?|fed|excise|annual\s+fee|sms\s+alert\s+charges?)\b/i, "Bank charges"],
   [/\b(salary|payroll)\b/i, "Salary"],
   [/\b(k-?electric|ke\s+bill|lesco|iesco|mepco|fesco|gepco|pesco|hesco|sepco|ssgc|sngpl|ptcl|stormfiber|nayatel|wateen|jazz|zong|telenor|ufone|warid|kwsc|wasa)\b/i, "Utilities"],
-  [/\b(foodpanda|kfc|nando'?s|mcdonald'?s|cheezious|domino'?s|pizza|restaurant|cafe|bakery|savour|hardee'?s)\b/i, "Food & dining"],
+  [/\b(food\s*panda|kfc|nando'?s|mcdonald'?s|cheezious|domino'?s|pizza|restaurant|cafe|bakery|savour|hardee'?s)\b/i, "Food & dining"],
   [/\b(careem|uber|bykea|indrive|yango|pso|shell|total\s*parco|attock|fuel|petrol|motorway|m-tag)\b/i, "Transport"],
   [/\b(imtiaz|carrefour|naheed|metro\s+cash|chase\s+up|al-?fatah|greenvalley|grocer(?:y|s)?|mart)\b/i, "Groceries"],
   [/\b(daraz|khaadi|sapphire|gul\s*ahmed|outfitters|amazon|aliexpress|temu)\b/i, "Shopping"],
@@ -156,6 +175,7 @@ export function cleanParty(raw: string | undefined): string | null {
   if (bare.length >= 2 && /[A-Za-z]/.test(bare)) s = bare;
   if (s.length < 2 || s.length > 60) return null;
   if (SELF_REF_RE.test(s)) return null;
+  if (CURRENCY_START_RE.test(s)) return null;
   if (!/[A-Za-z]/.test(s)) return null;
   if (/\d{5,}/.test(s)) return null;
   // Alerts often SHOUT names; title-case them but keep well-known acronyms.
@@ -173,7 +193,7 @@ const STOP = String.raw`(?=\s+(?:on|dated|ref|reference|via|using|with|through|f
 // MCB transfer alerts append the recipient's bank or wallet to their name ("SARA AHMED UBL").
 const BANK_SUFFIX_RE = new RegExp(
   String.raw`\s+(?:${[
-    "Bank Alfalah", "Alfalah", "Bank Al Habib", "Al Habib", "Allied Bank", "ABL", "Askari Bank", "Askari", "BankIslami", "Bank Islami",
+    "Bank Alfalah", "Alfalah", "BAF", "Bank Al Habib", "Al Habib", "Allied Bank", "ABL", "Askari Bank", "Askari", "BankIslami", "Bank Islami",
     "Bank of Punjab", "BOP", "Dubai Islamic Bank", "Dubai Islamic", "DIB", "Faysal Bank", "Faysal", "Habib Metro", "HabibMetro", "HBL",
     "JS Bank", "MCB", "MCB Islamic", "Meezan Bank", "Meezan", "National Bank", "NBP", "Soneri Bank", "Soneri", "Standard Chartered", "SCB",
     "Silk Bank", "Sindh Bank", "Summit Bank", "UBL", "Al Baraka", "Albaraka", "SadaPay", "NayaPay", "JazzCash", "Easypaisa", "Easy Paisa",
@@ -182,16 +202,26 @@ const BANK_SUFFIX_RE = new RegExp(
   "i",
 );
 
+// Trailing helpline numbers and unlabelled reference codes are not part of a name ("… at 762316/FOOD PANDA FT26236BP37B Helpline:111-654-321").
+const HELPLINE_RE = /\s*\b(?:helpline|call|uan)\s*:?\s*[\d\- ]{7,}.*$/i;
+const TRAILING_REF_RE = new RegExp(String.raw`\s+${BARE_REF_RE.source}`, "g");
+
 function findCounterparty(text: string, kind: Kind | null): string | null {
-  const party = String.raw`((?:[*#]{2,}\d{2,6}\s*[-:]\s*)?[A-Za-z][A-Za-z0-9&'./\- ]{1,59}?)`;
-  const patterns: RegExp[] =
+  // A merchant or terminal number may come before the name ("at 762316/FOOD PANDA"); it is dropped.
+  const party = String.raw`(?:\d{3,12}\s*\/\s*)?((?:[*#xX]{2,}\d{2,6}\s*[-:]\s*)?[A-Za-z][A-Za-z0-9&'./\- ]{1,59}?)`;
+  const at = String.raw`\bat\s+${party}${STOP}`;
+  const patterns: string[] =
     kind === "expense"
-      ? [new RegExp(String.raw`\bat\s+${party}${STOP}`, "i"), new RegExp(String.raw`\b(?:to|towards)\s+${party}${STOP}`, "i")]
-      : [new RegExp(String.raw`\b(?:from|by|sender)\s*:?\s+${party}${STOP}`, "i")];
-  for (const re of patterns) {
-    const m = re.exec(text);
-    const c = cleanParty(m?.[1]);
-    if (c) return c;
+      ? [at, String.raw`\b(?:to|towards)\s+${party}${STOP}`]
+      : // Some banks name who paid with "at" instead of "from" (JS Bank: "credited by PKR … at 762316/FOOD PANDA").
+        [String.raw`\b(?:from|by|sender)\s*:?\s+${party}${STOP}`, at];
+  const body = text.replace(HELPLINE_RE, "").replace(TRAILING_REF_RE, "");
+  for (const src of patterns) {
+    // Every place the word appears is tried: "credited by PKR …" is skipped, a later "by NAME" is not.
+    for (const m of body.matchAll(new RegExp(src, "gi"))) {
+      const c = cleanParty(m[1]);
+      if (c) return c;
+    }
   }
   return null;
 }
@@ -203,7 +233,7 @@ export function guessCategory(text: string): string | null {
 }
 
 function emptyFields(): ParsedFields {
-  return { kind: null, amountPaisa: null, occurredAt: null, dateSource: "received", counterparty: null, category: null, accountHint: null, bankRef: null, hasExplicitTime: false, ownAccount: false };
+  return { kind: null, amountPaisa: null, occurredAt: null, dateSource: "received", counterparty: null, category: null, accountHint: null, bankRef: null, hasExplicitTime: false, ownAccount: false, chargesPaisa: null };
 }
 
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, " ").trim();
@@ -232,8 +262,9 @@ export function parseSms(input: ParseInput): ParseResult {
 
   if (OTP_RE.test(text)) return { status: "ignored", reason: "One-time password or security message" };
 
-  // Remove phrases where credit/debit name a card type rather than a direction.
-  const directional = text.replace(/\b(credit|debit)\s+card\b/gi, "card");
+  fields.chargesPaisa = findCharges(text);
+  // Remove phrases where credit/debit name a card type rather than a direction, and a charge printed beside the amount.
+  const directional = text.replace(/\b(credit|debit)\s+card\b/gi, "card").replace(CHARGES_RE, " ");
 
   const withoutBalance = directional.replace(BALANCE_RE, " [balance] ");
   const amounts = Array.from(withoutBalance.matchAll(AMOUNT_RE))
@@ -264,7 +295,7 @@ export function parseSms(input: ParseInput): ParseResult {
 
   // Prefer the user's own account ("from A/C *1234", "in your MCB A/C*1234") over the other party's.
   const own = /\b(?:from|in)\s+(?:your\s+)?(?:MCB\s+)?a\/c\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
-  const acct = own ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
+  const acct = own ?? /\ba\/c\s*:?\s*[\d\-]{0,12}[*xX#]{2,}\s*(\d{3,4})\b/i.exec(text) ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
   if (acct) fields.accountHint = acct[1];
   const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
   if (ref && /\d/.test(ref[1])) fields.bankRef = ref[1].toUpperCase();

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENCY_CODES, DEFAULT_CURRENCY, type CurrencyCode } from "./money";
 
 /** Feature switches from the Settings page. Unknown or missing keys fall back to these defaults. */
 export const DEFAULT_PREFS = {
@@ -8,6 +9,8 @@ export const DEFAULT_PREFS = {
   defaultRange: "30d" as "7d" | "30d" | "month" | "12m" | "year",
   /** The owner's name(s) as banks print them, comma-separated, so transfers between their own accounts are recognised. */
   ownNames: "",
+  /** Currency every amount is shown in. Display only: stored amounts are never converted. */
+  currency: DEFAULT_CURRENCY as CurrencyCode,
 };
 export type Prefs = typeof DEFAULT_PREFS;
 
@@ -17,6 +20,7 @@ export const prefsPatch = z
     limitWarnPercent: z.union([z.literal(70), z.literal(80), z.literal(90)]),
     ramadanNotice: z.boolean(),
     defaultRange: z.enum(["7d", "30d", "month", "12m", "year"]),
+    currency: z.enum(CURRENCY_CODES),
     ownNames: z.string().max(300).transform((s) => s.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ")),
   })
   .partial()

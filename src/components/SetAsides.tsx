@@ -56,13 +56,14 @@ export default function SetAsides() {
   }
   async function startFresh(f: SetAside) {
     const over = formatPaisa(-f.remaining);
+    const zero = formatPaisa(0).replace(/\.00$/, "");
     const msg = f.purpose === "giving"
-      ? `Keep the extra ${over} as a gift? "${f.name}" goes back to Rs 0 and your next shares are set aside as normal instead of covering it.`
-      : `Forgive the ${over} overspend? "${f.name}" goes back to Rs 0 and your next shares are saved as normal instead of covering it.`;
+      ? `Keep the extra ${over} as a gift? "${f.name}" goes back to ${zero} and your next shares are set aside as normal instead of covering it.`
+      : `Forgive the ${over} overspend? "${f.name}" goes back to ${zero} and your next shares are saved as normal instead of covering it.`;
     if (!window.confirm(msg)) return;
     try {
       await apiFetch(`/api/set-asides/${f.id}`, { method: "POST", body: JSON.stringify({ action: "start-fresh" }) });
-      toast(`${f.name} starts fresh from Rs 0`, "ok");
+      toast(`${f.name} starts fresh from ${zero}`, "ok");
       reload();
     } catch (e) {
       toast((e as Error).message, "error");

@@ -1,4 +1,5 @@
 "use client";
+import { CURRENCIES, DEFAULT_CURRENCY, type CurrencyCode } from "@/lib/money";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/components/api";
 import BankList from "@/components/BankList";
@@ -108,8 +109,18 @@ function BanksStep({ next }: { next: () => void }) {
 
 function NameStep({ back, next }: { back: () => void; next: () => void }) {
   const toast = useToast();
-  const prefs = useData<{ prefs: { ownNames: string } }>("/api/preferences");
+  const prefs = useData<{ prefs: { ownNames: string; currency: CurrencyCode } }>("/api/preferences");
   const [name, setName] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<CurrencyCode | null>(null);
+  async function saveCurrency(code: CurrencyCode) {
+    setCurrency(code);
+    try {
+      await apiFetch("/api/preferences", { method: "PATCH", body: JSON.stringify({ currency: code }) });
+    } catch (e) {
+      setCurrency(null);
+      toast((e as Error).message, "error");
+    }
+  }
   const [version, setVersion] = useState(0);
   const value = name ?? prefs.data?.prefs.ownNames ?? "";
   async function save() {
@@ -125,8 +136,16 @@ function NameStep({ back, next }: { back: () => void; next: () => void }) {
   }
   return (
     <>
-      <h1>Your name, and a test</h1>
-      <p className="muted">Banks print your name on transfers. With it, Mizan can tell a transfer between your own accounts from a payment to someone else. Add each spelling your banks use, separated by commas. Optional.</p>
+      <h1>Your currency, your name, and a test</h1>
+      <p className="muted">Every amount in Mizan is shown in this currency. You can change it later in Settings.</p>
+      <div className="setup-panel">
+        <label className="field">Currency
+          <select value={currency ?? prefs.data?.prefs.currency ?? DEFAULT_CURRENCY} onChange={(e) => saveCurrency(e.target.value as CurrencyCode)}>
+            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+          </select>
+        </label>
+      </div>
+      <p className="muted" style={{ marginTop: 18 }}>Banks print your name on transfers. With it, Mizan can tell a transfer between your own accounts from a payment to someone else. Add each spelling your banks use, separated by commas. Optional.</p>
       <div className="setup-panel">
         <label className="field">Your name as banks print it
           <input maxLength={300} placeholder="e.g. Muhammad Ali Khan" value={value} onChange={(e) => setName(e.target.value)} onBlur={() => save()} />

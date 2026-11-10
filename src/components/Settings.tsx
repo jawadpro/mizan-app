@@ -2,7 +2,7 @@
 import "@/app/settings.css";
 import Link from "next/link";
 import { useState } from "react";
-import { formatPaisa, paisaToDecimal } from "@/lib/money";
+import { CURRENCIES, formatPaisa, paisaToDecimal, setDisplayCurrency } from "@/lib/money";
 import type { Prefs } from "@/lib/preferences";
 import { apiFetch } from "./api";
 import { useData } from "./useData";
@@ -72,6 +72,7 @@ export default function Settings() {
     try {
       await apiFetch("/api/preferences", { method: "PATCH", body: JSON.stringify(patch) });
       toast("Saved", "ok");
+      return true;
     } catch (e) {
       setLocal((l) => {
         const next = { ...l };
@@ -79,7 +80,15 @@ export default function Settings() {
         return next;
       });
       toast((e as Error).message, "error");
+      return false;
     }
+  }
+
+  async function saveCurrency(code: Prefs["currency"]) {
+    if (!(await save({ currency: code }))) return;
+    setDisplayCurrency(code);
+    // Every page formats amounts as it draws, so reload once to show the new currency everywhere.
+    window.location.reload();
   }
 
   return (
@@ -148,6 +157,11 @@ export default function Settings() {
           </Section>
 
           <Section id="appearance" title="Appearance">
+            <Row title="Currency" hint="Every amount is shown in this currency, on every device. Amounts are not converted.">
+              <select value={p.currency} onChange={(e) => saveCurrency(e.target.value as Prefs["currency"])} aria-label="Currency">
+                {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+              </select>
+            </Row>
             <Row title="Theme" hint="Saved on this device only.">
               <div className="seg" role="group" aria-label="Theme">
                 {(["system", "light", "dark"] as ThemePref[]).map((t) => (

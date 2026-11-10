@@ -5,7 +5,7 @@ import { parseSms, redactSms, PARSER_VERSION, type ParseResult } from "./parser"
 import { readAlert } from "./read";
 import { smsFingerprint } from "./fingerprint";
 import { notifyReviewWaiting } from "../push";
-import { getPrefs, getSmsWords, listBanks } from "../repo";
+import { addBankCharge, getPrefs, getSmsWords, listBanks } from "../repo";
 
 const splitList = (s: string | undefined) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
@@ -62,6 +62,10 @@ export async function ingestSms(input: { sender: string; text: string; receivedA
           ],
         );
         if (!ins.rows[0]) throw new Duplicate();
+        // A charge or tax printed in the alert itself is saved as its own expense, tucked under this one.
+        if (f.kind === "expense" && f.chargesPaisa) {
+          await addBankCharge(run, ins.rows[0].id, f.chargesPaisa, { occurredAt: result.fields.occurredAt, counterparty: f.counterparty }, f.accountHint, bankId);
+        }
         return { status: "imported", transactionId: ins.rows[0].id } as const;
       }
 

@@ -9,7 +9,7 @@ import {
 import { apiFetch, resourceUrl, type Space } from "./api";
 import { ErrorBox } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
-import ChargesField, { type ChargesKind } from "./ChargesField";
+import { useChargesEdit } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
 import "@/app/calendar.css";
@@ -73,7 +73,7 @@ function Chip({ ev, onOpen, showTime }: { ev: Ev; onOpen: (e: Ev) => void; showT
     >
       {showTime && <span className="cal-chip-time">{formatTimePkt(ev.occurred_at)}</span>}
       <span className="cal-chip-amt">{sign(ev.kind)}{rs(ev.amount_paisa)}</span>
-      <span className="cal-chip-short">{sign(ev.kind)}{formatPaisa(ev.amount_paisa, { compact: true }).replace("Rs ", "")}</span>
+      <span className="cal-chip-short">{sign(ev.kind)}{formatPaisa(ev.amount_paisa, { compact: true, symbol: false })}</span>
       <span className="cal-chip-title">{titleOf(ev)}</span>
     </button>
   );
@@ -88,8 +88,7 @@ export default function Calendar({ space }: { space: Space }) {
   const [open, setOpen] = useState<Ev | null>(null);
   const [editing, setEditing] = useState<Tx | "new" | null>(null);
   const [newDay, setNewDay] = useState<string | null>(null);
-  const [charges, setCharges] = useState("");
-  const [chargesKind, setChargesKind] = useState<ChargesKind>("fee");
+  const chargesEdit = useChargesEdit();
   const readOnly = space === "demo";
 
   useEffect(() => {
@@ -161,10 +160,10 @@ export default function Calendar({ space }: { space: Space }) {
   };
 
   async function save(d: TxDraft, id?: string) {
-    const withCharges = !!id && d.kind === "expense" && charges.trim() !== "";
-    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(withCharges ? { ...d, charges, chargesKind } : d) });
+    const chargesNote = id ? chargesEdit.toastFor(d) : null;
+    await apiFetch(id ? `/api/transactions/${id}` : "/api/transactions", { method: id ? "PATCH" : "POST", body: JSON.stringify(id ? chargesEdit.body(d) : d) });
     setEditing(null);
-    toast(withCharges ? `Updated, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : id ? "Transaction updated" : "Transaction added", "ok");
+    toast(chargesNote ?? (id ? "Transaction updated" : "Transaction added"), "ok");
     reload();
   }
   async function destroy(id: string) {
@@ -186,7 +185,7 @@ export default function Calendar({ space }: { space: Space }) {
   }
   const addOn = (d: string | null) => {
     if (readOnly) return;
-    setCharges("");
+    chargesEdit.start("new");
     setNewDay(d);
     setEditing("new");
   };
@@ -262,7 +261,7 @@ export default function Calendar({ space }: { space: Space }) {
             {!readOnly && (
               <div className="modal-foot">
                 <button className="btn danger" onClick={() => remove(open)}>Delete</button>
-                <button className="btn primary" onClick={() => { setCharges(""); setChargesKind("fee"); setEditing(open); setOpen(null); }}>Edit</button>
+                <button className="btn primary" onClick={() => { chargesEdit.start(open); setEditing(open); setOpen(null); }}>Edit</button>
               </div>
             )}
           </div>
@@ -279,7 +278,7 @@ export default function Calendar({ space }: { space: Space }) {
           onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
             d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
-              <ChargesField title="Add bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
+              chargesEdit.field(d, fieldErrors.charges?.[0])
             )
           }
         />
@@ -321,7 +320,7 @@ function MonthGrid({ days, anchor, today, byDay, spentOn, onOpen, onDay }: GridP
                 <button type="button" className="cal-daynum" onClick={(e) => { e.stopPropagation(); onDay(d); }} aria-label={`${longDate(d)}, ${evs.length} transaction${evs.length === 1 ? "" : "s"}`}>
                   {dayNum(d) === 1 ? shortDate(d) : dayNum(d)}
                 </button>
-                {spent > 0 && <span className="cal-cell-total">−{formatPaisa(spent, { compact: true }).replace("Rs ", "")}</span>}
+                {spent > 0 && <span className="cal-cell-total">−{formatPaisa(spent, { compact: true, symbol: false })}</span>}
               </div>
               <div className="cal-cell-evs">
                 {evs.slice(0, extra > 0 ? MAX - 1 : MAX).map((e) => <Chip key={e.id} ev={e} onOpen={onOpen} />)}
@@ -369,7 +368,7 @@ function TimeGrid({ days, today, byDay, spentOn, onOpen, onDay, single }: GridPr
             <button type="button" key={d} className={`cal-col-head${d === today ? " today" : ""}`} onClick={() => onDay(d)} disabled={single}>
               <span className="cal-col-wd">{WEEKDAYS[weekdayIndex(d)]}</span>
               <span className="cal-col-num">{dayNum(d)}</span>
-              <span className="cal-col-total">{spent > 0 ? `−${formatPaisa(spent, { compact: true }).replace("Rs ", "")}` : single && n === 0 ? "No transactions" : " "}</span>
+              <span className="cal-col-total">{spent > 0 ? `−${formatPaisa(spent, { compact: true, symbol: false })}` : single && n === 0 ? "No transactions" : " "}</span>
             </button>
           );
         })}
