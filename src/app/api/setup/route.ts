@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { assertSameOrigin, requireSession, sessionHeaders } from "@/lib/auth";
-import { claimInstall, finishSetup, MIN_PASSPHRASE, regenerateSmsToken, savedSmsToken, setupState } from "@/lib/config";
+import { claimInstall, finishSetup, MIN_PASSPHRASE, ownerSmsToken, regenerateSmsToken, savedSmsToken, setupState } from "@/lib/config";
 import { env } from "@/lib/env";
 import { HttpError, errorJson, handle, json, readJson } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
@@ -17,7 +17,7 @@ export const GET = handle(async (req: Request) => {
     try {
       requireSession(req);
       signedIn = true;
-      token = savedSmsToken();
+      token = ownerSmsToken();
     } catch {
       signedIn = false;
     }

@@ -48,7 +48,7 @@ export default function ShortcutSteps({ endpoint }: { endpoint: string }) {
         <li>
           When asked (or by opening each Shortcut and editing it), enter your Mizan <strong>URL</strong> and <strong>SMS token</strong>:
           <div className="shortcut-url"><code>{endpoint}</code><CopyUrl endpoint={endpoint} /></div>
-          <span className="small muted">The token is shown on this page; use Copy for Shortcut.</span>
+          <span className="small muted">Your token and the two headers (<code>Authorization</code> and <code>Content-Type</code>) are in the SMS token box on this page, each with its own Copy button.</span>
         </li>
         <li>Open <strong>Settings</strong>, then <strong>Apps</strong>, then <strong>Shortcuts</strong> (on older iPhones, <strong>Settings</strong> then <strong>Shortcuts</strong>), then <strong>Advanced</strong>, and turn on <strong>Allow Deleting Without Confirmation</strong>. The Shortcuts clear the queue folder after sending.</li>
         <li>Run <strong>{SHORTCUTS.main.name}</strong> and <strong>{SHORTCUTS.queue.name}</strong> once each by hand. Whenever iPhone asks for permission, choose <strong>Always Allow</strong>, so they never stop to ask later.</li>
