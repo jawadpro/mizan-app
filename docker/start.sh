@@ -1,7 +1,6 @@
 #!/bin/sh
-# Starts Mizan inside Docker: applies migrations, adds sample data for demos, then serves the app.
-# With DEMO_PASSWORD set the demo signs in with it; without one (and no ADMIN_PASSWORD_HASH) it opens
-# the first-run setup, like a brand-new install.
+# Starts Mizan inside Docker: applies migrations, then serves the app. A normal install opens the
+# setup wizard. Only docker-compose.demo.yml sets DEMO_PASSWORD and SEED_DEMO, for a sample-data demo.
 set -e
 if [ -z "$ADMIN_PASSWORD_HASH" ] && [ -n "$DEMO_PASSWORD" ]; then
   ADMIN_PASSWORD_HASH="$(node scripts/hash-password.mjs "$DEMO_PASSWORD")"

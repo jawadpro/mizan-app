@@ -1,9 +1,16 @@
-// Fills an empty database with made-up sample data for local demos (Docker). Never run against real data:
-// it does nothing if any transaction exists. Usage: DATABASE_URL=... node scripts/seed-demo.mjs
+// Fills an empty database with made-up sample data, ONLY for the docker-compose.demo.yml screenshot demo.
+// Never run it for a real install, even when asked to "set the app up": a new owner starts empty and goes
+// through the setup wizard. It refuses unless SEED_DEMO_CONFIRM=made-up-sample-data is set and the database
+// is a local one, and it does nothing if any transaction exists.
 import pg from "pg";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
+const isLocalDb = /@(localhost|127\.0\.0\.1|db)[:/]/.test(url);
+if (process.env.SEED_DEMO_CONFIRM !== "made-up-sample-data" || !isLocalDb) {
+  console.error("[seed] Refusing to add sample data. It is only for the local docker-compose.demo.yml demo; a real install starts empty and uses the setup wizard.");
+  process.exit(1);
+}
 const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url) || process.env.DATABASE_SSL === "false";
 const db = new pg.Client({ connectionString: url, ssl: local ? false : { rejectUnauthorized: true } });
 await db.connect();

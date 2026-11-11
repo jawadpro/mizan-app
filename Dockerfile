@@ -1,4 +1,4 @@
-# Mizan for local demos and self-hosting. Production on Vercel doesn't use this file.
+# Mizan for self-hosting (docker-compose.yml) and the sample-data demo (docker-compose.demo.yml). Production on Vercel doesn't use this file.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
