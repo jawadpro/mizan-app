@@ -33,6 +33,12 @@
 .shortcut-steps { padding-left: 18px; line-height: 1.7; margin: 12px 0 0; }
 .sms-token { display: grid; gap: 8px; }
 .sms-token-value { word-break: break-all; font-size: 0.85rem; }
+.sms-token-row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.sms-headers { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.sms-header { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 6px 12px; align-items: center; }
+.sms-header-key, .sms-header-val { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.sms-header code { word-break: break-all; font-size: 0.85rem; }
+@media (max-width: 560px) { .sms-header { grid-template-columns: minmax(0, 1fr); } .sms-header + .sms-header { border-top: 1px solid var(--border); padding-top: 8px; } }
 
 .shortcut-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
 .shortcut-card { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); text-decoration: none; font-size: 0.86rem; }

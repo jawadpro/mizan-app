@@ -104,6 +104,15 @@ export function savedSmsToken(): string | null {
   }
 }
 
+/** The SMS token for the signed-in owner to copy into the Shortcut, wherever it was set. */
+export function ownerSmsToken(): string | null {
+  try {
+    return env.smsToken();
+  } catch {
+    return null;
+  }
+}
+
 /** A new SMS token; the old one stops working. Only for a token the app created. */
 export async function regenerateSmsToken(): Promise<string> {
   const token = secret();
