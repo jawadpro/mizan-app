@@ -1,0 +1,40 @@
+# SAMPLE DATA ONLY, for screenshots and trying the app. Never use it for a real install: it fills the
+# database with made-up transactions and skips the setup wizard with a fixed passphrase.
+#   docker compose -f docker-compose.demo.yml up --build -d   then open http://localhost:3002
+#   Sign in with mizan-demo-2026. Remove it with: docker compose -f docker-compose.demo.yml down -v
+name: mizan-sample-demo
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mizan
+      POSTGRES_PASSWORD: mizan
+      POSTGRES_DB: mizan
+    volumes:
+      - mizan-sample-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mizan"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3002:3000"
+    environment:
+      DATABASE_URL: postgres://mizan:mizan@db:5432/mizan
+      DATABASE_SSL: "false"
+      COOKIE_SECURE: "false"
+      SEED_DEMO: "true"
+      SEED_DEMO_CONFIRM: "made-up-sample-data"
+      DEMO_PASSWORD: mizan-demo-2026
+      SESSION_SECRET: local-demo-session-secret-change-me-0001
+      SMS_INGEST_TOKEN: local-demo-sms-token-change-me-000000001
+      CRON_SECRET: local-demo-cron-secret-change-me-00000001
+
+volumes:
+  mizan-sample-db:
