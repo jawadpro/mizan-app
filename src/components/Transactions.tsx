@@ -10,6 +10,7 @@ import { apiFetch, resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
+import DateRangePicker from "./DateRangePicker";
 import { useBanks } from "./useBanks";
 import { useChargesEdit } from "./ChargesField";
 import { useToast } from "./Toast";
@@ -186,13 +187,15 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                 <option value="none">No bank</option>
               </select>
             )}
-            <input type="date" aria-label="From date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
-            <input type="date" aria-label="To date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+            <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
             {hasFilters && <button className="btn ghost sm" onClick={() => { setQ(""); setKind(""); setCategory(""); setSource(""); setBank(""); setFrom(""); setTo(""); }}>Clear</button>}
           </div>
           {data && (
-            <div className="small muted" style={{ marginTop: 10 }}>
-              {data.total} result{data.total === 1 ? "" : "s"} · <span className="amt expense">{formatPaisa(data.sums.expense)}</span> out · <span className="amt income">{formatPaisa(data.sums.income)}</span> income · <span className="amt remittance">{formatPaisa(data.sums.remittance)}</span> remittances
+            <div className={`tx-summary${loading ? " loading" : ""}`} aria-live="polite">
+              <span className="sum-pill count"><b>{data.total.toLocaleString("en-PK")}</b> result{data.total === 1 ? "" : "s"}</span>
+              <span className="sum-pill expense"><span className="sum-ico" aria-hidden>↑</span><span className="sum-label">Out</span><span className="amt">{formatPaisa(data.sums.expense)}</span></span>
+              <span className="sum-pill income"><span className="sum-ico" aria-hidden>↓</span><span className="sum-label">Income</span><span className="amt">{formatPaisa(data.sums.income)}</span></span>
+              <span className="sum-pill remittance"><span className="sum-ico" aria-hidden>⇄</span><span className="sum-label">Remittances</span><span className="amt">{formatPaisa(data.sums.remittance)}</span></span>
             </div>
           )}
         </div>
