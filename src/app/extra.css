@@ -24,6 +24,7 @@
 .balance-card { display: flex; flex-direction: column; gap: 4px; height: 100%; }
 .balance-card .label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 0.84rem; font-weight: 500; }
 .balance-card .big { font-family: var(--mono); font-size: 2.1rem; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-top: 6px; line-height: 1.15; }
+.balance-accounts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .balance-split { display: flex; gap: 3px; height: 6px; margin-top: 16px; }
 .balance-split > div { border-radius: 99px; min-width: 4px; }
 .balance-legs { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 10px; align-items: flex-end; }

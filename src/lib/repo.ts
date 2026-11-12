@@ -148,8 +148,8 @@ export async function analytics(space: Space, from: string, to: string, granular
       [from, to],
     ),
     q<{ days: number }>(`SELECT ($2::date - $1::date + 1)::int AS days`, [from, to]),
-    // The balance covers all banks together, so it is left out when one bank is picked.
-    space === "app" && !bank ? balanceOverTime(from, to, granularity) : Promise.resolve(null),
+    // One bank's own balance when a bank is picked, every account together otherwise. Cash has none.
+    space === "app" && bank !== "none" ? balanceOverTime(from, to, granularity, bank ? bank.replace(/[^0-9a-f-]/gi, "") : undefined) : Promise.resolve(null),
   ]);
   const group = (rows: { kind: Kind; total: number; n: number }[]) => {
     const out = { expense: { total: 0, n: 0 }, income: { total: 0, n: 0 }, remittance: { total: 0, n: 0 } };
@@ -180,31 +180,34 @@ export async function analytics(space: Space, from: string, to: string, granular
 }
 
 /**
- * Bank balance at the end of each bucket, worked back from the balance anchor.
- * With S(t) the signed sum of every transaction at or after t, the balance at t is
- * anchor + S(anchor time) - S(t), which holds on both sides of the anchor.
- * Returns null until a balance has been set.
+ * Bank balance at the end of each bucket, worked back from each account's balance anchor.
+ * With S(t) the signed sum of the account's transactions at or after t, its balance at t is
+ * anchor + S(anchor time) - S(t), which holds on both sides of the anchor. The accounts are added up,
+ * or only `bank` is taken. Returns null until a balance has been set (for that bank).
  */
-async function balanceOverTime(from: string, to: string, granularity: "day" | "month" | "year") {
+async function balanceOverTime(from: string, to: string, granularity: "day" | "month" | "year", bank?: string) {
   const step = granularity === "day" ? "1 day" : granularity === "month" ? "1 month" : "1 year";
   const fmt = granularity === "day" ? "YYYY-MM-DD" : granularity === "month" ? "YYYY-MM" : "YYYY";
-  const signed = `CASE WHEN t.kind = 'expense' THEN -t.amount_paisa ELSE t.amount_paisa END`;
+  await adoptLegacyAnchor();
   const { rows } = await q<{ bucket: string; balance: number }>(
-    `WITH a AS (SELECT amount_paisa, date_trunc('minute', as_of) AS as_of FROM app.balance_anchor WHERE id = 1),
+    `WITH ${ANCHORS_SQL},
+     sel AS (SELECT * FROM anchors WHERE $3::uuid IS NULL OR bank_id = $3::uuid),
      buckets AS (
        SELECT b, least((b + interval '${step}') AT TIME ZONE 'Asia/Karachi', now()) AS e
        FROM generate_series(date_trunc('${granularity}', $1::date::timestamp), date_trunc('${granularity}', $2::date::timestamp), interval '${step}') AS b
-     ),
-     after_anchor AS (SELECT coalesce(sum(${signed}), 0) AS v FROM app.transactions t, a WHERE t.occurred_at >= a.as_of)
-     SELECT to_char(buckets.b, '${fmt}') AS bucket,
-            (a.amount_paisa + after_anchor.v - coalesce((SELECT sum(${signed}) FROM app.transactions t WHERE t.occurred_at >= buckets.e), 0))::float8 AS balance
-     FROM buckets, a, after_anchor
-     WHERE (buckets.b AT TIME ZONE 'Asia/Karachi') <= now()
-     ORDER BY buckets.b`,
-    [from, to],
+     )
+     SELECT to_char(bk.b, '${fmt}') AS bucket, sum(a.amount_paisa + coalesce(x.v, 0))::float8 AS balance
+     FROM buckets bk CROSS JOIN sel a CROSS JOIN single s
+     LEFT JOIN LATERAL (
+       SELECT sum(${SIGNED} * ((t.occurred_at >= a.as_of)::int - (t.occurred_at >= bk.e)::int)) AS v
+       FROM app.transactions t WHERE ${MOVES}
+     ) x ON true
+     WHERE (bk.b AT TIME ZONE 'Asia/Karachi') <= now()
+     GROUP BY bk.b
+     ORDER BY bk.b`,
+    [from, to, bank ?? null],
   );
-  const anchor = await q(`SELECT 1 FROM app.balance_anchor WHERE id = 1`);
-  return anchor.rowCount ? rows : null;
+  return rows.length ? rows : null;
 }
 
 export async function recipients(space: Space, from?: string, to?: string) {
@@ -383,32 +386,87 @@ export async function dismissReview(id: string) {
 }
 
 // ---- Bank balance ----
-// The user states their balance once (the anchor). Every transaction dated from that minute on
-// moves it: income and remittances add, expenses subtract. Editing or deleting those
-// transactions therefore corrects the balance automatically.
+// Each bank account has its own balance: the user states it once (the anchor), and every one of that
+// account's transactions dated from that minute on moves it: income and remittances add, expenses subtract.
+// Editing or deleting those transactions therefore corrects the balance automatically. With one bank, payments
+// not tagged with a bank count towards it too; with several, they are cash and move no account. An install
+// with no banks keeps a single anchor (app.balance_anchor) that every transaction moves.
 
 export type BalanceRow = { anchor: number; as_of: string; delta: number; n: number; balance: number };
+export type AccountBalance = BalanceRow & { bank_id: string };
+export type Balances = { total: BalanceRow | null; accounts: AccountBalance[] };
 
-export async function getBalance(): Promise<BalanceRow | null> {
-  const { rows } = await q<{ anchor: number; as_of: string; delta: number; n: number }>(
-    `SELECT a.amount_paisa::float8 AS anchor, a.as_of,
-            coalesce(sum(CASE WHEN t.kind = 'expense' THEN -t.amount_paisa ELSE t.amount_paisa END), 0)::float8 AS delta,
-            count(t.id)::int AS n
-     FROM app.balance_anchor a
-     LEFT JOIN app.transactions t ON t.occurred_at >= date_trunc('minute', a.as_of)
-     GROUP BY a.amount_paisa, a.as_of`,
+const SIGNED = `CASE WHEN t.kind = 'expense' THEN -t.amount_paisa ELSE t.amount_paisa END`;
+/** Every balance anchor: one per bank account, or the single one of an install without banks. */
+const ANCHORS_SQL = `single AS (SELECT count(*) = 1 AS v FROM app.banks),
+  anchors AS (
+    SELECT bb.bank_id, bb.amount_paisa, date_trunc('minute', bb.as_of) AS as_of FROM app.bank_balances bb
+    UNION ALL
+    SELECT NULL::uuid, a.amount_paisa, date_trunc('minute', a.as_of) FROM app.balance_anchor a
+    WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.banks)
+  )`;
+/** Whether transaction `t` moves the balance anchored by `a` (with `s` from ANCHORS_SQL). */
+const MOVES = `(a.bank_id IS NULL OR t.bank_id = a.bank_id OR (s.v AND t.bank_id IS NULL))`;
+
+/** A balance set before banks were added belongs to the first bank. */
+async function adoptLegacyAnchor() {
+  await q(
+    `WITH moved AS (
+       INSERT INTO app.bank_balances (bank_id, amount_paisa, as_of, updated_at)
+       SELECT b.id, a.amount_paisa, a.as_of, a.updated_at
+       FROM app.balance_anchor a, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1) b
+       WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.bank_balances)
+       ON CONFLICT (bank_id) DO NOTHING RETURNING 1
+     )
+     DELETE FROM app.balance_anchor WHERE id = 1 AND EXISTS (SELECT 1 FROM app.banks)`,
   );
-  const r = rows[0];
-  return r ? { ...r, balance: r.anchor + r.delta } : null;
 }
 
-export async function setBalance(amountPaisa: number) {
-  await q(
-    `INSERT INTO app.balance_anchor (id, amount_paisa, as_of, updated_at) VALUES (1, $1, now(), now())
-     ON CONFLICT (id) DO UPDATE SET amount_paisa = EXCLUDED.amount_paisa, as_of = EXCLUDED.as_of, updated_at = now()`,
-    [amountPaisa],
+export async function getBalances(): Promise<Balances> {
+  await adoptLegacyAnchor();
+  const { rows } = await q<{ bank_id: string | null; anchor: number; as_of: string; delta: number; n: number }>(
+    `WITH ${ANCHORS_SQL}
+     SELECT a.bank_id, a.amount_paisa::float8 AS anchor, a.as_of,
+            coalesce(sum(${SIGNED}), 0)::float8 AS delta, count(t.id)::int AS n
+     FROM anchors a CROSS JOIN single s
+     LEFT JOIN app.transactions t ON t.occurred_at >= a.as_of AND ${MOVES}
+     GROUP BY a.bank_id, a.amount_paisa, a.as_of`,
   );
-  return getBalance();
+  const all = rows.map((r) => ({ ...r, balance: r.anchor + r.delta }));
+  const total = all.length
+    ? all.reduce<BalanceRow>(
+        (acc, r) => ({ anchor: acc.anchor + r.anchor, delta: acc.delta + r.delta, n: acc.n + r.n, balance: acc.balance + r.balance, as_of: r.as_of > acc.as_of ? r.as_of : acc.as_of }),
+        { anchor: 0, delta: 0, n: 0, balance: 0, as_of: "" },
+      )
+    : null;
+  return { total, accounts: all.filter((r): r is AccountBalance => r.bank_id !== null) };
+}
+
+/** The balance of every account together. */
+export async function getBalance(): Promise<BalanceRow | null> {
+  return (await getBalances()).total;
+}
+
+/** Sets the balance of one bank account (or, with no banks, the single balance). One bank is picked for you. */
+export async function setBalance(amountPaisa: number, bankId?: string | null) {
+  const banks = await q<{ id: string }>(`SELECT id FROM app.banks ORDER BY position, created_at`);
+  if (!banks.rowCount) {
+    await q(
+      `INSERT INTO app.balance_anchor (id, amount_paisa, as_of, updated_at) VALUES (1, $1, now(), now())
+       ON CONFLICT (id) DO UPDATE SET amount_paisa = EXCLUDED.amount_paisa, as_of = EXCLUDED.as_of, updated_at = now()`,
+      [amountPaisa],
+    );
+    return;
+  }
+  const id = bankId ?? (banks.rowCount === 1 ? banks.rows[0].id : null);
+  if (!id) throw new HttpError(400, "Choose which account this balance is for", { fields: { bank: ["Choose an account"] } });
+  if (!banks.rows.some((b) => b.id === id)) throw new HttpError(400, "That account no longer exists", { fields: { bank: ["Choose another account"] } });
+  await adoptLegacyAnchor();
+  await q(
+    `INSERT INTO app.bank_balances (bank_id, amount_paisa, as_of, updated_at) VALUES ($1, $2, now(), now())
+     ON CONFLICT (bank_id) DO UPDATE SET amount_paisa = EXCLUDED.amount_paisa, as_of = EXCLUDED.as_of, updated_at = now()`,
+    [id, amountPaisa],
+  );
 }
 
 // ---- Set-asides ----

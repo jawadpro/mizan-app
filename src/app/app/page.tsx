@@ -1,4 +1,3 @@
-import BalanceCard from "@/components/BalanceCard";
 import Dashboard from "@/components/Dashboard";
 import MonthlyStrip from "@/components/MonthlyStrip";
 import RamadanNotice from "@/components/RamadanNotice";
@@ -13,7 +12,7 @@ export default async function Page() {
     <Dashboard
       space="app"
       defaultPreset={prefs.defaultRange}
-      balanceCard={<BalanceCard />}
+      showBalance
       top={
         <>
           <MonthlyStrip />

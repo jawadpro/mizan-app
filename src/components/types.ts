@@ -73,8 +73,11 @@ export type SetAside = {
   remaining: number;
 };
 
+export type BalanceRow = { anchor: number; as_of: string; delta: number; n: number; balance: number };
 export type BalanceSummary = {
-  balance: { anchor: number; as_of: string; delta: number; n: number; balance: number } | null;
+  /** Every account together, or the one asked for with ?bank=. */
+  balance: BalanceRow | null;
+  accounts: (BalanceRow & { bank_id: string })[];
   setAside: number;
   freeToSpend: number | null;
 };
