@@ -36,19 +36,23 @@
 .charges-kind button { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted, inherit); cursor: pointer; }
 .charges-kind button.on { background: var(--warn-border); color: var(--warn); }
 
-/* A bank charge or tax shown tucked under the transfer it was added on (activity list). */
-table.tx tr.has-charges td, table.tx tr.charge-row:not(.last) td { border-bottom: 0; }
-table.tx tr.has-charges td { padding-bottom: 4px; }
-table.tx tr.charge-row td { padding-top: 2px; padding-bottom: 10px; font-size: 0.82rem; color: var(--muted); }
-table.tx tr.charge-row td.amt { font-weight: 400; color: var(--down-ink); }
-table.tx tr.charge-row .row-actions .btn.sm { padding: 1px 7px; font-size: 0.76rem; min-height: 0; }
-.charge-elbow { display: inline-block; width: 11px; height: 10px; margin: 0 8px 0 2px; border-left: 1.5px solid var(--faint); border-bottom: 1.5px solid var(--faint); border-bottom-left-radius: 4px; transform: translateY(-3px); }
+/* A bank charge or tax on a transfer shows as a small badge under the recipient, with the total under the amount. */
+.charge-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.charge-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 3px; border-radius: 999px; border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn); font: inherit; font-size: 0.76rem; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+button.charge-badge { cursor: pointer; transition: filter 0.15s, transform 0.1s; }
+button.charge-badge:hover { filter: brightness(0.97); }
+button.charge-badge:active { transform: scale(0.97); }
+button.charge-badge:focus-visible { outline: 2px solid var(--warn); outline-offset: 1px; }
+.charge-badge-icon { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border-radius: 999px; background: var(--warn); color: var(--surface); font-size: 0.66rem; font-weight: 700; line-height: 1; }
+.charge-badge-amt { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; font-weight: 500; }
+.charge-badge.tax, .charge-cat.tax { border-color: color-mix(in srgb, var(--remit) 28%, transparent); background: var(--remit-soft); color: var(--remit); }
+.charge-badge.tax .charge-badge-icon, .charge-cat.tax .charge-badge-icon { background: var(--remit); }
+.charge-total { margin-top: 4px; font-size: 0.76rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
+/* A charge on its own (not linked to a transfer) gets the same look in the category column. */
+.charge-cat { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 3px; border-radius: 999px; border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn); font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.meta .charge-cat { font-size: 0.74rem; padding-top: 1px; padding-bottom: 1px; vertical-align: 1px; }
+.meta .charge-cat .charge-badge-icon { width: 15px; height: 15px; font-size: 0.6rem; }
 
 .tx-group { border-bottom: 1px solid var(--border); }
 .tx-group:last-child { border-bottom: 0; }
 .tx-group > .tx-card { border-bottom: 0; }
-.tx-group:not(.plain) > .tx-card { padding-bottom: 8px; }
-.charge-child { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 8px 12px; background: var(--surface-2); border-left: 3px solid var(--down-soft); border-radius: 0 8px 8px 0; font-size: 0.82rem; color: var(--muted); cursor: pointer; }
-.charge-child + .charge-child { margin-top: -6px; }
-.charge-child strong { color: var(--text); font-weight: 600; }
-.charge-child .amt { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
