@@ -4,6 +4,7 @@
 import { formatPaisa } from "@/lib/money";
 import { formatDatePkt } from "@/lib/time";
 import { receiptRef } from "@/lib/splits";
+import { BRAND_SRC } from "@/lib/brand";
 
 export type ReceiptShare = {
   id: string;
@@ -66,6 +67,15 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number, lines = 
     return kept;
   }
   return out;
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("logo"));
+    img.src = src;
+  });
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -162,14 +172,9 @@ export async function receiptPng(s: ReceiptShare, owner: string | null, scale = 
 
   const x = cx + P;
   const xr = cx + cw - P;
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
-  ctx.beginPath();
-  ctx.arc(x + 22, cy + headH / 2, 22, 0, Math.PI * 2);
-  ctx.fill();
+  const logo = await loadImage(BRAND_SRC).catch(() => null);
+  if (logo) ctx.drawImage(logo, x, cy + headH / 2 - 22, 44, 44);
   ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.font = `700 24px ${FONT}`;
-  ctx.fillText("م", x + 22, cy + headH / 2 + 8);
   ctx.textAlign = "left";
   ctx.font = `700 24px ${FONT}`;
   ctx.fillText("Mizan", x + 56, cy + headH / 2 + 8);

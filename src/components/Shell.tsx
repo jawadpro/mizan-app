@@ -9,6 +9,7 @@ import "@/app/extra.css";
 import "@/app/badge.css";
 import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
 import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
+import BrandMark from "@/components/BrandMark";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
@@ -131,7 +132,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
         <aside className="sidebar">
           <div className="side-brand">
             <Link href={base} className="brand" aria-label="Mizan home">
-              <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
+              <BrandMark /> <span className="brand-name">Mizan</span>
             </Link>
             {space === "app" && <SpendingBell />}
           </div>
@@ -159,7 +160,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
         <div className="main-col">
           <header className="topbar">
             <Link href={base} className="brand" aria-label="Mizan home">
-              <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
+              <BrandMark /> <span className="brand-name">Mizan</span>
             </Link>
             <span className="topbar-title" aria-hidden>{path === base ? "" : title}</span>
             {space === "app" && <span className="topbar-bell"><SpendingBell /></span>}
