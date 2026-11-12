@@ -163,3 +163,26 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
 .delete-confirm .modal-foot { margin-top: 12px; }
 .btn.danger-solid { background: var(--down); border-color: var(--down); color: #fff; }
 .btn.danger-solid:hover { filter: brightness(0.95); }
+
+/* Pull to refresh (home-screen app): the page follows the finger, a ring fills around the logo, the logo pops when it's ready, then the ring spins while it reloads. */
+.ptr-on .main-col > main { transform: translateY(var(--ptr-shift, 0px)); transition: transform 0.38s cubic-bezier(0.2, 0.9, 0.25, 1.25); }
+.ptr-pulling .main-col > main { transition: none; }
+.ptr { position: fixed; z-index: 60; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 50px); display: grid; justify-items: center; gap: 6px; pointer-events: none;
+  transform: translate(-50%, calc(var(--pull) * 0.55 - 30px)); opacity: calc(var(--p) * 1.4); }
+.ptr-badge { position: relative; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-lg);
+  transform: rotate(calc(var(--p) * 200deg)) scale(calc(0.6 + var(--p) * 0.4)); transition: box-shadow 0.25s; }
+.ptr-ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ptr-track { fill: none; stroke: var(--border); stroke-width: 3.5; }
+.ptr-fill { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dashoffset 0.08s linear; }
+.ptr-logo { width: 30px; height: 30px; border-radius: 8px; transform: rotate(calc(var(--p) * -200deg)); }
+.ptr.ready .ptr-badge { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 25%, transparent), var(--shadow-lg); animation: ptr-pop 0.32s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.ptr.ready .ptr-fill { stroke: var(--gold); }
+.ptr.busy .ptr-badge { transform: none; animation: none; }
+.ptr.busy .ptr-logo { transform: none; animation: ptr-breathe 0.9s ease-in-out infinite; }
+.ptr.busy .ptr-ring { animation: ptr-spin 0.8s linear infinite; }
+.ptr.busy .ptr-fill { stroke: var(--accent); transition: none; }
+.ptr-label { font-size: 0.74rem; font-weight: 600; color: var(--muted); background: var(--surface); padding: 2px 9px; border-radius: 999px; box-shadow: var(--shadow); white-space: nowrap; }
+@keyframes ptr-spin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+@keyframes ptr-pop { 0% { scale: 1; } 50% { scale: 1.14; } 100% { scale: 1; } }
+@keyframes ptr-breathe { 50% { scale: 0.86; } }
+@media (prefers-reduced-motion: reduce) { .ptr-on .main-col > main, .ptr-badge, .ptr-logo { transition: none; animation: none !important; } }

@@ -10,6 +10,7 @@ import "@/app/badge.css";
 import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
 import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
 import BrandMark from "@/components/BrandMark";
+import PullToRefresh from "./PullToRefresh";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
@@ -129,6 +130,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
   );
   return (
     <ToastProvider>
+      <PullToRefresh />
       <div className="layout">
         <aside className="sidebar">
           <div className="side-brand">
