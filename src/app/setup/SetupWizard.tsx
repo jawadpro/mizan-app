@@ -12,6 +12,7 @@ import { useToast } from "@/components/Toast";
 import { useData } from "@/components/useData";
 import type { BankItem } from "@/components/useBanks";
 import type { DbState } from "@/lib/config";
+import BrandMark from "@/components/BrandMark";
 
 const STEPS = ["Database", "Passphrase", "Banks", "Your name", "iPhone", "Finish"] as const;
 const MIN_PASSPHRASE = 12;
@@ -232,7 +233,7 @@ export default function SetupWizard({ db, hasPassword, endpoint }: { db: DbState
   const go = (n: number) => () => setAt(n);
   return (
     <div className="setup-wrap">
-      <div className="brand setup-brand"><span className="brand-mark" aria-hidden>م</span> Mizan</div>
+      <div className="brand setup-brand"><BrandMark /> Mizan</div>
       <Stepper at={at} />
       <div className="card setup-card">
         {at === 0 && <DatabaseStep db={db} next={go(1)} />}

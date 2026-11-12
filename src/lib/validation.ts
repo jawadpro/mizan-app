@@ -172,3 +172,32 @@ export const monthlyMarkInput = z.object({
   note: trimmed(200).transform((s) => s || null).nullable().optional(),
 });
 export type MonthlyMarkInput = z.infer<typeof monthlyMarkInput>;
+
+const shareAmount = z
+  .string()
+  .max(20)
+  .transform((s, ctx) => {
+    const v = parseAmountToPaisa(s);
+    if (v === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter an amount like 1,500" });
+    return v ?? 0;
+  });
+
+/** One person's share of a bill. */
+export const shareInput = z.object({
+  person: trimmed(60).pipe(z.string().min(1, "Who owes this share?")),
+  amount: shareAmount,
+  note: trimmed(200).transform((s) => s || null).nullable().optional().transform((s) => s ?? null),
+});
+
+/** Splitting a payment: one or more shares added at once. */
+export const splitInput = z.object({
+  transactionId: z.string().uuid(),
+  shares: z.array(shareInput).min(1, "Add at least one person").max(30),
+});
+
+export const splitAction = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("link"), transactionId: z.string().uuid() }),
+  z.object({ action: z.literal("unlink"), transactionId: z.string().uuid() }),
+  z.object({ action: z.literal("settle"), note: trimmed(200).transform((s) => s || null).nullable().optional() }),
+  z.object({ action: z.literal("reopen") }),
+]);

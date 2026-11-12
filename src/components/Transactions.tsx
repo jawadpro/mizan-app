@@ -15,6 +15,8 @@ import { useBanks } from "./useBanks";
 import { useChargesEdit } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
+import SplitForm from "./SplitForm";
+import "@/app/splits.css";
 
 type List = { items: Tx[]; total: number; page: number; pageSize: number; sums: { expense: number; income: number; remittance: number } };
 
@@ -46,6 +48,22 @@ function CategoryCell({ category }: { category: string }) {
   if (!isChargeCategory(category)) return <>{category}</>;
   const tax = category === "Tax deducted";
   return <span className={`charge-cat${tax ? " tax" : ""}`}><span className="charge-badge-icon" aria-hidden>{tax ? "%" : "₨"}</span>{category}</span>;
+}
+
+/** Whether a payment can be split between people: money paid out, but not a bank charge or tax. */
+const canSplit = (t: Tx) => t.kind === "expense" && !isChargeCategory(t.category);
+
+/** "Split · 2 owe you" on a split payment; "Paid back · Ali" on money that paid a share back. */
+function SplitBadge({ t, onOpen }: { t: Tx; onOpen?: (t: Tx) => void }) {
+  if (t.split) {
+    const open = t.split.open;
+    const label = open ? `Split · ${open} owe${open === 1 ? "s" : ""} you` : "Split · all paid back";
+    return <div>{onOpen ? (
+      <button type="button" className={`split-badge${open ? "" : " done"}`} onClick={(e) => { e.stopPropagation(); onOpen(t); }} title="See the shares">{label}</button>
+    ) : <span className={`split-badge${open ? "" : " done"}`}>{label}</span>}</div>;
+  }
+  if (t.repays) return <div><span className="split-badge repays">Paid back · {t.repays}</span></div>;
+  return null;
 }
 
 /** What a day's transactions add up to, shown on the right of its header. */
@@ -83,6 +101,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Tx | "new" | null>(null);
   const chargesEdit = useChargesEdit();
+  const [splitting, setSplitting] = useState<string | null>(null);
+  const openSplit = (t: Tx) => { setEditing(null); setSplitting(t.id); };
   const edit = (t: Tx | "new") => { chargesEdit.start(t); setEditing(t); };
   const dq = useDebounced(q);
   const filters = { q: dq, kind, category, source, bank, from, to, counterparty: fixedCounterparty };
@@ -231,6 +251,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       <td>
                         {t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}
                         {charges.length > 0 && <div className="charge-badges">{charges.map((c) => <ChargeBadge key={c.id} c={c} onOpen={readOnly ? undefined : edit} />)}</div>}
+                        <SplitBadge t={t} onOpen={readOnly ? undefined : openSplit} />
                       </td>
                       <td><CategoryCell category={t.category} /></td>
                       <td><span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span></td>
@@ -240,7 +261,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         {charges.length > 0 && <div className="charge-total">{totalLabel(t, charges)}</div>}
                       </td>
                       {!readOnly && (
-                        <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
+                        <td><div className="row-actions">{canSplit(t) && <button className="btn sm" onClick={() => openSplit(t)} title="Split this payment with others">Split</button>}<button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}
                     </tr>
                     </Fragment>))}
@@ -258,6 +279,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                     <div style={{ fontWeight: 600 }}>{t.counterparty ?? t.category}</div>
                     <div className="meta">{formatTimePkt(t.occurred_at)} · {isChargeCategory(t.category) ? <CategoryCell category={t.category} /> : t.category}{t.source === "sms" ? " · SMS" : ""}</div>
                     {charges.length > 0 && <div className="charge-badges">{charges.map((c) => <ChargeBadge key={c.id} c={c} onOpen={readOnly ? undefined : edit} />)}</div>}
+                    <SplitBadge t={t} onOpen={readOnly ? undefined : openSplit} />
                   </div>
                   <div style={{ textAlign: "right", flex: "none" }}>
                     <div className={`amt ${t.kind}`} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
@@ -290,6 +312,12 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           onClose={() => setEditing(null)}
           onSubmit={(d) => save(d, editing === "new" ? undefined : editing.id)}
           onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
+          children={editing !== "new" && !readOnly && canSplit(editing) ? (
+            <div className="split-cta">
+              <span className="small">{editing.split ? `Split with ${editing.split.n} ${editing.split.n === 1 ? "person" : "people"}` : "Paid for others too?"}</span>
+              <button type="button" className="btn sm" onClick={() => openSplit(editing)}>{editing.split ? "See shares" : "Split this payment"}</button>
+            </div>
+          ) : undefined}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
             d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
               chargesEdit.field(d, fieldErrors.charges?.[0])
@@ -297,6 +325,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           }
         />
       )}
+      {splitting && <SplitForm billId={splitting} onClose={() => { setSplitting(null); reload(); }} onChanged={reload} />}
     </>
   );
 }

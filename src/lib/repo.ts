@@ -27,7 +27,7 @@ export type TxRow = {
 };
 
 /** A listed transaction, with the bank charges and tax already added on it (so its edit form can show them). */
-export type ListedTxRow = TxRow & { charge_fee_paisa: number | null; charge_tax_paisa: number | null };
+export type ListedTxRow = TxRow & { charge_fee_paisa: number | null; charge_tax_paisa: number | null; split?: { n: number; open: number; total: number } | null; repays?: string | null };
 
 const txCols = (a = "") =>
   `${a}id, ${a}kind, ${a}amount_paisa::float8 AS amount_paisa, ${a}occurred_at, ${a}category, ${a}counterparty, ${a}note, ${a}source, ${a}account_hint, ${a}bank_ref, ${a}set_aside_id, ${a}bank_id, ${a}parent_id`;
@@ -67,6 +67,14 @@ function buildWhere(f: Partial<ListQuery>) {
 // Transfers between the user's own accounts move the balance but are neither spending nor income.
 const NOT_OWN = `category <> '${OWN_ACCOUNTS}'`;
 
+/** On a split payment: how many shares, how many are still open and what they add up to. On incoming money: whose share it paid back. */
+const SPLIT_COLS = `,
+  (SELECT json_build_object('n', count(*), 'total', sum(sp.amount_paisa)::float8,
+          'open', count(*) FILTER (WHERE sp.settled_at IS NULL AND coalesce((SELECT sum(x.amount_paisa) FROM app.split_payments pp
+            JOIN app.transactions x ON x.id = pp.transaction_id WHERE pp.split_id = sp.id), 0) * 100 < sp.amount_paisa * 98))
+     FROM app.splits sp WHERE sp.transaction_id = t.id HAVING count(*) > 0) AS split,
+  (SELECT s2.person FROM app.split_payments p2 JOIN app.splits s2 ON s2.id = p2.split_id WHERE p2.transaction_id = t.id) AS repays`;
+
 /** Total of the charges of one category added on the listed transfer `t`, or null when there are none. */
 const chargeSum = (s: string, category: string) =>
   `(SELECT sum(c.amount_paisa)::float8 FROM ${s}.transactions c WHERE c.parent_id = t.id AND c.category = '${category}')`;
@@ -77,7 +85,7 @@ export async function listTransactions(space: Space, f: ListQuery) {
   const offset = (f.page - 1) * f.pageSize;
   const [rows, agg] = await Promise.all([
     q<ListedTxRow>(
-      `SELECT ${txCols("t.")}, ${chargeSum(s, "Bank charges")} AS charge_fee_paisa, ${chargeSum(s, "Tax deducted")} AS charge_tax_paisa
+      `SELECT ${txCols("t.")}, ${chargeSum(s, "Bank charges")} AS charge_fee_paisa, ${chargeSum(s, "Tax deducted")} AS charge_tax_paisa${s === "app" ? SPLIT_COLS : ""}
        FROM ${s}.transactions t ${sql} ORDER BY occurred_at DESC, created_at DESC LIMIT ${f.pageSize} OFFSET ${offset}`,
       params,
     ),
