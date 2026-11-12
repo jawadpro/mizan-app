@@ -61,7 +61,7 @@ function Tip({ active, payload, label, gran, fmt }: { active?: boolean; payload?
 
 const CAT_TOKENS: (keyof ChartColors)[] = ["text", "accent", "remit", "gold", "down"];
 
-export default function Dashboard({ space, top, defaultPreset = "30d" }: { space: Space; top?: React.ReactNode; defaultPreset?: Preset }) {
+export default function Dashboard({ space, balanceCard, top, defaultPreset = "30d" }: { space: Space; balanceCard?: React.ReactNode; top?: React.ReactNode; defaultPreset?: Preset }) {
   const [preset, setPreset] = useState<Preset>(defaultPreset);
   const [custom, setCustom] = useState(() => presetRange(defaultPreset));
   const [gran, setGran] = useState<Gran | null>(null);
@@ -73,7 +73,7 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
   const [bank, setBank] = useState("");
   const url = resourceUrl(space, "analytics", { from: range.from, to: range.to, granularity, bank: multi ? bank : undefined });
   const { data, error, loading, reload } = useData<Analytics>(url);
-  const recent = useData<{ items: Tx[] }>(resourceUrl(space, "transactions", { pageSize: 6, bank: multi ? bank : undefined }));
+  const recent = useData<{ items: Tx[] }>(resourceUrl(space, "transactions", { pageSize: 5, bank: multi ? bank : undefined }));
   const base = space === "demo" ? "/demo" : "/app";
   const c = useChartColors();
 
@@ -135,6 +135,28 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
         </div>
       </div>
 
+      {/* The balance card and the latest transactions side by side, so the first screen shows both. */}
+      <div className={`top-row${balanceCard ? " with-recent" : ""}`}>
+        {balanceCard}
+        <div className="card recent-card">
+          <div className="card-head"><h2>Recent transactions</h2><Link className="btn sm" href={`${base}/transactions`}>View all</Link></div>
+          {recent.loading && !recent.data ? <Loading rows={4} /> : recent.error ? <ErrorBox message={recent.error} onRetry={recent.reload} /> : !recent.data?.items.length ? (
+            <p className="small muted" style={{ margin: 0 }}>No transactions yet.</p>
+          ) : (
+            <div className="tx-list">
+              {recent.data.items.map((t) => (
+                <div key={t.id} className="tx-row">
+                  <div className="tx-row-main">
+                    <div className="tx-row-title">{t.counterparty ?? t.category}</div>
+                    <div className="meta">{formatDatePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
+                  </div>
+                  <div className="tx-row-side"><span className={`amt ${t.kind}`}>{formatPaisa(t.kind === "expense" ? -t.amount_paisa : t.amount_paisa, { sign: true })}</span></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       {top}
 
       {preset === "custom" && (
@@ -332,37 +354,6 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
             </div>
           </div>
 
-          <div className="card">
-            <div className="card-head"><h2>Recent transactions</h2><Link className="btn sm" href={`${base}/transactions`}>View all</Link></div>
-            {recent.loading && !recent.data ? <Loading rows={4} /> : recent.error ? <ErrorBox message={recent.error} onRetry={recent.reload} /> : (
-              <>
-                <div className="table-wrap responsive">
-                  <table className="tx">
-                    <thead><tr><th>Date</th><th>Recipient or payer</th><th>Category</th><th>Source</th><th className="amt">Amount</th></tr></thead>
-                    <tbody>
-                      {(recent.data?.items ?? []).map((t) => (
-                        <tr key={t.id}>
-                          <td className="num muted">{formatDatePkt(t.occurred_at)}</td>
-                          <td>{t.counterparty ?? <span className="muted">—</span>}</td>
-                          <td>{t.category}</td>
-                          <td><span className="pill">{t.source === "sms" ? "SMS" : "Manual"}</span></td>
-                          <td className={`amt ${t.kind}`}>{formatPaisa(t.kind === "expense" ? -t.amount_paisa : t.amount_paisa, { sign: true })}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="tx-cards">
-                  {(recent.data?.items ?? []).map((t) => (
-                    <div key={t.id} className="tx-card">
-                      <div><div>{t.counterparty ?? t.category}</div><div className="meta">{formatDatePkt(t.occurred_at)} · {t.category}</div></div>
-                      <div className={`amt ${t.kind}`}>{formatPaisa(t.kind === "expense" ? -t.amount_paisa : t.amount_paisa, { sign: true })}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
         </>
       )}
     </>
