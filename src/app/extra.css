@@ -24,6 +24,7 @@
 .balance-card { display: flex; flex-direction: column; gap: 4px; height: 100%; }
 .balance-card .label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 0.84rem; font-weight: 500; }
 .balance-card .big { font-family: var(--mono); font-size: 2.1rem; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-top: 6px; line-height: 1.15; }
+.balance-accounts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .balance-split { display: flex; gap: 3px; height: 6px; margin-top: 16px; }
 .balance-split > div { border-radius: 99px; min-width: 4px; }
 .balance-legs { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 10px; align-items: flex-end; }
@@ -186,3 +187,8 @@ button.tx-card { width: 100%; font: inherit; color: inherit; text-align: inherit
 @keyframes ptr-pop { 0% { scale: 1; } 50% { scale: 1.14; } 100% { scale: 1; } }
 @keyframes ptr-breathe { 50% { scale: 0.86; } }
 @media (prefers-reduced-motion: reduce) { .ptr-on .main-col > main, .ptr-badge, .ptr-logo { transition: none; animation: none !important; } }
+
+.bank-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.removed-banks { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.removed-bank { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; }
+.confirm-body p { margin: 0 0 10px; }

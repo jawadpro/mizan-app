@@ -7,43 +7,81 @@ import { apiFetch, ApiError } from "./api";
 import { useData } from "./useData";
 import { ErrorBox, Skeleton } from "./States";
 import { useToast } from "./Toast";
-import { useBanks } from "./useBanks";
+import { bankLabel, useBanks } from "./useBanks";
+import { digitsLabel } from "@/lib/banks";
 import type { BalanceSummary } from "./types";
 import CloseButton from "./CloseButton";
 
-/** Current bank balance: set by hand once, then moved by every transaction dated after that. */
-export default function BalanceCard() {
-  const { balanceName } = useBanks();
-  const { data, error, loading, reload } = useData<BalanceSummary & { ok: true }>("/api/balance");
+/**
+ * Current bank balance: set by hand once per account, then moved by every transaction of that account dated after.
+ * `bank` follows the dashboard's bank picker: "" is every account added up, an id is that account's own balance,
+ * and "none" (cash) has no bank balance.
+ */
+export default function BalanceCard({ bank = "" }: { bank?: string }) {
+  const { banks, multi, balanceName } = useBanks();
+  const one = multi && bank && bank !== "none" ? banks.find((x) => x.id === bank) ?? null : null;
+  const cash = multi && bank === "none";
+  const { data, error, loading, reload } = useData<BalanceSummary & { ok: true }>(cash ? null : one ? `/api/balance?bank=${one.id}` : "/api/balance");
   const [editing, setEditing] = useState(false);
   const toast = useToast();
   const b = data?.balance ?? null;
+  const all = multi && !one;
+  const accountName = (id: string) => {
+    const x = banks.find((k) => k.id === id);
+    return x ? `${x.name}${x.account_hint ? ` ${digitsLabel(x.account_hint)}` : ""}` : "Account";
+  };
+  const label = one ? `${accountName(one.id)} balance` : cash ? "Cash" : multi ? "All banks" : balanceName;
+  const unset = all ? banks.filter((x) => !data?.accounts?.some((a) => a.bank_id === x.id)) : [];
 
   const pct = b && b.anchor !== 0 && b.n > 0 ? Math.round((b.delta / Math.abs(b.anchor)) * 1000) / 10 : null;
-  const showSplit = !!(data && b && data.setAside > 0 && b.balance > 0);
+  // Set-asides come out of all the money together, so the split shows with every account added up.
+  const showSplit = !one && !!(data && b && data.setAside > 0 && b.balance > 0);
   const free = data?.freeToSpend ?? 0;
   const whole = (p: number, o: { sign?: boolean } = {}) => formatPaisa(Math.round(p), o).replace(/\.\d\d$/, "");
+
+  if (cash) {
+    return (
+      <div className="card balance-hero" style={{ marginBottom: 16 }}>
+        <div className="balance-card">
+          <div className="label"><span>{label}</span></div>
+          <div className="big muted">No bank balance</div>
+          <div className="small muted">Cash payments don&apos;t move any account&apos;s balance. Pick a bank above, or All banks, to see a balance.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card balance-hero" style={{ marginBottom: 16 }}>
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
           <div className="label">
-            <span>{balanceName}</span>
+            <span>{label}</span>
             {pct != null && <span className={`delta ${pct >= 0 ? "good" : "bad"}`} title="Change since you last set the balance">{pct > 0 ? "+" : pct < 0 ? "−" : ""}{Math.abs(pct)}%</span>}
           </div>
           {loading && !data ? <Skeleton h={40} w={240} /> : b ? (
             <>
               <div className="big" style={{ color: b.balance < 0 ? "var(--down-ink)" : undefined }}>{formatPaisa(b.balance)}</div>
-              <div className="small muted">
-                Set to {whole(b.anchor)} on {formatDatePkt(b.as_of)} {formatTimePkt(b.as_of)}
-                {b.n > 0 ? `, then ${b.n} transaction${b.n === 1 ? "" : "s"} (${whole(b.delta, { sign: true })})` : ""}
-              </div>
+              {all ? (
+                <div className="small muted balance-accounts">
+                  {(data?.accounts ?? []).map((a) => (
+                    <span key={a.bank_id}>{accountName(a.bank_id)} <span className="mono">{whole(a.balance)}</span></span>
+                  ))}
+                  {unset.length > 0 && <span>{unset.map((x) => x.name).join(", ")}: not set yet</span>}
+                </div>
+              ) : (
+                <div className="small muted">
+                  Set to {whole(b.anchor)} on {formatDatePkt(b.as_of)} {formatTimePkt(b.as_of)}
+                  {b.n > 0 ? `, then ${b.n} transaction${b.n === 1 ? "" : "s"} (${whole(b.delta, { sign: true })})` : ""}
+                </div>
+              )}
             </>
           ) : (
             <>
               <div className="big muted">Not set yet</div>
-              <div className="small muted">Enter your current balance once. After that, every incoming and outgoing payment updates it.</div>
+              <div className="small muted">
+                {one ? `Enter what's in this account now, once. After that, every payment tagged with ${one.name} updates it.` : "Enter your current balance once. After that, every incoming and outgoing payment updates it."}
+              </div>
             </>
           )}
           {showSplit && (
@@ -71,7 +109,10 @@ export default function BalanceCard() {
       )}
       {editing && (
         <BalanceModal
-          initial={b ? paisaToDecimal(b.balance) : ""}
+          accounts={data?.accounts ?? []}
+          bank={one?.id ?? (all ? unset[0]?.id ?? banks[0]?.id ?? null : null)}
+          choose={all}
+          initial={b && !all ? paisaToDecimal(b.balance) : ""}
           onClose={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
@@ -84,9 +125,23 @@ export default function BalanceCard() {
   );
 }
 
-function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose: () => void; onSaved: () => void }) {
-  const { balanceName } = useBanks();
-  const [amount, setAmount] = useState(initial);
+function BalanceModal({ accounts, bank: firstBank, choose, initial, onClose, onSaved }: {
+  accounts: BalanceSummary["accounts"];
+  bank: string | null;
+  /** Let the owner pick the account (from "All banks"). */
+  choose: boolean;
+  initial: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { banks, balanceName } = useBanks();
+  const [bank, setBank] = useState(firstBank);
+  const current = (id: string | null) => {
+    const a = accounts.find((x) => x.bank_id === id);
+    return a ? paisaToDecimal(a.balance) : "";
+  };
+  const [amount, setAmount] = useState(choose ? current(firstBank) : initial);
+  const named = bank ? banks.find((x) => x.id === bank) : null;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -99,7 +154,7 @@ function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose:
     setBusy(true);
     setErr(null);
     try {
-      await apiFetch("/api/balance", { method: "PUT", body: JSON.stringify({ amount }) });
+      await apiFetch("/api/balance", { method: "PUT", body: JSON.stringify({ amount, bank }) });
       onSaved();
     } catch (ex) {
       const a = ex as ApiError;
@@ -111,10 +166,17 @@ function BalanceModal({ initial, onClose, onSaved }: { initial: string; onClose:
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="bal-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
-          <h2 id="bal-title">Current {balanceName === "Bank balance" ? "bank balance" : balanceName}</h2>
+          <h2 id="bal-title">Current {named && !choose ? `${named.name} balance` : balanceName === "Bank balance" ? "bank balance" : balanceName}</h2>
           <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={submit}>
+          {choose && (
+            <label className="field" style={{ marginBottom: 12 }}>Account
+              <select value={bank ?? ""} onChange={(e) => { setBank(e.target.value); setAmount(current(e.target.value)); }}>
+                {banks.map((x) => <option key={x.id} value={x.id}>{bankLabel(x)}</option>)}
+              </select>
+            </label>
+          )}
           <label className="field">Balance right now ({getDisplayCurrency()})
             <input inputMode="decimal" placeholder="e.g. 85,301.17" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus required />
           </label>

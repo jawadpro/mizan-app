@@ -10,6 +10,8 @@ export type Bank = {
   account_hint: string;
   auto_import: boolean;
   hold_transfers: boolean;
+  /** Off while the bank is paused: its alerts wait in Review instead of being imported. Missing means on. */
+  active?: boolean;
 };
 
 export const MAX_BANKS = 20;
@@ -32,6 +34,7 @@ export const banksInput = z.object({
           .transform((a) => a.join(", ")),
         auto_import: z.boolean(),
         hold_transfers: z.boolean(),
+        active: z.boolean().default(true),
       }),
     )
     .max(MAX_BANKS, `Up to ${MAX_BANKS} banks`),

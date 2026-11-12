@@ -90,6 +90,8 @@ export const balanceInput = z.object({
       }
       return (v ?? 0) * (neg ? -1 : 1);
     }),
+  /** The bank account the balance is for; needed once there are two or more. */
+  bank: z.string().uuid().nullish(),
 });
 
 export const setAsideInput = z

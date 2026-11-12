@@ -7,12 +7,13 @@ import { formatDatePkt } from "@/lib/time";
 import { change } from "@/lib/delta";
 import { resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
-import { useBanks } from "./useBanks";
+import { bankLabel, useBanks } from "./useBanks";
 import { Empty, ErrorBox, Loading, Skeleton } from "./States";
 import { PRESETS, presetRange, type Preset } from "./range";
 import { useChartColors, type ChartColors } from "./theme";
 import type { Analytics, Tx } from "./types";
-import { digitsLabel } from "@/lib/banks";
+import BalanceCard from "./BalanceCard";
+import { useSelectedBank } from "./useSelectedBank";
 
 type Gran = Analytics["granularity"];
 type Series = "expense" | "income" | "remittance";
@@ -62,7 +63,7 @@ function Tip({ active, payload, label, gran, fmt }: { active?: boolean; payload?
 
 const CAT_TOKENS: (keyof ChartColors)[] = ["text", "accent", "remit", "gold", "down"];
 
-export default function Dashboard({ space, balanceCard, top, defaultPreset = "30d" }: { space: Space; balanceCard?: React.ReactNode; top?: React.ReactNode; defaultPreset?: Preset }) {
+export default function Dashboard({ space, showBalance, top, defaultPreset = "30d" }: { space: Space; showBalance?: boolean; top?: React.ReactNode; defaultPreset?: Preset }) {
   const [preset, setPreset] = useState<Preset>(defaultPreset);
   const [custom, setCustom] = useState(() => presetRange(defaultPreset));
   const [gran, setGran] = useState<Gran | null>(null);
@@ -70,8 +71,10 @@ export default function Dashboard({ space, balanceCard, top, defaultPreset = "30
   const [hover, setHover] = useState<number | null>(null);
   const range = preset === "custom" ? custom : presetRange(preset);
   const granularity = gran ?? range.granularity;
-  const { banks, multi, balanceName } = useBanks(space);
-  const [bank, setBank] = useState("");
+  const { banks, multi, balanceName, nameOf } = useBanks(space);
+  // Shared with the Transactions page, so a bank picked here is still picked there.
+  const [sharedBank, setBank] = useSelectedBank(space);
+  const bank = space === "app" ? sharedBank : "";
   const url = resourceUrl(space, "analytics", { from: range.from, to: range.to, granularity, bank: multi ? bank : undefined });
   const { data, error, loading, reload } = useData<Analytics>(url);
   const recent = useData<{ items: Tx[] }>(resourceUrl(space, "transactions", { pageSize: 5, bank: multi ? bank : undefined }));
@@ -115,7 +118,7 @@ export default function Dashboard({ space, balanceCard, top, defaultPreset = "30
           {multi && (
             <select aria-label="Bank" value={bank} onChange={(e) => setBank(e.target.value)}>
               <option value="">All banks</option>
-              {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ${digitsLabel(b.account_hint)}` : ""}</option>)}
+              {banks.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
               <option value="none">No bank (cash)</option>
             </select>
           )}
@@ -137,8 +140,8 @@ export default function Dashboard({ space, balanceCard, top, defaultPreset = "30
       </div>
 
       {/* The balance card and the latest transactions side by side, so the first screen shows both. */}
-      <div className={`top-row${balanceCard ? " with-recent" : ""}`}>
-        {balanceCard}
+      <div className={`top-row${showBalance ? " with-recent" : ""}`}>
+        {showBalance && <BalanceCard bank={multi ? bank : ""} />}
         <div className="card recent-card">
           <div className="card-head"><h2>Recent transactions</h2><Link className="btn sm" href={`${base}/transactions`}>View all</Link></div>
           {recent.loading && !recent.data ? <Loading rows={4} /> : recent.error ? <ErrorBox message={recent.error} onRetry={recent.reload} /> : !recent.data?.items.length ? (
@@ -275,7 +278,7 @@ export default function Dashboard({ space, balanceCard, top, defaultPreset = "30
               <div className="chart-head">
                 <div>
                   <h2>Balance over time</h2>
-                  <div className="hint">{space === "app" ? balanceName : "Balance"} at the end of each {unit}{multi ? ", all banks together" : ""}</div>
+                  <div className="hint">{space === "app" ? (multi && bank && bank !== "none" ? `${nameOf(bank) ?? "This bank"}'s balance` : balanceName) : "Balance"} at the end of each {unit}{multi && !bank ? ", all banks together" : ""}</div>
                 </div>
                 {balance && balance.length > 0 && (
                   <div className="chart-figure">
@@ -285,13 +288,13 @@ export default function Dashboard({ space, balanceCard, top, defaultPreset = "30
                 )}
               </div>
               <div style={{ width: "100%", height: 240 }}>
-                {loading && !data ? <Loading rows={6} /> : multi && bank ? (
-                  <Empty icon="⚖️" title="Shown for all banks together">
-                    <p className="small">Choose “All banks” above to see the balance over time.</p>
+                {loading && !data ? <Loading rows={6} /> : multi && bank === "none" ? (
+                  <Empty icon="⚖️" title="Cash has no bank balance">
+                    <p className="small">Pick a bank, or All banks, above to see the balance over time.</p>
                   </Empty>
                 ) : !balance ? (
                   <Empty icon="⚖️" title="Set your balance to see it here">
-                    {space === "app" && <p className="small">Use “Set balance” above. Mizan then works the balance out for every day.</p>}
+                    {space === "app" && <p className="small">Use “Set balance” above{multi && bank ? " for this bank" : ""}. Mizan then works the balance out for every day.</p>}
                   </Empty>
                 ) : (
                   <ResponsiveContainer>

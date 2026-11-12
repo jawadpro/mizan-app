@@ -29,6 +29,10 @@ export function readAlert<B extends Bank>(input: { sender: string; text: string;
     const reason = result.status === "review" ? `${unclear}. Also: ${result.reason}` : unclear;
     return { result: { status: "review", reason, fields: result.fields }, bank: null, choices };
   }
+  if (bank && bank.active === false) {
+    const paused = `${bank.name} is paused`;
+    return { result: { status: "review", reason: result.status === "review" ? `${paused}. Also: ${result.reason}` : paused, fields: result.fields }, bank, choices };
+  }
   if (result.status === "parsed" && bank && !bank.auto_import) {
     return { result: { status: "review", reason: `Automatic import is off for ${bank.name}`, fields: result.fields }, bank, choices };
   }
