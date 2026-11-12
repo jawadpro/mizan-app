@@ -17,6 +17,10 @@ export type Tx = {
   /** Bank charges and tax already added on this transfer (from the list), or null when there are none. */
   charge_fee_paisa?: number | null;
   charge_tax_paisa?: number | null;
+  /** On a payment that was split: how many shares, how many are still owed, and their total. */
+  split?: { n: number; open: number; total: number } | null;
+  /** On incoming money: the person whose share it paid back. */
+  repays?: string | null;
 };
 
 export type Analytics = {
