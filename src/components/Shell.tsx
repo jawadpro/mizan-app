@@ -7,6 +7,7 @@ import SpendingBell from "./SpendingBell";
 import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import "@/app/extra.css";
 import "@/app/badge.css";
+import "@/app/look.css";
 import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
 import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
 
@@ -56,6 +57,11 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
     { href: `${base}/settings`, label: "Settings", icon: ICONS.gear },
   ] : [];
   const allLinks = [...links, ...setupLinks];
+  // Wide screens: the everyday pages sit in the top bar, the rest in the icon rail on the left.
+  const TOP = 5;
+  const topLinks = links.slice(0, TOP);
+  const railGroups = [links.slice(TOP), setupLinks.filter((l) => !l.href.endsWith("/settings"))];
+  const settingsLink = setupLinks.filter((l) => l.href.endsWith("/settings"));
   const [theme, setTheme] = useTheme();
   // Phone navigation: the four most used pages as tabs, the rest behind "More".
   const tabs: Tab[] = [
@@ -127,32 +133,39 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
   return (
     <ToastProvider>
       <div className="layout">
-        <aside className="sidebar">
-          <div className="side-brand">
-            <Link href={base} className="brand" aria-label="Mizan home">
-              <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
-            </Link>
-            {space === "app" && <SpendingBell />}
-          </div>
-          <nav className="side-nav" aria-label="Main">
-            {links.map((l) => (
-              <Link key={l.href} href={l.href} className={`side-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined}>
-                {l.icon}
-                <span>{l.label}</span>
-                {badge(l.href)}
-              </Link>
-            ))}
-            {setupLinks.length > 0 && <div className="side-group">Setup</div>}
-            {setupLinks.map((l) => (
-              <Link key={l.href} href={l.href} className={`side-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined}>
-                {l.icon}
-                <span>{l.label}</span>
+        {/* Wide screens: a top bar with the main pages as pills, and an icon rail for the rest. */}
+        <header className="appbar">
+          <Link href={base} className="brand" aria-label="Mizan home">
+            <span className="brand-mark" aria-hidden>م</span> <span className="brand-name">Mizan</span>
+          </Link>
+          <nav className="top-nav" aria-label="Main">
+            {topLinks.map((l) => (
+              <Link key={l.href} href={l.href} className={path === l.href ? "active" : ""} aria-current={path === l.href ? "page" : undefined}>
+                {l.label}
               </Link>
             ))}
           </nav>
-          <div className="side-foot">
-            {themeButton("side-link", true)}
-            <button type="button" className="side-link" onClick={logout}>{ICONS.out}<span>Sign out</span></button>
+          <div className="appbar-actions">
+            {space === "app" && <SpendingBell />}
+            {themeButton("icon-btn", false)}
+          </div>
+        </header>
+        <aside className="rail" aria-label="More pages">
+          {railGroups.map((group, gi) => group.length > 0 && (
+            <nav key={gi} className="rail-group">
+              {group.map((l) => (
+                <Link key={l.href} href={l.href} className={`rail-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined} aria-label={l.label} data-tip={l.label}>
+                  {l.icon}
+                  {badge(l.href)}
+                </Link>
+              ))}
+            </nav>
+          ))}
+          <div className="rail-group rail-foot">
+            {settingsLink.map((l) => (
+              <Link key={l.href} href={l.href} className={`rail-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined} aria-label={l.label} data-tip={l.label}>{l.icon}</Link>
+            ))}
+            <button type="button" className="rail-link" onClick={logout} aria-label="Sign out" data-tip="Sign out">{ICONS.out}</button>
           </div>
         </aside>
         <div className="main-col">

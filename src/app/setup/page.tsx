@@ -7,6 +7,7 @@ import SetupWizard from "./SetupWizard";
 import "../extra.css";
 import "../settings.css";
 import "../setup.css";
+import "../look.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Set up Mizan" };

@@ -1,0 +1,179 @@
+/* Mizan look: soft grey page, big rounded white cards, deep green accents, pill controls and a top bar
+   with an icon rail. Loaded after the base styles, so it only restyles; layout and behaviour stay the same. */
+
+body { font-size: 15px; font-weight: 500; letter-spacing: -0.005em; }
+.muted, .small { font-weight: 500; }
+b, strong, th { font-weight: 700; }
+h1 { font-size: 2.35rem; font-weight: 600; letter-spacing: -0.035em; }
+h2 { font-weight: 700; }
+.chart-figure .value, .fund-amount { font-weight: 600; }
+.num, .mono, .amt, .kpi .value, .balance-card .big, .chart-figure .value, .fund-amount, .balance-legs .leg-value, table.tx td.amt, .delta, .badge, .count-badge, .bell-dot {
+  font-family: var(--font); font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+code, pre, .redacted { font-family: var(--mono); }
+
+/* ---------- App frame (wide screens) ---------- */
+.layout { grid-template-columns: 64px minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 18px 22px; padding: 18px 22px; }
+.sidebar { display: none; }
+.appbar { grid-column: 1 / -1; position: sticky; top: 12px; z-index: 30; display: flex; align-items: center; gap: 16px; background: var(--surface); border-radius: var(--pill); padding: 10px 12px 10px 18px; box-shadow: var(--shadow); }
+.appbar .brand { flex: none; font-size: 1.3rem; font-weight: 700; color: var(--accent-ink); letter-spacing: -0.03em; }
+.brand-mark { width: 34px; height: 34px; border-radius: 999px; border: 0; background: var(--accent); color: var(--on-accent); font-size: 1rem; }
+.top-nav { flex: 0 1 auto; margin: 0 auto; display: flex; gap: 4px; background: var(--surface-2); border-radius: var(--pill); padding: 5px; overflow-x: auto; scrollbar-width: none; }
+.top-nav::-webkit-scrollbar { display: none; }
+.top-nav a { flex: none; padding: 9px 18px; border-radius: var(--pill); color: var(--muted); text-decoration: none; font-weight: 500; font-size: 0.95rem; white-space: nowrap; transition: background 0.15s, color 0.15s; }
+.top-nav a:hover { color: var(--text); }
+.top-nav a.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.appbar-actions { flex: none; display: flex; gap: 8px; align-items: center; }
+
+.rail { position: sticky; top: 100px; align-self: start; display: flex; flex-direction: column; gap: 14px; height: calc(100vh - 118px); }
+.rail-group { display: grid; gap: 8px; justify-items: center; background: var(--surface); border-radius: var(--pill); padding: 8px; box-shadow: var(--shadow); }
+.rail-foot { margin-top: auto; }
+.rail-link { position: relative; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 999px; border: 0; background: transparent; color: var(--text); cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; }
+.rail-link svg { width: 21px; height: 21px; }
+.rail-link:hover { background: var(--surface-2); }
+.rail-link.active { background: var(--accent); color: var(--on-accent); }
+.rail-link .count-badge { position: absolute; top: 2px; right: 0; margin: 0; border: 2px solid var(--surface); }
+.rail-link[data-tip]::after { content: attr(data-tip); position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%) translateX(-4px); background: var(--text); color: var(--surface); padding: 6px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.12s, transform 0.12s; z-index: 40; }
+.rail-link[data-tip]:hover::after, .rail-link[data-tip]:focus-visible::after { opacity: 1; transform: translateY(-50%); }
+.rail-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.main-col main { padding: 4px 0 60px; }
+.main-col .container { padding: 0; max-width: 1380px; }
+@media (max-width: 1180px) { .appbar .brand-name { display: none; } .top-nav a { padding: 9px 13px; } }
+
+/* Round icon buttons, like the search and bell in the top bar */
+.icon-btn { width: 42px; height: 42px; border-radius: 999px; border: 0; background: var(--surface-2); }
+.icon-btn:hover { background: var(--hover); }
+.icon-btn svg { width: 19px; height: 19px; }
+
+/* ---------- Page head ---------- */
+.page-head { margin-bottom: 22px; align-items: center; }
+.page-head p { margin-top: 6px; font-size: 0.9rem; }
+
+/* ---------- Cards ---------- */
+.card { --pad-y: 22px; --pad-x: 24px; border: 0; border-radius: var(--radius); box-shadow: var(--shadow); }
+.card-head { margin-bottom: 16px; }
+.card-head h2, .chart-head h2 { color: var(--text); font-size: 1.05rem; font-weight: 600; letter-spacing: -0.015em; }
+/* No more grey title strip: a bold title on white, as in the reference. */
+.card > .card-head:first-child:not(:last-child):has(h2), .card > .chart-head:first-child:not(:last-child) {
+  margin: 0 0 16px !important; padding: 0; background: none; border: 0; border-radius: 0;
+}
+.card > .card-head:first-child:not(:last-child):has(h2) h2, .card > .chart-head:first-child:not(:last-child) h2 { font-size: 1.05rem; }
+.card > .card-head:first-child:not(:last-child):has(h2) h2::before, .card > .chart-head:first-child:not(:last-child) h2::before { display: none; }
+.chart-head .hint { font-size: 0.82rem; }
+.grid, .dash-row, .top-row { gap: 18px; }
+.dash-row, .top-row { margin-bottom: 18px; }
+
+/* Panels hold a row of cards: they become a plain group on the grey page. */
+.panel { background: transparent; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+.panel-title { padding: 0 4px 10px; font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+.kpis { gap: 18px; }
+
+/* The bank balance is the headline: a solid green card, like a bank card. */
+.card.balance-hero {
+  --text: #ffffff; --muted: rgba(255, 255, 255, 0.74); --faint: rgba(255, 255, 255, 0.55);
+  --surface: rgba(255, 255, 255, 0.14); --hover: rgba(255, 255, 255, 0.24); --border: rgba(255, 255, 255, 0.28);
+  --accent: #a6e6c1; --accent-soft: rgba(255, 255, 255, 0.2); --accent-ink: #ffffff;
+  --down-soft: rgba(255, 255, 255, 0.2); --down-ink: #ffd6d0;
+  color: var(--text); border: 0;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, 0.16), transparent 55%),
+    radial-gradient(80% 120% at 0% 100%, rgba(0, 0, 0, 0.12), transparent 60%),
+    #178a50;
+  box-shadow: 0 14px 34px -14px rgba(23, 138, 80, 0.55);
+}
+:root[data-theme="dark"] .card.balance-hero { background: radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, 0.12), transparent 55%), #137446; box-shadow: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .card.balance-hero { background: radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, 0.12), transparent 55%), #137446; box-shadow: none; } }
+.balance-card .label { font-size: 0.92rem; }
+.balance-card .big { font-size: 2.9rem; font-weight: 600; letter-spacing: -0.03em; }
+.balance-hero .btn { border-color: transparent; background: rgba(255, 255, 255, 0.16); color: #fff; }
+.balance-hero .btn:hover { background: rgba(255, 255, 255, 0.26); }
+
+/* KPI cards: no coloured top edge, a coloured dot and a pill badge instead */
+.card.kpi, .card.kpi.expense, .card.kpi.income, .card.kpi.remittance, .card.kpi.net { border-top: 0; }
+.kpi .label { font-size: 0.9rem; color: var(--muted); }
+.kpi .value { font-size: 1.85rem; font-weight: 600; margin-top: 10px; }
+.dot { width: 9px; height: 9px; border-radius: 99px; }
+
+/* Delta badges: small pills; a good change is solid green, like "+12.8%". */
+.delta { border-radius: var(--pill); padding: 3px 9px; font-size: 0.74rem; font-weight: 600; }
+.delta.good { background: var(--accent); color: var(--on-accent); }
+.balance-hero .delta.good { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* ---------- Controls ---------- */
+.seg { background: var(--surface); border: 0; border-radius: var(--pill); padding: 4px; gap: 2px; box-shadow: var(--shadow); }
+.card .seg, .modal .seg, .drawer .seg { background: var(--surface-2); box-shadow: none; }
+.seg button { padding: 7px 15px; border-radius: var(--pill); font-size: 0.88rem; transition: background 0.15s, color 0.15s; }
+.seg button.on { background: var(--accent); color: var(--on-accent); box-shadow: none; font-weight: 600; }
+.btn { border-radius: var(--pill); padding: 8px 16px; border-color: var(--border-strong); }
+.btn.sm { border-radius: var(--pill); padding: 5px 12px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); opacity: 1; }
+.card .btn:not(.primary):not(.danger-solid), .modal .btn:not(.primary):not(.danger-solid) { background: var(--surface-2); border-color: transparent; }
+.card .btn:not(.primary):not(.danger-solid):hover, .modal .btn:not(.primary):not(.danger-solid):hover { background: var(--hover); }
+.balance-hero .btn:not(.primary) { background: rgba(255, 255, 255, 0.16) !important; }
+input, select, textarea { border-radius: var(--radius-sm); border-color: var(--border-strong); }
+.page-head select, .toolbar select { border-radius: var(--pill); border: 0; padding: 9px 14px; box-shadow: var(--shadow); }
+.card input, .card select, .card textarea, .modal input, .modal select, .modal textarea { background: var(--surface-2); border-color: transparent; }
+.card input:focus, .card select:focus, .modal input:focus, .modal select:focus, .card textarea:focus, .modal textarea:focus { background: var(--surface); }
+
+/* ---------- Tables and lists ---------- */
+table.tx th { background: transparent; color: var(--muted); font-weight: 500; font-size: 0.82rem; border-bottom: 0; padding: 8px 12px; }
+table.tx td { padding: 13px 12px; border-bottom: 0; }
+table.tx tbody tr:hover td { background: var(--surface-2); }
+table.tx tbody tr td:first-child { border-radius: 14px 0 0 14px; }
+table.tx tbody tr td:last-child { border-radius: 0 14px 14px 0; }
+table.tx tr.day-row td { border-radius: 0 !important; }
+.pill { border-radius: var(--pill); padding: 2px 10px; }
+.pill.sms { background: var(--surface-2); border-color: transparent; }
+.day-head { background: var(--surface-2); border: 0; border-radius: 12px; margin-top: 6px; padding: 8px 12px; }
+.tx-cards > .day-head, .tx-list > .day-head { margin-left: 0; margin-right: 0; padding-left: 12px; padding-right: 12px; }
+.tx-cards > .day-head:first-child { margin-top: 0; border-radius: 12px; }
+.tx-row, .tx-card { border-bottom-color: var(--border); }
+.bar-track { height: 8px; background: var(--surface-2); }
+.bar-fill { background: var(--accent); }
+.bar-row { border-bottom: 0; padding: 10px 0; }
+.progress { height: 8px; background: var(--surface-2); }
+
+/* ---------- Overlays ---------- */
+.modal { border: 0; border-radius: 28px; padding: 24px; }
+.drawer { border-left: 0; border-radius: 28px 0 0 28px; }
+.toast { border-radius: var(--pill); padding: 11px 18px; }
+.chart-tip { border: 0; border-radius: 14px; }
+.alert { border-radius: 14px; }
+.close-x { border: 0; background: var(--surface-2); }
+.close-x:hover { background: var(--hover); }
+.login-card { padding: 30px; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 860px) {
+  .layout { display: block; padding: 0; }
+  .appbar, .rail { display: none; }
+  .topbar { background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 0; }
+  .topbar .icon-btn { background: var(--surface); }
+  .topbar .brand { font-weight: 700; color: var(--accent-ink); }
+  .main-col .container { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .main-col main { padding: 8px 0 calc(110px + env(safe-area-inset-bottom)); }
+
+  /* Floating pill tab bar; the active tab is a solid green pill. */
+  .tabbar { left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); border: 0; border-radius: 999px; padding: 6px; --tb-pl: 6px; --tb-pr: 6px; background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.22), 0 0 0 1px var(--border); }
+  .tabbar a, .tabbar button { min-height: 54px; border-radius: 999px; }
+  .tab-pill { height: 54px; }
+  .tab-pill::before { inset: 0 3px; border-radius: 999px; background: var(--accent); box-shadow: none; }
+  .tabbar a.active, .tabbar button.active { color: var(--on-accent); }
+  .tabbar .count-badge.on-icon { border-color: var(--surface); }
+  .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .sheet { border: 0; border-radius: 28px 28px 0 0; }
+}
+@media (max-width: 720px) {
+  h1 { font-size: 1.9rem; }
+  .card { --pad-y: 18px; --pad-x: 18px; border-radius: 22px; }
+  .balance-card .big { font-size: 2.2rem; }
+  .grid, .dash-row, .top-row, .kpis { gap: 12px; }
+  .dash-row, .top-row { margin-bottom: 12px; }
+  /* Phone "This period" rows: keep them as separate rounded cards with a dot, not a coloured edge. */
+  .card.kpi:not(.net), .card.kpi.expense, .card.kpi.income, .card.kpi.remittance { border-left: 0; border-top: 0; }
+  .card.kpi.net .value { font-size: 1.7rem; }
+  .modal { border-radius: 28px 28px 0 0; }
+  .btn { border-radius: var(--pill); }
+}
