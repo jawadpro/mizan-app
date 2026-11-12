@@ -105,6 +105,15 @@ export async function splitsForBill(transactionId: string) {
   return { bill: bill[0], shares: rows.map(finish) };
 }
 
+/** Everyone a bill has been split with before, most recent first, for picking names. */
+export async function splitPeople() {
+  const { rows } = await q<{ person: string }>(
+    `SELECT person FROM (SELECT DISTINCT ON (lower(person)) person, created_at FROM app.splits ORDER BY lower(person), created_at DESC) p
+     ORDER BY created_at DESC LIMIT 200`,
+  );
+  return rows.map((r) => r.person);
+}
+
 export async function getShare(id: string) {
   const { rows } = await q<ShareRow>(`${SHARE_SQL} WHERE s.id = $1`, [id]);
   return rows[0] ? finish(rows[0]) : null;

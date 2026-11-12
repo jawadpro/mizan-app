@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { HttpError, handle, json, readJson } from "@/lib/http";
 import { formatPaisa } from "@/lib/money";
-import { addShares, listSplits, ownerName, splitsForBill } from "@/lib/splits-repo";
+import { addShares, listSplits, ownerName, splitPeople, splitsForBill } from "@/lib/splits-repo";
 import { searchParamsObject, splitInput } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export const GET = handle(async (req: Request) => {
     if (!UUID.test(bill)) throw new HttpError(404, "Transaction not found");
     const d = await splitsForBill(bill);
     if (!d) throw new HttpError(404, "Transaction not found");
-    return json({ ok: true, owner, ...d });
+    return json({ ok: true, owner, people: await splitPeople(), ...d });
   }
   return json({ ok: true, owner, ...(await listSplits()) });
 });

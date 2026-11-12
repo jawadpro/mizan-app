@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { formatPaisa, getDisplayCurrency, paisaToDecimal, parseAmountToPaisa } from "@/lib/money";
 import { equalShares } from "@/lib/splits";
 import { formatDatePkt } from "@/lib/time";
@@ -12,7 +12,7 @@ import { useToast } from "./Toast";
 import type { Share } from "./Splits";
 import "@/app/splits.css";
 
-type BillData = { owner: string | null; bill: { id: string; kind: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null }; shares: Share[] };
+type BillData = { owner: string | null; people: string[]; bill: { id: string; kind: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null }; shares: Share[] };
 type Row = { person: string; amount: string };
 
 const whole = (p: number) => formatPaisa(p).replace(/\.00$/, "");
@@ -51,6 +51,18 @@ export default function SplitForm({ billId, onClose, onChanged }: { billId: stri
   }, [data]);
 
   const list = rows ?? [];
+  // People split with before come first, then everyone you've sent money to or received it from.
+  const names = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const n of [...(data?.people ?? []), ...people.map((p) => p.counterparty)]) {
+      const k = n.trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      out.push(n.trim());
+    }
+    return out;
+  }, [data, people]);
   const alreadyShared = shares.reduce((a, s) => a + s.amount_paisa, 0);
   const adding = list.reduce((a, r) => a + (parseAmountToPaisa(r.amount) ?? 0), 0);
   const mine = bill ? bill.amount_paisa - alreadyShared - adding : 0;
@@ -148,13 +160,10 @@ export default function SplitForm({ billId, onClose, onChanged }: { billId: stri
                 <button type="button" className="btn sm" onClick={splitEqually}>Fill in</button>
               </div>
 
-              <datalist id="split-people">
-                {Array.from(new Set([...shares.map((s) => s.person), ...people.map((p) => p.counterparty)])).slice(0, 200).map((p) => <option key={p} value={p} />)}
-              </datalist>
               <div className="split-rows">
                 {list.map((r, i) => (
                   <div key={i} className="split-row">
-                    <input list="split-people" placeholder="Name, e.g. Ali" maxLength={60} value={r.person} onChange={(e) => setRow(i, "person", e.target.value)} aria-label={`Person ${i + 1}`} />
+                    <NameCombo value={r.person} names={names} taken={list.map((x, j) => (j === i ? "" : x.person.trim().toLowerCase()))} onChange={(v) => setRow(i, "person", v)} label={`Person ${i + 1}`} />
                     <input inputMode="decimal" placeholder={`Amount (${getDisplayCurrency()})`} value={r.amount} onChange={(e) => setRow(i, "amount", e.target.value)} aria-label={`Share ${i + 1}`} />
                     <button type="button" className="btn ghost sm" onClick={() => setRows(list.filter((_, j) => j !== i))} aria-label={`Remove person ${i + 1}`}>✕</button>
                   </div>
@@ -178,6 +187,63 @@ export default function SplitForm({ billId, onClose, onChanged }: { billId: stri
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Tidies a name as the bank prints it ("ALI RAZA" → "Ali Raza"); leaves mixed case alone. */
+const tidy = (n: string) => (n === n.toUpperCase() ? n.toLowerCase().replace(/(^|\s)(\p{L})/gu, (_, sp: string, c: string) => sp + c.toUpperCase()) : n);
+
+/** A name box that searches past people and recipients as you type; any new name can be typed too. */
+function NameCombo({ value, names, taken, onChange, label }: { value: string; names: string[]; taken: string[]; onChange: (v: string) => void; label: string }) {
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const id = useId();
+  const q = value.trim().toLowerCase();
+  const words = q.split(/\s+/).filter(Boolean);
+  const matches = names
+    .filter((n) => !taken.includes(n.toLowerCase()) && n.toLowerCase() !== q)
+    .map((n) => {
+      const l = n.toLowerCase();
+      const rank = !q ? 2 : l.startsWith(q) ? 0 : l.split(/\s+/).some((w) => w.startsWith(q)) ? 1 : words.every((w) => l.includes(w)) ? 2 : -1;
+      return { n, rank };
+    })
+    .filter((m) => m.rank >= 0)
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 8)
+    .map((m) => m.n);
+  const show = open && matches.length > 0;
+  const pick = (n: string) => { onChange(tidy(n)); setOpen(false); };
+  return (
+    <div className="name-combo">
+      <input
+        role="combobox"
+        aria-expanded={show}
+        aria-controls={id}
+        aria-autocomplete="list"
+        aria-label={label}
+        autoComplete="off"
+        placeholder="Name, e.g. Ali"
+        maxLength={60}
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); setHi(0); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onKeyDown={(e) => {
+          if (!show) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => (h + 1) % matches.length); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => (h - 1 + matches.length) % matches.length); }
+          else if (e.key === "Enter") { e.preventDefault(); pick(matches[hi] ?? matches[0]); }
+          else if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
+        }}
+      />
+      {show && (
+        <ul className="name-combo-list" id={id} role="listbox">
+          {matches.map((n, i) => (
+            <li key={n} role="option" aria-selected={i === hi} className={i === hi ? "on" : ""} onMouseDown={(e) => { e.preventDefault(); pick(n); }} onMouseEnter={() => setHi(i)}>{tidy(n)}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

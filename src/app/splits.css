@@ -60,3 +60,10 @@
   .split-share { grid-template-columns: minmax(0, 1fr) auto; }
   .split-share-actions { grid-column: 1 / -1; }
 }
+
+/* Searchable name box */
+.name-combo { position: relative; min-width: 0; }
+.name-combo input { width: 100%; }
+.name-combo-list { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-lg); }
+.name-combo-list li { padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 0.92rem; }
+.name-combo-list li.on { background: var(--hover); }
