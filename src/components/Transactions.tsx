@@ -17,9 +17,34 @@ import type { Tx } from "./types";
 
 type List = { items: Tx[]; total: number; page: number; pageSize: number; sums: { expense: number; income: number; remittance: number } };
 
-/** The line shown for a charge tucked under its transfer, e.g. "Charges on this transfer". */
-function chargeLabel(c: Tx) {
-  return c.category === "Tax deducted" ? "Tax on this transfer" : "Charges on this transfer";
+/** "−Rs 10,025 in all": the transfer plus its charges, under the transfer's amount. */
+function totalLabel(t: Tx, charges: Tx[]) {
+  const sum = t.amount_paisa + charges.reduce((n, c) => n + c.amount_paisa, 0);
+  return `${t.kind === "expense" ? "−" : ""}${formatPaisa(sum)} in all`;
+}
+
+const isChargeCategory = (c: string) => c === "Bank charges" || c === "Tax deducted";
+
+/** A bank charge or tax shown as a small badge on the transfer it belongs to. Tapping it opens the charge. */
+function ChargeBadge({ c, onOpen }: { c: Tx; onOpen?: (c: Tx) => void }) {
+  const tax = c.category === "Tax deducted";
+  const body = (
+    <>
+      <span className="charge-badge-icon" aria-hidden>{tax ? "%" : "₨"}</span>
+      <span className="charge-badge-label">{tax ? "Tax" : "Bank charge"}</span>
+      <span className="charge-badge-amt">−{formatPaisa(c.amount_paisa)}</span>
+    </>
+  );
+  return onOpen ? (
+    <button type="button" className={`charge-badge${tax ? " tax" : ""}`} onClick={(e) => { e.stopPropagation(); onOpen(c); }} title={`Edit this ${tax ? "tax" : "charge"}`}>{body}</button>
+  ) : <span className={`charge-badge${tax ? " tax" : ""}`}>{body}</span>;
+}
+
+/** The category, with bank charges and tax picked out as a badge so they stand apart from spending. */
+function CategoryCell({ category }: { category: string }) {
+  if (!isChargeCategory(category)) return <>{category}</>;
+  const tax = category === "Tax deducted";
+  return <span className={`charge-cat${tax ? " tax" : ""}`}><span className="charge-badge-icon" aria-hidden>{tax ? "%" : "₨"}</span>{category}</span>;
 }
 
 /** What a day's transactions add up to, shown on the right of its header. */
@@ -200,28 +225,21 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                     {groupCharges(g.items).map(({ t, charges }) => (<Fragment key={t.id}>
                     <tr className={charges.length ? "has-charges" : undefined}>
                       <td className="num muted" style={{ whiteSpace: "nowrap" }}>{formatTimePkt(t.occurred_at)}</td>
-                      <td>{t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}</td>
-                      <td>{t.category}</td>
+                      <td>
+                        {t.counterparty ?? <span className="muted">—</span>}{t.note && <div className="small muted">{t.note}</div>}
+                        {charges.length > 0 && <div className="charge-badges">{charges.map((c) => <ChargeBadge key={c.id} c={c} onOpen={readOnly ? undefined : edit} />)}</div>}
+                      </td>
+                      <td><CategoryCell category={t.category} /></td>
                       <td><span className={`pill ${t.kind}`}>{KIND_LABEL[t.kind]}</span></td>
                       <td>{t.source === "sms" ? <span className="pill sms" title={t.account_hint ? `Account ending ${t.account_hint}` : undefined}>{(multi && nameOf(t.bank_id)) || "SMS"}</span> : <span className="pill">{t.source === "demo" ? "Demo" : (multi && nameOf(t.bank_id)) ? `${nameOf(t.bank_id)} · Manual` : "Manual"}</span>}</td>
-                      <td className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa).replace(" ", "\u00a0")}</td>
+                      <td className={`amt ${t.kind}`}>
+                        {t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa).replace(" ", "\u00a0")}
+                        {charges.length > 0 && <div className="charge-total">{totalLabel(t, charges)}</div>}
+                      </td>
                       {!readOnly && (
                         <td><div className="row-actions"><button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}
                     </tr>
-                    {charges.map((c, i) => (
-                      <tr key={c.id} className={`charge-row${i === charges.length - 1 ? " last" : ""}`}>
-                        <td></td>
-                        <td><span className="charge-elbow" aria-hidden="true" />{chargeLabel(c)}</td>
-                        <td>{c.category}</td>
-                        <td></td>
-                        <td>{multi && nameOf(c.bank_id) ? <span className="muted small">{nameOf(c.bank_id)}</span> : null}</td>
-                        <td className={`amt ${c.kind}`}>−{formatPaisa(c.amount_paisa)}</td>
-                        {!readOnly && (
-                          <td><div className="row-actions"><button className="btn sm" onClick={() => edit(c)}>Edit</button><button className="btn sm danger" onClick={() => remove(c)}>Delete</button></div></td>
-                        )}
-                      </tr>
-                    ))}
                     </Fragment>))}
                   </Fragment>))}
                 </tbody>
@@ -233,18 +251,16 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                 {groupCharges(g.items).map(({ t, charges }) => (
                 <div key={t.id} className={charges.length ? "tx-group" : "tx-group plain"}>
                 <div className="tx-card" onClick={() => !readOnly && edit(t)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600 }}>{t.counterparty ?? t.category}</div>
-                    <div className="meta">{formatTimePkt(t.occurred_at)} · {t.category}{t.source === "sms" ? " · SMS" : ""}</div>
+                    <div className="meta">{formatTimePkt(t.occurred_at)} · {isChargeCategory(t.category) ? <CategoryCell category={t.category} /> : t.category}{t.source === "sms" ? " · SMS" : ""}</div>
+                    {charges.length > 0 && <div className="charge-badges">{charges.map((c) => <ChargeBadge key={c.id} c={c} onOpen={readOnly ? undefined : edit} />)}</div>}
                   </div>
-                  <div className={`amt ${t.kind}`} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
+                  <div style={{ textAlign: "right", flex: "none" }}>
+                    <div className={`amt ${t.kind}`} style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
+                    {charges.length > 0 && <div className="charge-total">{totalLabel(t, charges)}</div>}
+                  </div>
                 </div>
-                {charges.map((c) => (
-                  <div key={c.id} className="charge-child" onClick={() => !readOnly && edit(c)} role={readOnly ? undefined : "button"} tabIndex={readOnly ? undefined : 0}>
-                    <span><strong>{c.category}</strong>{multi && nameOf(c.bank_id) ? ` · ${nameOf(c.bank_id)}` : ""}</span>
-                    <span className={`amt ${c.kind}`}>−{formatPaisa(c.amount_paisa)}</span>
-                  </div>
-                ))}
                 </div>
                 ))}
               </Fragment>))}
