@@ -408,17 +408,17 @@ const ANCHORS_SQL = `single AS (SELECT count(*) = 1 AS v FROM app.banks),
 /** Whether transaction `t` moves the balance anchored by `a` (with `s` from ANCHORS_SQL). */
 const MOVES = `(a.bank_id IS NULL OR t.bank_id = a.bank_id OR (s.v AND t.bank_id IS NULL))`;
 
-/** A balance set before banks were added belongs to the first bank. */
+/**
+ * A balance set before banks were added belongs to the first bank. The old row is left in place (it is ignored
+ * once there are banks), so an older deployment on the same database still shows a balance.
+ */
 async function adoptLegacyAnchor() {
   await q(
-    `WITH moved AS (
-       INSERT INTO app.bank_balances (bank_id, amount_paisa, as_of, updated_at)
-       SELECT b.id, a.amount_paisa, a.as_of, a.updated_at
-       FROM app.balance_anchor a, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1) b
-       WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.bank_balances)
-       ON CONFLICT (bank_id) DO NOTHING RETURNING 1
-     )
-     DELETE FROM app.balance_anchor WHERE id = 1 AND EXISTS (SELECT 1 FROM app.banks)`,
+    `INSERT INTO app.bank_balances (bank_id, amount_paisa, as_of, updated_at)
+     SELECT b.id, a.amount_paisa, a.as_of, a.updated_at
+     FROM app.balance_anchor a, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1) b
+     WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.bank_balances)
+     ON CONFLICT (bank_id) DO NOTHING`,
   );
 }
 
