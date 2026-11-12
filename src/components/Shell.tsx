@@ -64,7 +64,8 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
     { href: base, label: "Home", icon: ICONS.home },
     { href: `${base}/transactions`, label: "Activity", icon: ICONS.list },
     { href: `${base}/set-asides`, label: "Set-asides", icon: ICONS.jar },
-    { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
+    // The demo has no bill splits, so Zakat keeps its tab there.
+    space === "app" ? { href: `${base}/splits`, label: "Splits", icon: ICONS.split } : { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
   ];
   const moreLinks = allLinks.filter((l) => !tabs.some((t) => t.href === l.href));
 
