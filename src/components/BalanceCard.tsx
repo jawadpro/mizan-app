@@ -7,7 +7,7 @@ import { apiFetch, ApiError } from "./api";
 import { useData } from "./useData";
 import { ErrorBox, Skeleton } from "./States";
 import { useToast } from "./Toast";
-import { useBanks } from "./useBanks";
+import { bankLabel, useBanks } from "./useBanks";
 import { digitsLabel } from "@/lib/banks";
 import type { BalanceSummary } from "./types";
 import CloseButton from "./CloseButton";
@@ -173,7 +173,7 @@ function BalanceModal({ accounts, bank: firstBank, choose, initial, onClose, onS
           {choose && (
             <label className="field" style={{ marginBottom: 12 }}>Account
               <select value={bank ?? ""} onChange={(e) => { setBank(e.target.value); setAmount(current(e.target.value)); }}>
-                {banks.map((x) => <option key={x.id} value={x.id}>{x.name}{x.account_hint ? ` ${digitsLabel(x.account_hint)}` : ""}</option>)}
+                {banks.map((x) => <option key={x.id} value={x.id}>{bankLabel(x)}</option>)}
               </select>
             </label>
           )}

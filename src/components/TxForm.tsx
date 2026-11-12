@@ -6,9 +6,8 @@ import { dateToPktLocal } from "@/lib/time";
 import { ApiError } from "./api";
 import { useData } from "./useData";
 import type { SetAside } from "./types";
-import { useBanks } from "./useBanks";
+import { bankLabel, useBanks } from "./useBanks";
 import CloseButton from "./CloseButton";
-import { digitsLabel } from "@/lib/banks";
 
 export type TxDraft = { kind: Kind; amount: string; occurredAt: string; category: string; counterparty: string; note: string; setAsideId: string | null; bankId: string | null };
 
@@ -132,7 +131,7 @@ export default function TxForm({
               <label className="field full">Bank
                 <select value={d.bankId ?? ""} onChange={(e) => setD((x) => ({ ...x, bankId: e.target.value || null }))}>
                   <option value="">No bank (cash or other)</option>
-                  {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ${digitsLabel(b.account_hint)}` : ""}</option>)}
+                  {banks.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
                 </select>
               </label>
             )}

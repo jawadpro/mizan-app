@@ -7,12 +7,11 @@ import { formatDatePkt } from "@/lib/time";
 import { change } from "@/lib/delta";
 import { resourceUrl, type Space } from "./api";
 import { useData } from "./useData";
-import { useBanks } from "./useBanks";
+import { bankLabel, useBanks } from "./useBanks";
 import { Empty, ErrorBox, Loading, Skeleton } from "./States";
 import { PRESETS, presetRange, type Preset } from "./range";
 import { useChartColors, type ChartColors } from "./theme";
 import type { Analytics, Tx } from "./types";
-import { digitsLabel } from "@/lib/banks";
 import BalanceCard from "./BalanceCard";
 import { useSelectedBank } from "./useSelectedBank";
 
@@ -119,7 +118,7 @@ export default function Dashboard({ space, showBalance, top, defaultPreset = "30
           {multi && (
             <select aria-label="Bank" value={bank} onChange={(e) => setBank(e.target.value)}>
               <option value="">All banks</option>
-              {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ${digitsLabel(b.account_hint)}` : ""}</option>)}
+              {banks.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
               <option value="none">No bank (cash)</option>
             </select>
           )}

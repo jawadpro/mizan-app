@@ -53,6 +53,11 @@ describe("banks from Settings", () => {
     // With transfer holds on, a Mobile IBFT waits in Review for any bank charge.
     expect(readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [{ ...ubl, hold_transfers: true }] }).result).toMatchObject({ status: "review", reason: "Transfer: add any bank charges, then confirm" });
   });
+  it("a paused bank's alerts wait in Review, still filed under it", () => {
+    const paused = readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [{ ...ubl, active: false }] });
+    expect(paused.bank?.name).toBe("JS Bank");
+    expect(paused.result).toMatchObject({ status: "review", reason: "JS Bank is paused", fields: { amountPaisa: 780000 } });
+  });
   it("auto-import off and transfer holds are per bank", () => {
     const off = readAlert({ sender: "JS BANK", text: pasted, receivedAt: at }, { banks: [{ ...ubl, auto_import: false }] });
     expect(off.result).toMatchObject({ status: "review", reason: "Automatic import is off for JS Bank" });

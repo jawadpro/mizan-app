@@ -11,9 +11,8 @@ import { useData } from "./useData";
 import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import DateRangePicker from "./DateRangePicker";
-import { useBanks } from "./useBanks";
+import { bankLabel, useBanks } from "./useBanks";
 import { setSelectedBank, useSelectedBank } from "./useSelectedBank";
-import { digitsLabel } from "@/lib/banks";
 import { useChargesEdit } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
@@ -194,7 +193,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
             {multi && (
               <select aria-label="Bank" value={bank} onChange={(e) => setBank(e.target.value)}>
                 <option value="">All banks</option>
-                {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ${digitsLabel(b.account_hint)}` : ""}</option>)}
+                {banks.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
                 <option value="none">No bank (cash)</option>
               </select>
             )}

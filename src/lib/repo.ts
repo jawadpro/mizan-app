@@ -256,9 +256,9 @@ export async function addBankCharge(run: Run, parentId: string, chargesPaisa: nu
   await run(
     `INSERT INTO app.transactions (kind, amount_paisa, occurred_at, category, counterparty, note, source, account_hint, bank_id, parent_id)
      VALUES ('expense',$1,$2,$6,
-             coalesce((SELECT name FROM app.banks WHERE id = $5), (SELECT name FROM app.banks ORDER BY position, created_at LIMIT 1), 'Bank'),
+             coalesce((SELECT name FROM app.banks WHERE id = $5), (SELECT name FROM app.banks WHERE archived_at IS NULL ORDER BY position, created_at LIMIT 1), 'Bank'),
              $3,'manual',$4,
-             coalesce($5, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1)),$7)`,
+             coalesce($5, (SELECT id FROM app.banks WHERE archived_at IS NULL ORDER BY position, created_at LIMIT 1)),$7)`,
     [chargesPaisa, t.occurredAt, `${category === "Bank charges" ? "Charges" : "Tax"} on transfer${t.counterparty ? ` to ${t.counterparty}` : ""}`.slice(0, 500), accountHint, bankId, category, parentId],
   );
 }
@@ -398,12 +398,14 @@ export type Balances = { total: BalanceRow | null; accounts: AccountBalance[] };
 
 const SIGNED = `CASE WHEN t.kind = 'expense' THEN -t.amount_paisa ELSE t.amount_paisa END`;
 /** Every balance anchor: one per bank account, or the single one of an install without banks. */
-const ANCHORS_SQL = `single AS (SELECT count(*) = 1 AS v FROM app.banks),
+// A removed (archived) bank's balance is left out; a paused one still counts, as its money is still there.
+const ANCHORS_SQL = `single AS (SELECT count(*) = 1 AS v FROM app.banks WHERE archived_at IS NULL),
   anchors AS (
-    SELECT bb.bank_id, bb.amount_paisa, date_trunc('minute', bb.as_of) AS as_of FROM app.bank_balances bb
+    SELECT bb.bank_id, bb.amount_paisa, date_trunc('minute', bb.as_of) AS as_of
+    FROM app.bank_balances bb JOIN app.banks k ON k.id = bb.bank_id AND k.archived_at IS NULL
     UNION ALL
     SELECT NULL::uuid, a.amount_paisa, date_trunc('minute', a.as_of) FROM app.balance_anchor a
-    WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.banks)
+    WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.banks WHERE archived_at IS NULL)
   )`;
 /** Whether transaction `t` moves the balance anchored by `a` (with `s` from ANCHORS_SQL). */
 const MOVES = `(a.bank_id IS NULL OR t.bank_id = a.bank_id OR (s.v AND t.bank_id IS NULL))`;
@@ -416,7 +418,7 @@ async function adoptLegacyAnchor() {
   await q(
     `INSERT INTO app.bank_balances (bank_id, amount_paisa, as_of, updated_at)
      SELECT b.id, a.amount_paisa, a.as_of, a.updated_at
-     FROM app.balance_anchor a, (SELECT id FROM app.banks ORDER BY position, created_at LIMIT 1) b
+     FROM app.balance_anchor a, (SELECT id FROM app.banks WHERE archived_at IS NULL ORDER BY position, created_at LIMIT 1) b
      WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.bank_balances)
      ON CONFLICT (bank_id) DO NOTHING`,
   );
@@ -449,7 +451,7 @@ export async function getBalance(): Promise<BalanceRow | null> {
 
 /** Sets the balance of one bank account (or, with no banks, the single balance). One bank is picked for you. */
 export async function setBalance(amountPaisa: number, bankId?: string | null) {
-  const banks = await q<{ id: string }>(`SELECT id FROM app.banks ORDER BY position, created_at`);
+  const banks = await q<{ id: string }>(`SELECT id FROM app.banks WHERE archived_at IS NULL ORDER BY position, created_at`);
   if (!banks.rowCount) {
     await q(
       `INSERT INTO app.balance_anchor (id, amount_paisa, as_of, updated_at) VALUES (1, $1, now(), now())
@@ -669,26 +671,70 @@ export async function saveSmsWords(words: SmsWords): Promise<SmsWords> {
 
 export type BankRow = Bank & { id: string };
 
+/** The banks in use (paused ones included), in order. Removed banks are left out. */
 export async function listBanks(): Promise<BankRow[]> {
-  const { rows } = await q<BankRow>(`SELECT id, name, senders, account_hint, auto_import, hold_transfers FROM app.banks ORDER BY position, created_at`);
+  const { rows } = await q<BankRow>(
+    `SELECT id, name, senders, account_hint, auto_import, hold_transfers, active FROM app.banks WHERE archived_at IS NULL ORDER BY position, created_at`,
+  );
   return rows;
 }
 
+const RECORDS = `((SELECT count(*) FROM app.transactions t WHERE t.bank_id = b.id) + (SELECT count(*) FROM app.review_items r WHERE r.bank_id = b.id AND r.status = 'pending'))::int`;
+
+export type BankWithRecords = BankRow & { records: number };
+export type RemovedBank = { id: string; name: string; account_hint: string; records: number; archived_at: string };
+
+/** Banks in use and removed ones, each with how many transactions (and alerts waiting in Review) carry it. */
+export async function listBanksWithRecords(): Promise<{ items: BankWithRecords[]; removed: RemovedBank[] }> {
+  const { rows } = await q<BankWithRecords & { archived_at: string | null }>(
+    `SELECT b.id, b.name, b.senders, b.account_hint, b.auto_import, b.hold_transfers, b.active, b.archived_at, ${RECORDS} AS records
+     FROM app.banks b ORDER BY b.position, b.created_at`,
+  );
+  return {
+    items: rows.filter((r) => !r.archived_at).map(({ archived_at: _a, ...r }) => r),
+    removed: rows.filter((r) => r.archived_at).map((r) => ({ id: r.id, name: r.name, account_hint: r.account_hint, records: r.records, archived_at: r.archived_at! })),
+  };
+}
+
 /**
- * Saves the list in the order given. Rows keep their id, so transactions stay tagged; a bank left out
- * is deleted and its transactions become "no bank".
+ * Saves the list in the order given. Rows keep their id, so transactions stay tagged. A bank left out is
+ * deleted only when nothing carries it; one with transactions or alerts in Review is removed from sight instead
+ * (kept, with its history, until it is restored or deleted for good).
  */
-export async function saveBanks(items: Bank[]): Promise<BankRow[]> {
+export async function saveBanks(items: Bank[]) {
   await tx(async (run) => {
     const keep = items.map((b) => b.id).filter((x): x is string => !!x);
-    await run(`DELETE FROM app.banks WHERE NOT (id = ANY($1::uuid[]))`, [keep]);
+    const gone = `archived_at IS NULL AND NOT (id = ANY($1::uuid[]))`;
+    const used = `(EXISTS (SELECT 1 FROM app.transactions t WHERE t.bank_id = app.banks.id) OR EXISTS (SELECT 1 FROM app.review_items r WHERE r.bank_id = app.banks.id AND r.status = 'pending'))`;
+    await run(`UPDATE app.banks SET archived_at = now() WHERE ${gone} AND ${used}`, [keep]);
+    await run(`DELETE FROM app.banks WHERE ${gone} AND NOT ${used}`, [keep]);
     for (const [i, b] of items.entries()) {
-      const vals = [i, b.name, b.senders, b.account_hint, b.auto_import, b.hold_transfers];
+      const vals = [i, b.name, b.senders, b.account_hint, b.auto_import, b.hold_transfers, b.active ?? true];
       const upd = b.id
-        ? await run(`UPDATE app.banks SET position=$2, name=$3, senders=$4, account_hint=$5, auto_import=$6, hold_transfers=$7 WHERE id=$1`, [b.id, ...vals])
+        ? await run(`UPDATE app.banks SET position=$2, name=$3, senders=$4, account_hint=$5, auto_import=$6, hold_transfers=$7, active=$8 WHERE id=$1 AND archived_at IS NULL`, [b.id, ...vals])
         : null;
-      if (!upd?.rowCount) await run(`INSERT INTO app.banks (position, name, senders, account_hint, auto_import, hold_transfers) VALUES ($1,$2,$3,$4,$5,$6)`, vals);
+      if (!upd?.rowCount) await run(`INSERT INTO app.banks (position, name, senders, account_hint, auto_import, hold_transfers, active) VALUES ($1,$2,$3,$4,$5,$6,$7)`, vals);
     }
   });
-  return listBanks();
+  return listBanksWithRecords();
+}
+
+/** Brings a removed bank back, at the end of the list, with its history and balance. */
+export async function restoreBank(id: string) {
+  const r = await q(
+    `UPDATE app.banks SET archived_at = NULL, position = (SELECT coalesce(max(position), -1) + 1 FROM app.banks WHERE archived_at IS NULL)
+     WHERE id = $1 AND archived_at IS NOT NULL`,
+    [id],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/** Deletes a removed bank for good, once its name is typed back. Its transactions stay, without a bank. */
+export async function deleteBankForGood(id: string, typedName: string) {
+  const row = await q<{ name: string }>(`SELECT name FROM app.banks WHERE id = $1 AND archived_at IS NOT NULL`, [id]);
+  const name = row.rows[0]?.name;
+  if (!name) return false;
+  if (typedName.trim().toLowerCase() !== name.trim().toLowerCase()) throw new HttpError(400, `Type ${name} to delete it for good`, { fields: { confirm: [`Type ${name}`] } });
+  await q(`DELETE FROM app.banks WHERE id = $1 AND archived_at IS NOT NULL`, [id]);
+  return true;
 }
