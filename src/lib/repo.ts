@@ -6,7 +6,7 @@ import { OWN_ACCOUNTS, type Kind } from "./categories";
 import { addDays } from "./time";
 import { normalizePrefs, type Prefs } from "./preferences";
 import { normalizeWords, type SmsWords } from "./sms/keywords";
-import type { Bank } from "./banks";
+import { bankDigits, MAX_DIGITS, type Bank } from "./banks";
 import { BANK_CHARGES, TAX_DEDUCTED, type ChargeEdits } from "./charges";
 
 export type TxRow = {
@@ -340,7 +340,7 @@ export async function listReview(space: Space) {
 }
 
 /** Confirms a review item into a real transaction and discards the retained SMS excerpt. */
-export async function confirmReview(id: string, t: TransactionInput, chargesPaisa = 0, chargesCategory = "Bank charges") {
+export async function confirmReview(id: string, t: TransactionInput, chargesPaisa = 0, chargesCategory = "Bank charges", rememberAccount = false) {
   return withFundCheck(() => tx(async (run) => {
     const item = await run<{ id: string; bank_ref: string | null; account_hint: string | null; sms_import_id: string | null; bank_id: string | null }>(
       `SELECT id, bank_ref, account_hint, sms_import_id, bank_id FROM app.review_items WHERE id=$1 AND status='pending' FOR UPDATE`,
@@ -358,12 +358,23 @@ export async function confirmReview(id: string, t: TransactionInput, chargesPais
     );
     if (!ins.rows[0]) return { duplicate: true as const };
     if (chargesPaisa > 0) await addBankCharge(run, ins.rows[0].id, chargesPaisa, t, it.account_hint, bankId, chargesCategory);
+    // The owner picked the account: save its digits on that bank, so its next alerts go there on their own.
+    if (rememberAccount && bankId && it.account_hint) await rememberDigits(run, bankId, it.account_hint);
     await run(
       `UPDATE app.review_items SET status='confirmed', transaction_id=$2, resolved_at=now(), redacted_text=NULL WHERE id=$1`,
       [id, ins.rows[0].id],
     );
     return { transaction: ins.rows[0] };
   }));
+}
+
+/** Adds account digits to a bank's saved ones, unless they're there already or it has the most it can hold. */
+async function rememberDigits(run: Run, bankId: string, digits: string) {
+  const row = await run<{ account_hint: string }>(`SELECT account_hint FROM app.banks WHERE id=$1 FOR UPDATE`, [bankId]);
+  if (!row.rows[0]) return;
+  const saved = bankDigits(row.rows[0]);
+  if (saved.includes(digits) || saved.length >= MAX_DIGITS || !/^\d{3,4}$/.test(digits)) return;
+  await run(`UPDATE app.banks SET account_hint=$2 WHERE id=$1`, [bankId, [...saved, digits].join(", ")]);
 }
 
 export async function dismissReview(id: string) {

@@ -11,7 +11,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   requireSession(req);
   const { id } = await ctx.params;
   if (!UUID.test(id)) throw new HttpError(404, "Not found");
-  const body = (await readJson(req, 4096)) as { action?: string; transaction?: unknown; charges?: unknown; chargesKind?: unknown };
+  const body = (await readJson(req, 4096)) as { action?: string; transaction?: unknown; charges?: unknown; chargesKind?: unknown; rememberAccount?: unknown };
   if (body?.action === "dismiss") {
     if (!(await dismissReview(id))) throw new HttpError(404, "Review item not found or already resolved");
     return json({ ok: true, status: "dismissed" });
@@ -21,7 +21,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   if (!parsed.success) throw new HttpError(400, "Please fix the highlighted fields", { fields: parsed.error.flatten().fieldErrors });
   // Optional bank charge or tax on a transfer, recorded as its own "Bank charges" expense.
   const chargesPaisa = readCharges(body);
-  const out = await confirmReview(id, parsed.data, chargesPaisa, readChargesCategory(body));
+  const out = await confirmReview(id, parsed.data, chargesPaisa, readChargesCategory(body), body.rememberAccount === true);
   if (!out) throw new HttpError(404, "Review item not found or already resolved");
   if ("duplicate" in out) throw new HttpError(409, "A transaction with this bank reference already exists");
   return json({ ok: true, status: "confirmed", item: out.transaction });

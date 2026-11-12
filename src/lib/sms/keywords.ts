@@ -16,10 +16,10 @@ export const WORD_LABEL: Record<WordKind, { title: string; hint: string }> = {
 };
 
 export const DEFAULT_SMS_WORDS: SmsWords = {
-  expense: ["debited", "debit from", "withdrawn", "withdrawal", "purchase", "purchased", "paid", "payment of", "spent", "sent", "transferred to", "transfer of", "transferred of", "charged", "deducted"],
+  expense: ["debited", "debit from", "withdrawn", "withdrawal", "purchase", "purchased", "paid", "payment of", "spent", "sent", "transferred to", "transferred from", "transfer of", "transferred of", "charged", "deducted", "used for"],
   income: ["credited", "received", "deposited", "deposit of"],
   remittance: ["home remittance", "remittance", "inward transfer", "inward remittance", "western union", "moneygram", "remitly", "wise transfer", "xpress money", "ria money"],
-  transfer: ["sent to", "transferred to", "transfer of", "transferred of", "via ibft", "via mobile ibft", "via raast", "fund transfer", "funds transfer", "interbank"],
+  transfer: ["sent to", "transferred to", "transferred from", "transfer of", "transferred of", "via ibft", "via mobile ibft", "via raast", "fund transfer", "funds transfer", "interbank"],
 };
 
 export const MAX_WORDS = 40;
