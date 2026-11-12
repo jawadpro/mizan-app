@@ -1,4 +1,4 @@
-// Mizan service worker: shows review-inbox notifications and keeps the app icon's badge count.
+// Mizan service worker: shows notifications for imported payments and the review inbox, and keeps the app icon's badge count.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -14,7 +14,7 @@ self.addEventListener("push", (event) => {
       body: String(data.body || "Something in Mizan needs your attention."),
       icon: "/icons/192",
       badge: "/icons/192",
-      tag: "mizan-review",
+      tag: typeof data.tag === "string" ? data.tag : "mizan-review",
       renotify: true,
       data: { url: typeof data.url === "string" ? data.url : "/app/review" },
     }),

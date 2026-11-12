@@ -11,6 +11,10 @@ export const DEFAULT_PREFS = {
   ownNames: "",
   /** Currency every amount is shown in. Display only: stored amounts are never converted. */
   currency: DEFAULT_CURRENCY as CurrencyCode,
+  /** A notification for every payment imported from a bank message, not only those needing review. */
+  notifyImports: true,
+  /** Show the amount and who it was with in notifications (they can appear on the lock screen). */
+  notifyDetails: true,
 };
 export type Prefs = typeof DEFAULT_PREFS;
 
@@ -21,6 +25,8 @@ export const prefsPatch = z
     ramadanNotice: z.boolean(),
     defaultRange: z.enum(["7d", "30d", "month", "12m", "year"]),
     currency: z.enum(CURRENCY_CODES),
+    notifyImports: z.boolean(),
+    notifyDetails: z.boolean(),
     ownNames: z.string().max(300).transform((s) => s.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ")),
   })
   .partial()
