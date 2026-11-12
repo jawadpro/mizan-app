@@ -1,19 +1,19 @@
 /* Mizan design tokens. Light is the default; dark follows the device unless the user picks a theme
    (stored on <html data-theme>). Components only use these variables, never raw colours. */
 :root {
-  --bg: #ebebeb;
+  --bg: #e7eae8;
   --surface: #ffffff;
-  --surface-2: #f4f4f4;
-  --hover: #f1f2f1;
-  --border: #ececec;
-  --border-strong: #dcdcdc;
-  --text: #111111;
-  --muted: #737573;
-  --faint: #a2a5a3;
-  --accent: #178a50;
-  --accent-hover: #127843;
+  --surface-2: #f3f5f3;
+  --hover: #eff1ef;
+  --border: #dce0dd;
+  --border-strong: #c9cfcb;
+  --text: #121614;
+  --muted: #6b726e;
+  --faint: #9aa19c;
+  --accent: #1f8a5b;
+  --accent-hover: #19774e;
   --accent-soft: #e3f3ea;
-  --accent-ink: #117543;
+  --accent-ink: #146b45;
   --on-accent: #ffffff;
   --down: #d24b3e;
   --down-soft: #fbe7e4;
@@ -22,12 +22,12 @@
   --remit-soft: #e5ecf7;
   --gold: #b58a3a;
   --gold-soft: #f8f0df;
-  --bar: #e7e9e8;
-  --bar-strong: #c9cdca;
+  --bar: #e0e3e0;
+  --bar-strong: #c5cbc6;
   --overlay: rgba(10, 14, 12, 0.38);
-  /* Flat white cards on a soft grey page, with only a whisper of shadow. */
-  --shadow: 0 1px 2px rgba(16, 22, 19, 0.03);
-  --shadow-lg: 0 24px 60px rgba(16, 22, 19, 0.16);
+  /* Cards sit clearly above the page: a soft drop shadow in light, a faint top highlight in dark. */
+  --shadow: 0 1px 2px rgba(16, 22, 19, 0.06), 0 6px 16px -6px rgba(16, 22, 19, 0.1);
+  --shadow-lg: 0 20px 50px rgba(16, 22, 19, 0.16);
 
   /* Older names, kept so every page picks up the new palette. */
   --green: var(--accent);
@@ -44,10 +44,9 @@
   --warn-bg: #fbf1dc;
   --warn-border: #efd9a8;
 
-  --radius: 24px;
-  --radius-sm: 12px;
-  --pill: 999px;
-  --font: var(--font-sans), Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --radius: 12px;
+  --radius-sm: 9px;
+  --font: var(--font-geist), Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --serif: var(--font);
   --sidebar-w: 236px;
@@ -55,20 +54,20 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0b0c0c;
-  --surface: #17191a;
-  --surface-2: #202324;
-  --hover: #24282a;
-  --border: #272b2c;
-  --border-strong: #363b3c;
+  --bg: #060707;
+  --surface: #1a1d1c;
+  --surface-2: #111312;
+  --hover: #212524;
+  --border: #2e3330;
+  --border-strong: #3d433f;
   --text: #f1f3f2;
   --muted: #9ba29e;
   --faint: #6d746f;
-  --accent: #1e9a59;
-  --accent-hover: #23ad65;
-  --accent-soft: rgba(43, 179, 107, 0.16);
+  --accent: #34c77b;
+  --accent-hover: #4bd48c;
+  --accent-soft: rgba(52, 199, 123, 0.14);
   --accent-ink: #5fd99a;
-  --on-accent: #ffffff;
+  --on-accent: #06150d;
   --down: #f0695b;
   --down-soft: rgba(240, 105, 91, 0.15);
   --down-ink: #f48a7f;
@@ -79,7 +78,7 @@
   --bar: #2a2e2c;
   --bar-strong: #444a46;
   --overlay: rgba(0, 0, 0, 0.6);
-  --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.5);
   --warn: #e7bd6a;
   --warn-bg: rgba(231, 189, 106, 0.12);
@@ -88,20 +87,20 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0b0c0c;
-    --surface: #17191a;
-    --surface-2: #202324;
-    --hover: #24282a;
-    --border: #272b2c;
-    --border-strong: #363b3c;
+    --bg: #060707;
+    --surface: #1a1d1c;
+    --surface-2: #111312;
+    --hover: #212524;
+    --border: #2e3330;
+    --border-strong: #3d433f;
     --text: #f1f3f2;
     --muted: #9ba29e;
     --faint: #6d746f;
-    --accent: #1e9a59;
-    --accent-hover: #23ad65;
-    --accent-soft: rgba(43, 179, 107, 0.16);
+    --accent: #34c77b;
+    --accent-hover: #4bd48c;
+    --accent-soft: rgba(52, 199, 123, 0.14);
     --accent-ink: #5fd99a;
-    --on-accent: #ffffff;
+    --on-accent: #06150d;
     --down: #f0695b;
     --down-soft: rgba(240, 105, 91, 0.15);
     --down-ink: #f48a7f;
@@ -112,7 +111,7 @@
     --bar: #2a2e2c;
     --bar-strong: #444a46;
     --overlay: rgba(0, 0, 0, 0.6);
-    --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.5);
     --warn: #e7bd6a;
     --warn-bg: rgba(231, 189, 106, 0.12);

@@ -45,7 +45,7 @@ export type ChartColors = Record<(typeof TOKENS)[number], string>;
 
 const FALLBACK: ChartColors = {
   text: "#121614", muted: "#6b726e", faint: "#9aa19c", surface: "#ffffff", border: "#e6e8e6", "border-strong": "#d6dad7",
-  accent: "#178a50", down: "#d24b3e", remit: "#3f67a8", bar: "#e0e3e0", "bar-strong": "#c5cbc6", gold: "#b58a3a",
+  accent: "#1f8a5b", down: "#d24b3e", remit: "#3f67a8", bar: "#e0e3e0", "bar-strong": "#c5cbc6", gold: "#b58a3a",
 };
 
 /** Resolved theme colours for chart libraries that need real colour values rather than CSS variables. */

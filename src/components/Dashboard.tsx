@@ -101,8 +101,6 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
   const balMax = balance?.length ? Math.max(...balance.map((b) => b.balance)) : 0;
   const pad = Math.max(1, (balMax - balMin) * 0.15);
 
-  // Expenses and income share the green of the design; remittances keep their blue.
-  const tone = series === "remittance" ? c.remit : c.accent;
   const axis = { tick: { fontSize: 11, fill: c.faint }, tickLine: false, axisLine: false } as const;
 
   return (
@@ -233,26 +231,15 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
               <div style={{ width: "100%", height: 240 }}>
                 {loading && !data ? <Loading rows={6} /> : (
                   <ResponsiveContainer>
-                    <BarChart data={rows} margin={{ top: 8, right: 0, left: 0, bottom: 0 }} barCategoryGap="18%" onMouseMove={(s) => setHover(typeof s?.activeTooltipIndex === "number" ? s.activeTooltipIndex : null)} onMouseLeave={() => setHover(null)}>
-                      {/* Rounded pill bars in a soft tint; the bar in focus is solid with fine diagonal stripes. */}
-                      <defs>
-                        <pattern id="barHatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                          <rect width="7" height="7" fill={tone} />
-                          <line x1="0" y1="0" x2="0" y2="7" stroke="#000" strokeOpacity={0.16} strokeWidth="2.5" />
-                        </pattern>
-                        <pattern id="barHatchSoft" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                          <rect width="7" height="7" fill={tone} fillOpacity={0.42} />
-                          <line x1="0" y1="0" x2="0" y2="7" stroke={tone} strokeOpacity={0.22} strokeWidth="2.5" />
-                        </pattern>
-                      </defs>
-                      <CartesianGrid stroke={c["border-strong"]} strokeDasharray="4 5" vertical={false} />
+                    <BarChart data={rows} margin={{ top: 8, right: 0, left: 0, bottom: 0 }} onMouseMove={(s) => setHover(typeof s?.activeTooltipIndex === "number" ? s.activeTooltipIndex : null)} onMouseLeave={() => setHover(null)}>
+                      <CartesianGrid stroke={c.border} strokeDasharray="2 4" vertical={false} />
                       <XAxis dataKey="bucket" tickFormatter={(b) => bucketLabel(String(b), granularity)} {...axis} minTickGap={24} />
                       <YAxis tickFormatter={(v) => compact(Number(v))} {...axis} width={44} />
                       <Tooltip cursor={false} content={<Tip gran={granularity} />} />
-                      <Bar dataKey={series} name={SERIES_LABEL[series]} radius={999} maxBarSize={44} isAnimationActive={false}>
+                      <Bar dataKey={series} name={SERIES_LABEL[series]} radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false}>
                         {rows.map((r, i) => {
                           const on = hover != null ? i === hover : i === rows.length - 1;
-                          return <Cell key={r.bucket} fill={on ? "url(#barHatch)" : "url(#barHatchSoft)"} />;
+                          return <Cell key={r.bucket} fill={on ? (series === "expense" ? c.text : series === "income" ? c.accent : c.remit) : hover != null ? c.bar : c["bar-strong"]} fillOpacity={on || hover == null ? 1 : 0.9} />;
                         })}
                       </Bar>
                     </BarChart>
@@ -288,15 +275,15 @@ export default function Dashboard({ space, top, defaultPreset = "30d" }: { space
                     <AreaChart data={balance} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="balFill" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0" stopColor={c.accent} stopOpacity={0.32} />
+                          <stop offset="0" stopColor={c.accent} stopOpacity={0.2} />
                           <stop offset="1" stopColor={c.accent} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid stroke={c["border-strong"]} strokeDasharray="4 5" vertical={false} />
+                      <CartesianGrid stroke={c.border} strokeDasharray="2 4" vertical={false} />
                       <XAxis dataKey="bucket" tickFormatter={(b) => bucketLabel(String(b), granularity)} {...axis} minTickGap={32} />
                       <YAxis domain={[balMin - pad, balMax + pad]} tickFormatter={(v) => compact(Number(v))} {...axis} width={44} tickCount={4} />
                       <Tooltip cursor={{ stroke: c["border-strong"] }} content={<Tip gran={granularity} />} />
-                      <Area type="monotone" dataKey="balance" name="Balance" stroke={c.accent} strokeWidth={2.5} fill="url(#balFill)" isAnimationActive={false} activeDot={{ r: 4, fill: c.accent, stroke: c.surface, strokeWidth: 2 }} />
+                      <Area type="monotone" dataKey="balance" name="Balance" stroke={c.accent} strokeWidth={2} fill="url(#balFill)" isAnimationActive={false} activeDot={{ r: 4, fill: c.accent, stroke: c.surface, strokeWidth: 2 }} />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}

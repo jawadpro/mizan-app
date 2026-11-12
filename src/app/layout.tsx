@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Urbanist } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const sans = Urbanist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const sans = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
@@ -18,8 +18,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ebebeb" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0c0c" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#161817" },
   ],
   width: "device-width",
   initialScale: 1,

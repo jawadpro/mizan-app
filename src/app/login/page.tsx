@@ -4,7 +4,6 @@ import { getSession } from "@/lib/auth";
 import { setupState } from "@/lib/config";
 import LoginForm from "./LoginForm";
 import "../extra.css";
-import "../look.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
