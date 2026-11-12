@@ -38,6 +38,10 @@
 /* Dashboard top row: the balance card */
 .top-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; align-items: stretch; }
 .top-row > .card { margin-bottom: 0 !important; }
+.top-row.with-recent { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { .top-row.with-recent { grid-template-columns: minmax(0, 1fr); } }
+.recent-card { display: flex; flex-direction: column; }
+.recent-card .tx-row { padding: 8px 2px; }
 
 /* Dashboard charts */
 .chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }

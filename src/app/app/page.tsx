@@ -13,11 +13,9 @@ export default async function Page() {
     <Dashboard
       space="app"
       defaultPreset={prefs.defaultRange}
+      balanceCard={<BalanceCard />}
       top={
         <>
-          <div className="top-row">
-            <BalanceCard />
-          </div>
           <MonthlyStrip />
           {prefs.ramadanNotice && <RamadanNotice />}
         </>
