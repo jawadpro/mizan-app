@@ -4,7 +4,7 @@ import { tx } from "../db";
 import { parseSms, redactSms, PARSER_VERSION, type ParseResult } from "./parser";
 import { readAlert } from "./read";
 import { smsFingerprint } from "./fingerprint";
-import { notifyReviewWaiting } from "../push";
+import { notifyImported, notifyReviewWaiting } from "../push";
 import { addBankCharge, getPrefs, getSmsWords, listBanks } from "../repo";
 
 const splitList = (s: string | undefined) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -79,7 +79,10 @@ export async function ingestSms(input: { sender: string; text: string; receivedA
       return { status: "review", reviewId: rev.rows[0].id, reason } as const;
     });
     // Awaited so the serverless function stays alive until it is sent; push failures never throw.
-    if (res.status === "review") await notifyReviewWaiting();
+    const f = result.fields;
+    const detail = { kind: f.kind ?? null, amountPaisa: f.amountPaisa ?? null, counterparty: f.counterparty ?? null, category: f.category ?? null, bankId };
+    if (res.status === "review") await notifyReviewWaiting({ ...detail, reason: res.reason });
+    else await notifyImported({ ...detail, transactionId: res.transactionId });
     return res;
   } catch (e) {
     if (e instanceof Duplicate) return { status: "duplicate" };

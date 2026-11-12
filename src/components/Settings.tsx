@@ -173,6 +173,12 @@ export default function Settings() {
 
           <Section id="notifications" title="Notifications">
             <div className="set-push"><PushToggle /></div>
+            <Row title="New payments" hint="A notification for every payment added from a bank message, not only the ones that need review.">
+              <Switch label="Notify about new payments" on={p.notifyImports} onChange={(v) => save({ notifyImports: v })} />
+            </Row>
+            <Row title="Show amounts and names" hint="Shows the amount and who it was with, e.g. “Spent Rs 2,450 · Imtiaz”. Turn off if others can see your lock screen.">
+              <Switch label="Show amounts and names in notifications" on={p.notifyDetails} onChange={(v) => save({ notifyDetails: v })} />
+            </Row>
           </Section>
 
           <Section id="security" title="Sign-in">
