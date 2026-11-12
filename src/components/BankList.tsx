@@ -59,7 +59,7 @@ export default function BankList({ onSaved }: { onSaved?: () => void }) {
     <div className="set-row column">
       <div className="set-text">
         <div className="set-title">Banks</div>
-        <div className="set-hint">One row per bank account you get alerts from. Mizan trusts alerts only from these senders; anything else waits in Review. With two or more banks, the Overview and Transactions pages get a bank filter.</div>
+        <div className="set-hint">One row per bank account you get alerts from. Mizan trusts alerts only from these senders; anything else waits in Review. With two or more accounts at one bank, give each the same senders and its own digits: the last 4 of the account, plus any debit card's, with commas between. Mizan files each alert under the account whose digits it shows, and when it can't tell, the alert waits in Review for you to pick. With two or more banks, the Overview and Transactions pages get a bank filter.</div>
       </div>
       {saved.error ? <ErrorBox message={saved.error} onRetry={saved.reload} /> : !rows ? <Loading rows={2} /> : (
         <div className="bank-list">
@@ -77,8 +77,8 @@ export default function BankList({ onSaved }: { onSaved?: () => void }) {
                 <label className="field">Senders <span className="hint">Commas between; * means “starts with”</span>
                   <input value={r.senders} maxLength={300} placeholder="e.g. MCB*, 6222, 8222" onChange={(e) => update(r.key, { senders: e.target.value })} />
                 </label>
-                <label className="field">Account <span className="hint">Last 4 digits, optional</span>
-                  <input value={r.account_hint} inputMode="numeric" maxLength={4} placeholder="e.g. 1234" onChange={(e) => update(r.key, { account_hint: e.target.value.replace(/\D/g, "") })} />
+                <label className="field">Account digits <span className="hint">Last 4, plus cards</span>
+                  <input value={r.account_hint} inputMode="numeric" maxLength={40} placeholder="e.g. 1234, 4321" onChange={(e) => update(r.key, { account_hint: e.target.value.replace(/[^\d, ]/g, "") })} />
                 </label>
               </div>
               <div className="bank-checks">

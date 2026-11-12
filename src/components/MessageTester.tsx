@@ -52,7 +52,7 @@ export default function MessageTester({ ownNames, version }: { ownNames: string;
           </div>
           {f && (
             <dl className="tester-fields">
-              <dt>Bank</dt><dd>{out!.bank?.name ?? none("not one of your banks")}</dd>
+              <dt>Bank</dt><dd>{out!.bank?.name ?? (out!.choices.length ? <span className="muted">you pick: {out!.choices.map((b) => b.name).join(", ")}</span> : none("not one of your banks"))}</dd>
               <dt>Type</dt><dd>{f.kind ? KIND_LABEL[f.kind] : none("unclear")}</dd>
               <dt>Amount</dt><dd className="num">{f.amountPaisa ? formatPaisa(f.amountPaisa) : none()}</dd>
               <dt>{f.kind === "expense" ? "Paid to" : "From"}</dt><dd>{f.counterparty ?? none()}</dd>

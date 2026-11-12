@@ -12,6 +12,7 @@ import { Empty, ErrorBox, Loading, Skeleton } from "./States";
 import { PRESETS, presetRange, type Preset } from "./range";
 import { useChartColors, type ChartColors } from "./theme";
 import type { Analytics, Tx } from "./types";
+import { digitsLabel } from "@/lib/banks";
 
 type Gran = Analytics["granularity"];
 type Series = "expense" | "income" | "remittance";
@@ -114,7 +115,7 @@ export default function Dashboard({ space, balanceCard, top, defaultPreset = "30
           {multi && (
             <select aria-label="Bank" value={bank} onChange={(e) => setBank(e.target.value)}>
               <option value="">All banks</option>
-              {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ••${b.account_hint}` : ""}</option>)}
+              {banks.map((b) => <option key={b.id} value={b.id}>{b.name}{b.account_hint ? ` ${digitsLabel(b.account_hint)}` : ""}</option>)}
               <option value="none">No bank (cash)</option>
             </select>
           )}

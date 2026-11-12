@@ -13,6 +13,7 @@ import type { Kind } from "../categories";
 import { OWN_ACCOUNTS } from "../categories";
 import { parseAmountToPaisa } from "../money";
 import { DEFAULT_SMS_WORDS, wordsRegex, type SmsWords } from "./keywords";
+import { accountDigits } from "./accounts";
 
 export const PARSER_VERSION = "mcb-v1";
 export const MAX_SMS_CHARS = 1000;
@@ -24,7 +25,10 @@ export type ParsedFields = {
   dateSource: "message" | "received";
   counterparty: string | null;
   category: string | null;
+  /** The owner's account number, last 3 or 4 digits, as stored with the transaction. */
   accountHint: string | null;
+  /** Every number that may be the owner's, best first (see accounts.ts), used to pick between accounts at one bank. */
+  accountDigits: string[];
   bankRef: string | null;
   hasExplicitTime: boolean;
   /** The counterparty is one of the user's own names, so this moves money between their own accounts. */
@@ -233,7 +237,7 @@ export function guessCategory(text: string): string | null {
 }
 
 function emptyFields(): ParsedFields {
-  return { kind: null, amountPaisa: null, occurredAt: null, dateSource: "received", counterparty: null, category: null, accountHint: null, bankRef: null, hasExplicitTime: false, ownAccount: false, chargesPaisa: null };
+  return { kind: null, amountPaisa: null, occurredAt: null, dateSource: "received", counterparty: null, category: null, accountHint: null, accountDigits: [], bankRef: null, hasExplicitTime: false, ownAccount: false, chargesPaisa: null };
 }
 
 const nameKey = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, " ").trim();
@@ -293,10 +297,10 @@ export function parseSms(input: ParseInput): ParseResult {
     fields.hasExplicitTime = date.hh !== null;
   }
 
-  // Prefer the user's own account ("from A/C *1234", "in your MCB A/C*1234") over the other party's.
-  const own = /\b(?:from|in)\s+(?:your\s+)?(?:MCB\s+)?a\/c\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
-  const acct = own ?? /\ba\/c\s*:?\s*[\d\-]{0,12}[*xX#]{2,}\s*(\d{3,4})\b/i.exec(text) ?? /\b(?:a\/c|ac|acc(?:oun)?t?|card)\s*(?:no\.?|number|#)?\s*(?:ending\s*(?:in|with)?)?\s*[*xX#.\-]+\s*(\d{3,4})\b/i.exec(text);
-  if (acct) fields.accountHint = acct[1];
+  // The owner's account or card digits, never the other party's ("sent to ALI A/C *5678 from A/C *1234" is 1234).
+  fields.accountDigits = accountDigits(text, fields.kind);
+  const first = fields.accountDigits[0];
+  fields.accountHint = first && first.length >= 3 ? first : null;
   const ref = /\b(?:ref(?:erence)?|txn|trx|tid|rrn|stan|tx\s*id|trans(?:action)?\s*id)\s*(?:id|no\.?|#)?\s*[:#.]?\s*([A-Z0-9]{6,24})\b/i.exec(text);
   if (ref && /\d/.test(ref[1])) fields.bankRef = ref[1].toUpperCase();
   // Some banks print the reference with no label ("… at 12:21 FT26243CK86C"): an upper-case code of letters and 4+ digits.

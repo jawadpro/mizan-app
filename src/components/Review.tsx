@@ -13,6 +13,7 @@ import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { ReviewItem } from "./types";
 import { findCharges } from "@/lib/sms/parser";
+import { ACCOUNT_UNCLEAR, bankDigits } from "@/lib/banks";
 
 /** A charge the alert itself names ("and Tax/Charges 5.00") fills the charges box, ready to confirm. */
 function chargesIn(it: ReviewItem): string {
@@ -25,13 +26,20 @@ export default function Review({ space }: { space: Space }) {
   const [confirming, setConfirming] = useState<ReviewItem | null>(null);
   const [charges, setCharges] = useState("");
   const [chargesKind, setChargesKind] = useState<ChargesKind>("fee");
+  const [remember, setRemember] = useState(true);
   const toast = useToast();
   const readOnly = space === "demo";
-  const { nameOf } = useBanks(space);
+  const { banks, nameOf } = useBanks(space);
+  /** Digits from the alert that the picked bank doesn't have saved yet, so they can be remembered on it. */
+  const newDigits = (item: ReviewItem, bankId: string | null) => {
+    const b = bankId ? banks.find((x) => x.id === bankId) : null;
+    return b && item.account_hint && !bankDigits(b).includes(item.account_hint) ? { bank: b, digits: item.account_hint } : null;
+  };
 
   async function confirm(item: ReviewItem, d: TxDraft) {
     const withCharges = d.kind === "expense" && charges.trim() !== "";
-    await apiFetch(`/api/review/${item.id}`, { method: "POST", body: JSON.stringify({ action: "confirm", transaction: d, charges: withCharges ? charges : undefined, chargesKind: withCharges ? chargesKind : undefined }) });
+    const rememberAccount = remember && !!newDigits(item, d.bankId);
+    await apiFetch(`/api/review/${item.id}`, { method: "POST", body: JSON.stringify({ action: "confirm", transaction: d, charges: withCharges ? charges : undefined, chargesKind: withCharges ? chargesKind : undefined, rememberAccount }) });
     setConfirming(null);
     toast(withCharges ? `Confirmed, with the ${chargesKind === "tax" ? "tax" : "bank charges"} as a separate expense.` : "Confirmed. It now counts in your analytics.", "ok");
     reload();
@@ -71,7 +79,7 @@ export default function Review({ space }: { space: Space }) {
                 </div>
                 <div className="toolbar">
                   <button className="btn danger sm" disabled={readOnly} onClick={() => dismiss(it)}>Dismiss</button>
-                  <button className="btn primary sm" disabled={readOnly} title={readOnly ? "The demo is read-only" : undefined} onClick={() => { setCharges(chargesIn(it)); setChargesKind("fee"); setConfirming(it); }}>Review & confirm</button>
+                  <button className="btn primary sm" disabled={readOnly} title={readOnly ? "The demo is read-only" : undefined} onClick={() => { setCharges(chargesIn(it)); setChargesKind("fee"); setRemember(true); setConfirming(it); }}>Review & confirm</button>
                 </div>
               </div>
               {it.redacted_text && <div className="redacted" aria-label="Redacted SMS text">{it.redacted_text}</div>}
@@ -93,14 +101,28 @@ export default function Review({ space }: { space: Space }) {
           initial={draftFrom({ ...confirming, occurred_at: confirming.occurred_at ?? confirming.received_at })}
           onClose={() => setConfirming(null)}
           onSubmit={(d) => confirm(confirming, d)}
-          extra={(d, fieldErrors) =>
-            d.kind === "expense" && (
-              <ChargesField title="Bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
-            )
-          }
+          extra={(d, fieldErrors) => {
+            const learn = newDigits(confirming, d.bankId);
+            return (
+              <>
+                {d.kind === "expense" && (
+                  <ChargesField title="Bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
+                )}
+                {learn && (
+                  <label className="full small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="checkbox" style={{ width: "auto", margin: 0 }} checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                    Remember ••{learn.digits} for {learn.bank.name}, so its next alerts go there on their own
+                  </label>
+                )}
+              </>
+            );
+          }}
         >
           <div className="alert warn" style={{ marginBottom: 14 }}>
-            <span>Check every field against the message. Nothing missing has been guessed.</span>
+            <span>
+              Check every field against the message. Nothing missing has been guessed.
+              {confirming.reason.startsWith(ACCOUNT_UNCLEAR) && " Pick the account it belongs to under Bank."}
+            </span>
           </div>
           {confirming.redacted_text && <div className="redacted" style={{ marginBottom: 14 }}>{confirming.redacted_text}</div>}
         </TxForm>
