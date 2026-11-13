@@ -1,4 +1,5 @@
 "use client";
+import PasswordInput from "@/components/PasswordInput";
 import { CURRENCIES, DEFAULT_CURRENCY, type CurrencyCode } from "@/lib/money";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/components/api";
@@ -77,11 +78,11 @@ function PassphraseStep({ next }: { next: () => void }) {
       <p className="muted">This is the only way into your Mizan. Use a few words you&apos;ll remember, at least {MIN_PASSPHRASE} characters. It can&apos;t be recovered, so keep it somewhere safe.</p>
       <div className="setup-form">
         <label className="field">Passphrase
-          <input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required autoFocus />
+          <PasswordInput autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required autoFocus />
           {short && <span className="hint">{MIN_PASSPHRASE - pw.length} more characters</span>}
         </label>
         <label className="field">Type it again
-          <input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
+          <PasswordInput autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
           {mismatch && <span className="hint">Doesn&apos;t match yet</span>}
         </label>
       </div>

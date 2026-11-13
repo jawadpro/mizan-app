@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, type ApiError } from "./api";
 import CloseButton from "./CloseButton";
+import PasswordInput from "./PasswordInput";
 
 const MIN = 12;
 
@@ -10,7 +11,6 @@ export function ChangePassphraseModal({ onClose, onDone }: { onClose: () => void
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ current?: string; next?: string; form?: string }>({});
 
@@ -39,7 +39,6 @@ export function ChangePassphraseModal({ onClose, onDone }: { onClose: () => void
     }
   }
 
-  const type = show ? "text" : "password";
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="pass-title" style={{ maxWidth: 440 }}>
@@ -51,18 +50,17 @@ export function ChangePassphraseModal({ onClose, onDone }: { onClose: () => void
           {/* A hidden username helps password managers save the new passphrase against Mizan. */}
           <input type="text" name="username" autoComplete="username" value="mizan" readOnly hidden />
           <label className="field">Current passphrase
-            <input type={type} name="current-password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} autoFocus required maxLength={256} />
+            <PasswordInput name="current-password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} autoFocus required maxLength={256} />
             {err.current && <span className="err">{err.current}</span>}
           </label>
           <label className="field">New passphrase
-            <input type={type} name="new-password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required maxLength={256} aria-describedby="pass-hint" />
+            <PasswordInput name="new-password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required maxLength={256} aria-describedby="pass-hint" />
             {err.next ? <span className="err">{err.next}</span> : tooShort && <span className="err">{next.trim().length} of {MIN} characters</span>}
           </label>
           <label className="field">Type the new passphrase again
-            <input type={type} name="confirm-password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required maxLength={256} />
+            <PasswordInput name="confirm-password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required maxLength={256} />
             {mismatch && <span className="err">Doesn&apos;t match yet</span>}
           </label>
-          <label className="pass-show"><input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show passphrases</label>
           <p id="pass-hint" className="small muted">
             At least {MIN} characters. A few unrelated words is easy to remember and hard to guess. Every other device will be signed out; this one stays signed in.
           </p>

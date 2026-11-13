@@ -81,5 +81,3 @@
 /* Change passphrase */
 .pass-form { display: grid; gap: 12px; }
 .pass-form .modal-foot { margin-top: 0; }
-.pass-show { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; }
-.pass-show input { width: auto; }
