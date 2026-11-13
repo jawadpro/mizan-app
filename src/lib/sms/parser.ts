@@ -44,6 +44,8 @@ export type ParseResult =
 
 // MCB alerts arrive from "MCB", 6222 (card payments) or 8222 (transfers); a saved contact may also name them, e.g. "MCB Transfers".
 const DEFAULT_TRUSTED_SENDERS = ["MCB", "MCBBANK", "MCB BANK", "MCB-BANK", "6222", "8222"];
+const DEBIT_LABEL_RE = /(?<![A-Za-z])debit\s*:/i;
+const CREDIT_LABEL_RE = /(?<![A-Za-z])credit\s*:/i;
 const MCB_CONTACT_RE = /^MCB\b[\w .\-]{0,40}$/;
 
 export function normalizeText(s: string): string {
@@ -276,8 +278,9 @@ export function parseSms(input: ParseInput): ParseResult {
     .filter((v): v is number => v !== null);
   const distinct = Array.from(new Set(amounts));
 
-  const isDebit = DEBIT_RE.test(directional);
-  const isCredit = CREDIT_RE.test(directional);
+  // Some banks label the direction instead of using a verb: "Debit: PKR 1500.000 Account No. …", "Credit: PKR …".
+  const isDebit = DEBIT_RE.test(directional) || DEBIT_LABEL_RE.test(directional);
+  const isCredit = CREDIT_RE.test(directional) || CREDIT_LABEL_RE.test(directional);
   const isRemit = REMITTANCE_RE.test(directional);
 
   if (!isDebit && !isCredit && distinct.length === 0) {
@@ -323,7 +326,7 @@ export function parseSms(input: ParseInput): ParseResult {
   // Decide: import only when every required fact was read unambiguously.
   const review = (reason: string): ParseResult => ({ status: "review", reason, fields });
   if (input.knownSender === false) return review("Sender isn't one of your banks in Settings");
-  if (input.knownSender === undefined && !isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not a recognised MCB sender");
+  if (input.knownSender === undefined && !isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not one of your banks");
   if (FOREIGN_RE.test(text)) return review("Foreign-currency amount present");
   if (UNSURE_RE.test(directional)) return review("Reversal, refund, pending or failed wording");
   if (distinct.length === 0) return review("No transaction amount found (balances are ignored)");
