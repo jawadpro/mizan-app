@@ -1,7 +1,7 @@
 // All samples below are SYNTHETIC. They imitate common Pakistani bank alert wording and are
 // NOT verified MCB formats. Add redacted real MCB samples here before trusting auto-import.
 import { describe, expect, it } from "vitest";
-import { findCharges, isTrustedSender, parseSms, redactSms } from "@/lib/sms/parser";
+import { findCharges, findDate, isTrustedSender, parseSms, redactSms } from "@/lib/sms/parser";
 
 const receivedAt = new Date("2026-10-15T09:30:00Z"); // 14:30 PKT
 const p = (text: string, sender = "MCB") => parseSms({ sender, text, receivedAt });
@@ -305,5 +305,51 @@ describe("direction given as a label", () => {
   it("reads Credit: as money coming in", () => {
     const r = parseSms({ sender: "MCB", text: "Credit: PKR 25000.00 Account No. 1234xxxx5678 via Fund Transfer on 11/08/2026 at 06:05:16", receivedAt: at });
     expect(r).toMatchObject({ status: "parsed", fields: { kind: "income", amountPaisa: 2500000 } });
+  });
+});
+
+describe("alerts in the currency chosen in Settings", () => {
+  const boa = "Bank of America: Direct Deposit of $2,410.75 from ACME CORP PAYROLL was posted to your checking account ending in 1234 on 11/13/2026";
+  const enbd = "Emirates NBD: Your Current Account ending with 5678 has been credited with AED 15,000.00 on 13-11-2026 (Ref: SALARY TRANSFER - AL FUTTAIM GROUP). Your available balance is AED 22,450.75.";
+  const at = new Date("2026-11-13T15:00:00Z");
+  const read = (text: string, currency?: string) => parseSms({ sender: "BANK", text, receivedAt: at, knownSender: true, currency });
+
+  it("reads a dollar alert, month first, when the app is set to USD", () => {
+    const r = read(boa, "USD");
+    expect(r).toMatchObject({ status: "parsed", fields: { kind: "income", amountPaisa: 241075, accountHint: "1234", dateSource: "message" } });
+    if (r.status !== "parsed") throw new Error();
+    expect(r.fields.occurredAt.toISOString().slice(0, 10)).toBe("2026-11-13");
+  });
+
+  it("reads a dirham alert and skips its balance when the app is set to AED", () => {
+    const r = read(enbd, "AED");
+    expect(r).toMatchObject({ status: "parsed", fields: { kind: "income", amountPaisa: 1500000, accountHint: "5678", category: "Salary" } });
+    if (r.status !== "parsed") throw new Error();
+    expect(r.fields.occurredAt.toISOString().slice(0, 10)).toBe("2026-11-13");
+  });
+
+  it("sends them to Review when the app is set to another currency", () => {
+    for (const [text, cur] of [[boa, "PKR"], [boa, "AED"], [enbd, "PKR"], [enbd, "USD"], [boa, undefined]] as const) {
+      expect(read(text, cur)).toMatchObject({ status: "review", reason: "Amount in a currency other than the one set in Settings" });
+    }
+  });
+
+  it("still sends a rupee amount to Review when the app is set to dollars", () => {
+    expect(read("PKR 500.00 debited from A/C ****1234 on 13-11-2026", "USD").status).toBe("review");
+  });
+
+  it("keeps rupee alerts and day/month dates unchanged for PKR", () => {
+    const r = read("PKR 500.00 debited from A/C ****1234 at KFC on 12/11/2026 Avl Bal PKR 9,000.00", "PKR");
+    expect(r).toMatchObject({ status: "parsed", fields: { amountPaisa: 50000 } });
+    if (r.status !== "parsed") throw new Error();
+    expect(r.fields.occurredAt.toISOString().slice(0, 10)).toBe("2026-11-12");
+  });
+
+  it("reads written-out dates", () => {
+    expect(findDate("posted on Nov 13, 2026")).toMatchObject({ y: 2026, m: 10, d: 13 });
+    expect(findDate("on November 3 2026 at 4:05 PM")).toMatchObject({ y: 2026, m: 10, d: 3, hh: 16, mm: 5 });
+    expect(findDate("on 11/13/2026")).toMatchObject({ m: 10, d: 13 });
+    expect(findDate("on 03/04/2026", true)).toMatchObject({ m: 2, d: 4 });
+    expect(findDate("on 03/04/2026")).toMatchObject({ m: 3, d: 3 });
   });
 });

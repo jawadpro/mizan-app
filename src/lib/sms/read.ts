@@ -12,10 +12,12 @@ export type AlertSettings<B extends Bank = Bank> = {
   ownNames?: string[];
   /** Extra senders from the SMS_TRUSTED_SENDERS environment setting; they count as the first bank. */
   extraTrusted?: string[];
+  /** The app's currency from Settings: alerts in another currency wait in Review. */
+  currency?: string | null;
 };
 
 export function readAlert<B extends Bank>(input: { sender: string; text: string; receivedAt: Date }, s: AlertSettings<B>): { result: ParseResult; bank: B | null; choices: B[] } {
-  const base = { ...input, words: s.words, ownNames: s.ownNames };
+  const base = { ...input, words: s.words, ownNames: s.ownNames, currency: s.currency };
   // A first read only to find the account digits, which pick between accounts at one bank.
   const first = parseSms({ ...base, knownSender: true });
   if (first.status === "ignored") return { result: first, bank: null, choices: [] };

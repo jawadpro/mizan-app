@@ -67,30 +67,85 @@ export function isTrustedSender(sender: string, extra: string[] = []): boolean {
 const CUR = String.raw`(?:PKR|Rs\.?|Rupees)`;
 const NUM = String.raw`(\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})*,\d{3}|\d+)(?:\.(\d{1,2}))?`;
 
+/**
+ * How each currency the app can be set to is written in alerts. Alerts in the chosen currency are read; any other
+ * currency named beside an amount sends the alert to Review. "$" counts as home for USD, CAD and AUD.
+ */
+const CURRENCY_WORDS: Record<string, string[]> = {
+  PKR: ["PKR", String.raw`Rs\.?`, "Rupees"],
+  INR: ["INR", String.raw`Rs\.?`, "Rupees", "₹"],
+  BDT: ["BDT", String.raw`Tk\.?`, "Taka", "৳"],
+  USD: ["USD", String.raw`US\$`, String.raw`\$`],
+  EUR: ["EUR", "€"],
+  GBP: ["GBP", "£"],
+  AED: ["AED", String.raw`Dhs?\.?`],
+  SAR: ["SAR", "SR"],
+  QAR: ["QAR", "QR"],
+  CAD: ["CAD", String.raw`C\$`, String.raw`\$`],
+  AUD: ["AUD", String.raw`A\$`, String.raw`\$`],
+  MYR: ["MYR", "RM"],
+  TRY: ["TRY", "TL", "₺"],
+};
+
+type CurrencyPatterns = { amount: RegExp; balance: RegExp; charges: RegExp; foreign: RegExp | null; monthFirst: boolean };
+const patternCache = new Map<string, CurrencyPatterns>();
+
+function balanceRe(cur: string) {
+  return new RegExp(
+    String.raw`\b(?:avl\.?|avail\.?|available|current|closing|ledger|new|remaining|total)?\s*(?:a\/c\s*)?bal(?:ance)?\.?\s*(?:is|:|=|of)?\s*${cur}?\s*:?\s*-?${NUM}\s*(?:cr|dr)?`,
+    "gi",
+  );
+}
+function chargesRe(cur: string) {
+  return new RegExp(
+    String.raw`\s*(?:\band|\bplus|\bincl(?:uding|\.)?|\+|&)\s+(?:(?:bank|service|transaction)\s+)?(?:tax(?:es)?|charges?|fees?|fed|wht)(?:\s*(?:\/|&|and)\s*(?:tax(?:es)?|charges?|fees?|fed|wht))?\s*(?:of\s+)?:?\s*${cur}?\s*:?\s*${NUM}`,
+    "i",
+  );
+}
+
+/** The patterns for alerts in one currency (PKR when none or an unknown one is given). */
+function patterns(currency?: string | null): CurrencyPatterns {
+  const code = currency && CURRENCY_WORDS[currency.toUpperCase()] ? currency.toUpperCase() : "PKR";
+  const hit = patternCache.get(code);
+  if (hit) return hit;
+  const home = CURRENCY_WORDS[code];
+  // PKR keeps the exact pattern it has always had; other currencies' words must not sit inside a word.
+  const cur = code === "PKR" ? CUR : String.raw`(?<![A-Za-z])(?:${home.join("|")})`;
+  const others = Array.from(new Set(Object.entries(CURRENCY_WORDS).filter(([c]) => c !== code).flatMap(([, w]) => w))).filter((w) => !home.includes(w));
+  // Longer words first, so "US$" is tried before "$".
+  others.sort((a, b) => b.length - a.length);
+  const p: CurrencyPatterns = {
+    amount: new RegExp(String.raw`${cur}\s*:?\s*${NUM}`, "gi"),
+    balance: balanceRe(cur),
+    charges: chargesRe(cur),
+    foreign: new RegExp(String.raw`(?<![A-Za-z])(?:${others.join("|")})\s*:?\s*\d`, "i"),
+    // American banks write month/day/year; everyone else in the list writes day/month/year.
+    monthFirst: code === "USD",
+  };
+  patternCache.set(code, p);
+  return p;
+}
+
+/** Whether alerts in this currency write numeric dates month first (USD). */
+export const monthFirstFor = (currency?: string | null) => patterns(currency).monthFirst;
+
 export const OTP_RE = /\b(otp|one[\s-]?time\s+(?:password|pin|code)|verification\s+code|do\s+not\s+share|never\s+share)\b/i;
 const PROMO_RE = /\b(offer|discount|cashback\s+offer|win|lucky\s+draw|apply\s+now|click\s+here|t&cs?\s+apply)\b/i;
 // Available/ledger balance clauses. Removed before looking for the transaction amount.
-export const BALANCE_RE = new RegExp(
-  String.raw`\b(?:avl\.?|avail\.?|available|current|closing|ledger|new|remaining|total)?\s*(?:a\/c\s*)?bal(?:ance)?\.?\s*(?:is|:|=|of)?\s*${CUR}?\s*:?\s*-?${NUM}\s*(?:cr|dr)?`,
-  "gi",
-);
+export const BALANCE_RE = balanceRe(CUR);
 // A charge or tax printed beside the amount (Bank Alfalah: "PKR 10,000.00 and Tax/Charges 5.00 Debited"). Read, then removed
 // so it is neither a second amount nor a reason to call the whole payment a bank charge. "plus tax" with no figure stays.
-export const CHARGES_RE = new RegExp(
-  String.raw`\s*(?:\band|\bplus|\bincl(?:uding|\.)?|\+|&)\s+(?:(?:bank|service|transaction)\s+)?(?:tax(?:es)?|charges?|fees?|fed|wht)(?:\s*(?:\/|&|and)\s*(?:tax(?:es)?|charges?|fees?|fed|wht))?\s*(?:of\s+)?:?\s*${CUR}?\s*:?\s*${NUM}`,
-  "i",
-);
+export const CHARGES_RE = chargesRe(CUR);
 
 /** The bank charge or tax named beside the amount, in paisa, or null. */
-export function findCharges(text: string): number | null {
-  const m = CHARGES_RE.exec(normalizeText(text));
+export function findCharges(text: string, currency?: string | null): number | null {
+  const m = patterns(currency).charges.exec(normalizeText(text));
   if (!m) return null;
   const v = parseAmountToPaisa(m[2] ? `${m[1]}.${m[2]}` : m[1]);
   return v && v > 0 ? v : null;
 }
 
 export const AMOUNT_RE = new RegExp(String.raw`${CUR}\s*:?\s*${NUM}`, "gi");
-const FOREIGN_RE = /\b(USD|AED|GBP|EUR|SAR|QAR|CAD|AUD|US\$)\s*[\d,]+(?:\.\d+)?/i;
 
 // Direction words (expense, income, remittance, transfer) are editable in Settings; see keywords.ts.
 export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuccessful|pending|on\s+hold|blocked|insufficient|cancel(?:led|ed)?|due\s+(?:date|amount)|minimum\s+payment|will\s+be)\b/i;
@@ -98,7 +153,7 @@ export const UNSURE_RE = /\b(revers(?:ed|al)|refund(?:ed)?|declined|failed|unsuc
 const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
 
 /** An amount is not a name ("credited by PKR 4,097.89"). */
-const CURRENCY_START_RE = /^(?:pkr|rs\.?|rupees|usd|aed|gbp|eur|sar)(?![a-z])/i;
+const CURRENCY_START_RE = /^(?:(?:pkr|rs\.?|rupees|inr|bdt|taka|usd|eur|gbp|aed|sar|qar|cad|aud|myr|try)(?![a-z])|(?:us\$|c\$|a\$|\$|₹|৳|€|£|₺|tk\.?|dhs?\.?|sr|qr|rm|tl)\s*:?\s*\d)/i;
 /** Words that disqualify a captured counterparty (it refers to the user's own account). */
 const SELF_REF_RE = /^(your|ur|the|a\/c|ac|acc|account|card|mcb|wallet|you)\b/i;
 
@@ -123,23 +178,36 @@ const CATEGORY_RULES: Array<[RegExp, string]> = [
   [/\b(ibft|raast|funds?\s+transfer|fund\s+transfer|transferred\s+to|interbank)\b/i, "Transfers"],
 ];
 
-export function findDate(text: string): { y: number; m: number; d: number; hh: number | null; mm: number | null } | null {
+/**
+ * The date (and time, if printed) in an alert. A numeric date is read day/month/year unless monthFirst is set
+ * (American banks); either way a part over 12 settles which one is the day.
+ */
+export function findDate(text: string, monthFirst = false): { y: number; m: number; d: number; hh: number | null; mm: number | null } | null {
   let m =
     /\b(\d{1,2})[-\s/]([A-Za-z]{3,4})[-\s/,]*(\d{2,4})\b/.exec(text) ??
     null;
   let y: number, mo: number, d: number;
+  let named: RegExpExecArray | null = null;
   if (m && MONTHS[m[2].toLowerCase()] !== undefined) {
     d = +m[1];
     mo = MONTHS[m[2].toLowerCase()];
     y = +m[3];
+  } else if ((named = /\b([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/.exec(text)) && MONTHS[named[1].slice(0, 3).toLowerCase()] !== undefined && /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*$/i.test(named[1])) {
+    // "Nov 13, 2026", "November 13 2026".
+    mo = MONTHS[named[1].slice(0, 3).toLowerCase()];
+    d = +named[2];
+    y = +named[3];
   } else if ((m = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(text))) {
     y = +m[1];
     mo = +m[2] - 1;
     d = +m[3];
   } else if ((m = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b/.exec(text))) {
-    // Pakistani banks write day/month/year.
-    d = +m[1];
-    mo = +m[2] - 1;
+    // Pakistani and Gulf banks write day/month/year, American banks month/day/year.
+    const a = +m[1];
+    const b = +m[2];
+    const swap = a > 12 ? false : b > 12 ? true : monthFirst;
+    d = swap ? b : a;
+    mo = (swap ? a : b) - 1;
     y = +m[3];
   } else {
     return null;
@@ -255,6 +323,8 @@ export type ParseInput = {
   knownSender?: boolean;
   /** Outgoing transfers wait in Review so a charge can be added (the default). */
   holdTransfers?: boolean;
+  /** The app's currency (Settings). Amounts in it are read; other currencies go to Review. PKR when not given. */
+  currency?: string | null;
 };
 
 export function parseSms(input: ParseInput): ParseResult {
@@ -265,15 +335,16 @@ export function parseSms(input: ParseInput): ParseResult {
   const REMITTANCE_RE = wordsRegex(words.remittance);
   const OUT_TRANSFER_RE = wordsRegex(words.transfer);
   const fields = emptyFields();
+  const cur = patterns(input.currency);
 
   if (OTP_RE.test(text)) return { status: "ignored", reason: "One-time password or security message" };
 
-  fields.chargesPaisa = findCharges(text);
+  fields.chargesPaisa = findCharges(text, input.currency);
   // Remove phrases where credit/debit name a card type rather than a direction, and a charge printed beside the amount.
-  const directional = text.replace(/\b(credit|debit)\s+card\b/gi, "card").replace(CHARGES_RE, " ");
+  const directional = text.replace(/\b(credit|debit)\s+card\b/gi, "card").replace(cur.charges, " ");
 
-  const withoutBalance = directional.replace(BALANCE_RE, " [balance] ");
-  const amounts = Array.from(withoutBalance.matchAll(AMOUNT_RE))
+  const withoutBalance = directional.replace(cur.balance, " [balance] ");
+  const amounts = Array.from(withoutBalance.matchAll(cur.amount))
     .map((m) => parseAmountToPaisa(m[2] ? `${m[1]}.${m[2]}` : m[1]))
     .filter((v): v is number => v !== null);
   const distinct = Array.from(new Set(amounts));
@@ -291,7 +362,7 @@ export function parseSms(input: ParseInput): ParseResult {
   if (isDebit && !isCredit) fields.kind = "expense";
   else if (isCredit && !isDebit) fields.kind = isRemit ? "remittance" : "income";
 
-  const date = findDate(text);
+  const date = findDate(text, cur.monthFirst);
   if (date) {
     const hh = date.hh ?? 12;
     const mm = date.mm ?? 0;
@@ -327,7 +398,7 @@ export function parseSms(input: ParseInput): ParseResult {
   const review = (reason: string): ParseResult => ({ status: "review", reason, fields });
   if (input.knownSender === false) return review("Sender isn't one of your banks in Settings");
   if (input.knownSender === undefined && !isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not one of your banks");
-  if (FOREIGN_RE.test(text)) return review("Foreign-currency amount present");
+  if (cur.foreign?.test(text)) return review("Amount in a currency other than the one set in Settings");
   if (UNSURE_RE.test(directional)) return review("Reversal, refund, pending or failed wording");
   if (distinct.length === 0) return review("No transaction amount found (balances are ignored)");
   if (distinct.length > 1) return review("More than one candidate amount");
@@ -360,8 +431,8 @@ export function parseSms(input: ParseInput): ParseResult {
 }
 
 /** Masks long digit runs (account, card, phone, CNIC) and balance figures before storage. */
-export function redactSms(text: string): string {
+export function redactSms(text: string, currency?: string | null): string {
   return normalizeText(text)
-    .replace(BALANCE_RE, (m) => m.replace(/\d[\d,]*(?:\.\d+)?/g, "###"))
+    .replace(patterns(currency).balance, (m) => m.replace(/\d[\d,]*(?:\.\d+)?/g, "###"))
     .replace(/\d{5,}/g, (m) => "#".repeat(Math.min(m.length, 8)));
 }
