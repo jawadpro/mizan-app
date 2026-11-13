@@ -68,6 +68,18 @@ function buildWhere(f: Partial<ListQuery>) {
 // Transfers between the user's own accounts move the balance but are neither spending nor income.
 const NOT_OWN = `category <> '${OWN_ACCOUNTS}'`;
 
+/**
+ * Whether the totals below cover one account: a bank is picked, or only one bank is set up. Then money moved in from
+ * (or out to) your other accounts really comes into (or leaves) this one, and counts in Income and Expenses. Across
+ * several tracked banks it stays out, or a move between two of them would count as both income and spending.
+ */
+async function ownTransfersCount(space: Space, bank?: string): Promise<boolean> {
+  if (space !== "app" || bank === "none") return false;
+  if (bank) return true;
+  const { rows } = await q<{ n: number }>(`SELECT count(*)::int AS n FROM app.banks WHERE archived_at IS NULL`);
+  return rows[0].n <= 1;
+}
+
 /** On a split payment: how many shares, how many are still open and what they add up to. On incoming money: whose share it paid back. */
 const SPLIT_COLS = `,
   (SELECT json_build_object('n', count(*), 'total', sum(sp.amount_paisa)::float8,
@@ -83,6 +95,7 @@ const chargeSum = (s: string, category: string) =>
 export async function listTransactions(space: Space, f: ListQuery) {
   const { sql, params } = buildWhere(f);
   const s = sch(space);
+  const notOwn = (await ownTransfersCount(space, f.bank)) ? "true" : NOT_OWN;
   const offset = (f.page - 1) * f.pageSize;
   const [rows, agg] = await Promise.all([
     q<ListedTxRow>(
@@ -92,8 +105,8 @@ export async function listTransactions(space: Space, f: ListQuery) {
     ),
     q<{ n: number; expense: number; income: number; remittance: number }>(
       `SELECT count(*)::int AS n,
-              coalesce(sum(amount_paisa) FILTER (WHERE kind='expense' AND ${NOT_OWN}),0)::float8 AS expense,
-              coalesce(sum(amount_paisa) FILTER (WHERE kind='income' AND ${NOT_OWN}),0)::float8 AS income,
+              coalesce(sum(amount_paisa) FILTER (WHERE kind='expense' AND ${notOwn}),0)::float8 AS expense,
+              coalesce(sum(amount_paisa) FILTER (WHERE kind='income' AND ${notOwn}),0)::float8 AS income,
               coalesce(sum(amount_paisa) FILTER (WHERE kind='remittance'),0)::float8 AS remittance
        FROM ${s}.transactions ${sql}`,
       params,
@@ -119,7 +132,8 @@ export async function analytics(space: Space, from: string, to: string, granular
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400e3) + 1;
   const prevTo = addDays(from, -1);
   const prevFrom = addDays(from, -days);
-  const totalsSql = `SELECT kind, sum(amount_paisa)::float8 AS total, count(*)::int AS n FROM ${s}.transactions WHERE ${range} AND ${NOT_OWN} GROUP BY kind`;
+  const notOwn = (await ownTransfersCount(space, bank)) ? "true" : NOT_OWN;
+  const totalsSql = `SELECT kind, sum(amount_paisa)::float8 AS total, count(*)::int AS n FROM ${s}.transactions WHERE ${range} AND ${notOwn} GROUP BY kind`;
   const [totals, prevTotals, series, cats, recips, daily, balanceSeries] = await Promise.all([
     q<{ kind: Kind; total: number; n: number }>(totalsSql, [from, to]),
     q<{ kind: Kind; total: number; n: number }>(totalsSql, [prevFrom, prevTo]),
@@ -128,8 +142,8 @@ export async function analytics(space: Space, from: string, to: string, granular
          SELECT generate_series(date_trunc('${granularity}', $1::date::timestamp), date_trunc('${granularity}', $2::date::timestamp), interval '${step}') AS b
        ), agg AS (
          SELECT date_trunc('${granularity}', occurred_at AT TIME ZONE 'Asia/Karachi') AS b,
-                sum(amount_paisa) FILTER (WHERE kind='expense' AND ${NOT_OWN}) AS expense,
-                sum(amount_paisa) FILTER (WHERE kind='income' AND ${NOT_OWN}) AS income,
+                sum(amount_paisa) FILTER (WHERE kind='expense' AND ${notOwn}) AS expense,
+                sum(amount_paisa) FILTER (WHERE kind='income' AND ${notOwn}) AS income,
                 sum(amount_paisa) FILTER (WHERE kind='remittance') AS remittance
          FROM ${s}.transactions WHERE ${range} GROUP BY 1
        )
@@ -140,7 +154,7 @@ export async function analytics(space: Space, from: string, to: string, granular
     ),
     q<{ category: string; total: number; n: number }>(
       `SELECT category, sum(amount_paisa)::float8 AS total, count(*)::int AS n FROM ${s}.transactions
-       WHERE kind='expense' AND ${NOT_OWN} AND ${range} GROUP BY category ORDER BY total DESC`,
+       WHERE kind='expense' AND ${notOwn} AND ${range} GROUP BY category ORDER BY total DESC`,
       [from, to],
     ),
     q<{ counterparty: string; total: number; n: number }>(
