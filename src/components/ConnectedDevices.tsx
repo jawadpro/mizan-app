@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import CloseButton from "./CloseButton";
-import { AutomationGuide, PairIphone, TestConnection } from "./IphoneSetup";
+import { AutomationGuide, PairIphone } from "./IphoneSetup";
 import { ago, deviceStatus, isConnected, useDevices, type Device, type DevicesInfo } from "./paired-devices";
 import { useToast } from "./Toast";
 import "@/app/setup.css";
@@ -13,7 +13,7 @@ const PHONE = (
   </svg>
 );
 
-const STEPS = ["Scan", "Automation", "Check"] as const;
+const STEPS = ["Scan", "Automation"] as const;
 
 /** "Add another iPhone" or "Reconnect" (which replaces a device's key) as a short guided dialog. */
 function ConnectDialog({ info, replaces, onClose }: { info: DevicesInfo | null; replaces?: Device; onClose: () => void }) {
@@ -46,7 +46,6 @@ function ConnectDialog({ info, replaces, onClose }: { info: DevicesInfo | null; 
           </>
         )}
         {step === 1 && <AutomationGuide shortcutName={name} senders={[]} />}
-        {step === 2 && <TestConnection device={device} shortcutName={name} />}
         <div className="modal-foot">
           {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>Back</button>}
           {step < STEPS.length - 1
@@ -124,20 +123,19 @@ function DeviceItem({ d, onChanged, onReconnect }: { d: Device; onChanged: () =>
 }
 
 /**
- * Connect iPhone: the connection status, every paired iPhone, and pairing. With nothing connected yet, the QR code
- * is right on the page; after that, "Add another iPhone" opens it in a dialog. Until a real bank alert has arrived,
- * the last two steps (the Message automation and the checks) stay visible underneath.
+ * Connect iPhone: the connection status, every paired iPhone, and pairing. Two steps: scan the QR code (right on the
+ * page while nothing is connected; "Add another iPhone" opens it in a dialog after that), then turn on the Message
+ * automation, whose instructions stay underneath until the first bank alert arrives.
  */
 export default function ConnectedDevices() {
   const { data, error, reload } = useDevices(true);
   const [dialog, setDialog] = useState<{ replaces?: Device } | null>(null);
-  const [justPaired, setJustPaired] = useState<Device | null>(null);
   const active = data?.items.filter((d) => !d.revoked_at) ?? [];
   const connected = active.filter(isConnected);
   const removed = data?.items.filter((d) => d.revoked_at) ?? [];
   const name = data?.shortcut.name ?? "Mizan";
   const finishing = connected.length > 0 && !connected.some((d) => d.last_sms_at);
-  const onPaired = useCallback((d: Device) => setJustPaired(d), []);
+  const onPaired = useCallback(() => reload(), [reload]);
   return (
     <div className="devices">
       {error && <div className="alert error">{error}</div>}
@@ -165,9 +163,8 @@ export default function ConnectedDevices() {
       )}
       {finishing && (
         <div className="cx-next">
-          <h3>Last step: turn on the automation</h3>
+          <h3>Now turn on the automation</h3>
           <AutomationGuide shortcutName={name} senders={[]} />
-          <TestConnection device={justPaired} shortcutName={name} />
         </div>
       )}
       {removed.length > 0 && (

@@ -100,7 +100,7 @@ export function deviceStatus(d: Device): { tone: "ok" | "wait" | "warn" | "off";
       : { tone: "ok", label: "Working", detail: `Last bank alert ${ago(d.last_sms_at)}.` };
   }
   if (d.last_test_at) return { tone: "wait", label: "Test received", detail: `The Shortcut reached Mizan ${ago(d.last_test_at)}. Waiting for the first real bank alert.` };
-  return { tone: "ok", label: "Connected", detail: "Waiting for the first message from this iPhone." };
+  return { tone: "ok", label: "Connected", detail: "Ready. Bank alerts arrive as soon as the Message automation is on." };
 }
 
 export function isIphone(): boolean {

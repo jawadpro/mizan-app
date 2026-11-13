@@ -66,11 +66,7 @@
 @media (prefers-reduced-motion: reduce) { .iph-pulse { animation: none; } }
 .iph-success { display: flex; gap: 12px; align-items: center; padding: 16px 0 4px; }
 .iph-check { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-weight: 700; flex: none; }
-.iph-tests { display: grid; gap: 10px; padding-top: 12px; }
-.iph-test { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.iph-test.ok { border-color: var(--accent); background: var(--accent-soft); }
 .iph-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 0.8rem; font-weight: 700; flex: none; border: 1px solid var(--border-strong); background: var(--surface); }
-.iph-test.ok .iph-dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 .dev-list { display: grid; gap: 10px; }
 .dev-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
