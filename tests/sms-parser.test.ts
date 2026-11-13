@@ -295,3 +295,15 @@ describe("real Bank Alfalah alert formats", () => {
     expect(findCharges("PKR 250.00 plus tax has been deducted from your account")).toBeNull();
   });
 });
+
+describe("direction given as a label", () => {
+  const at = new Date("2026-08-11T02:00:00Z");
+  it("reads Debit: as money going out", () => {
+    const r = parseSms({ sender: "MCB", text: "Debit: PKR 337000.000 Account No. 1234xxxx5678 via Fund Transfer on 11/08/2026 at 06:05:16", receivedAt: at, holdTransfers: false });
+    expect(r).toMatchObject({ status: "parsed", fields: { kind: "expense", amountPaisa: 33700000, accountHint: "5678" } });
+  });
+  it("reads Credit: as money coming in", () => {
+    const r = parseSms({ sender: "MCB", text: "Credit: PKR 25000.00 Account No. 1234xxxx5678 via Fund Transfer on 11/08/2026 at 06:05:16", receivedAt: at });
+    expect(r).toMatchObject({ status: "parsed", fields: { kind: "income", amountPaisa: 2500000 } });
+  });
+});

@@ -44,6 +44,8 @@ export type ParseResult =
 
 // MCB alerts arrive from "MCB", 6222 (card payments) or 8222 (transfers); a saved contact may also name them, e.g. "MCB Transfers".
 const DEFAULT_TRUSTED_SENDERS = ["MCB", "MCBBANK", "MCB BANK", "MCB-BANK", "6222", "8222"];
+const DEBIT_LABEL_RE = /(?<![A-Za-z])debit\s*:/i;
+const CREDIT_LABEL_RE = /(?<![A-Za-z])credit\s*:/i;
 const MCB_CONTACT_RE = /^MCB\b[\w .\-]{0,40}$/;
 
 export function normalizeText(s: string): string {
@@ -276,8 +278,9 @@ export function parseSms(input: ParseInput): ParseResult {
     .filter((v): v is number => v !== null);
   const distinct = Array.from(new Set(amounts));
 
-  const isDebit = DEBIT_RE.test(directional);
-  const isCredit = CREDIT_RE.test(directional);
+  // Some banks label the direction instead of using a verb: "Debit: PKR 1500.000 Account No. …", "Credit: PKR …".
+  const isDebit = DEBIT_RE.test(directional) || DEBIT_LABEL_RE.test(directional);
+  const isCredit = CREDIT_RE.test(directional) || CREDIT_LABEL_RE.test(directional);
   const isRemit = REMITTANCE_RE.test(directional);
 
   if (!isDebit && !isCredit && distinct.length === 0) {
