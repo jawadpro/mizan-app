@@ -15,6 +15,8 @@ export const DEFAULT_PREFS = {
   notifyImports: true,
   /** Show the amount and who it was with in notifications (they can appear on the lock screen). */
   notifyDetails: true,
+  /** Monthly savings target in paisa; 0 means follow the savings plan's suggestion. */
+  savingsTarget: 0,
 };
 export type Prefs = typeof DEFAULT_PREFS;
 
@@ -27,6 +29,7 @@ export const prefsPatch = z
     currency: z.enum(CURRENCY_CODES),
     notifyImports: z.boolean(),
     notifyDetails: z.boolean(),
+    savingsTarget: z.number().int().min(0).max(1e14),
     ownNames: z.string().max(300).transform((s) => s.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ")),
   })
   .partial()

@@ -634,6 +634,54 @@ export async function spendingCheckData(today: string) {
   };
 }
 
+/** Totals for the savings plan: whole months the records fully cover (up to six), this month so far, and monthly payments. */
+export async function savingsData(today: string) {
+  const monthStart = `${today.slice(0, 8)}01`;
+  const local = `(occurred_at AT TIME ZONE 'Asia/Karachi')`;
+  const first = await q<{ first: string | null }>(`SELECT to_char(min(${local}), 'YYYY-MM-DD') AS first FROM app.transactions`);
+  const f = first.rows[0]?.first;
+  let months = 0;
+  if (f) {
+    const [y, m] = monthStart.split("-").map(Number);
+    for (let k = 1; k <= 6; k++) {
+      const start = new Date(Date.UTC(y, m - 1 - k, 1)).toISOString().slice(0, 10);
+      if (f <= start) months = k;
+    }
+  }
+  const [totals, recurring] = await Promise.all([
+    q<{ month: string; kind: Kind; category: string; total: number }>(
+      `SELECT to_char(${local}, 'YYYY-MM') AS month, kind, category, sum(amount_paisa)::float8 AS total
+       FROM app.transactions
+       WHERE ${NOT_OWN}
+         AND occurred_at >= (($1::date - make_interval(months => $2::int))::timestamp AT TIME ZONE 'Asia/Karachi')
+         AND occurred_at < (($3::date + 1)::timestamp AT TIME ZONE 'Asia/Karachi')
+       GROUP BY 1, 2, 3`,
+      [monthStart, months, today],
+    ),
+    q<{ name: string; amount: number | null; category: string }>(
+      `SELECT name, amount_paisa::float8 AS amount, category FROM app.monthly_items
+       WHERE starts_month <= $1::date AND (ended_month IS NULL OR ended_month >= $1::date)`,
+      [monthStart],
+    ),
+  ]);
+  const blank = () => ({ income: 0, byCategory: {} as Record<string, number> });
+  const by = new Map<string, ReturnType<typeof blank>>();
+  for (const r of totals.rows) {
+    const m = by.get(r.month) ?? blank();
+    if (r.kind === "expense") m.byCategory[r.category] = (m.byCategory[r.category] ?? 0) + r.total;
+    else m.income += r.total;
+    by.set(r.month, m);
+  }
+  const thisKey = today.slice(0, 7);
+  const list = [];
+  const [y, mo] = monthStart.split("-").map(Number);
+  for (let k = months; k >= 1; k--) {
+    const key = new Date(Date.UTC(y, mo - 1 - k, 1)).toISOString().slice(0, 7);
+    list.push({ month: key, ...(by.get(key) ?? blank()) });
+  }
+  return { months: list, thisMonth: by.get(thisKey) ?? blank(), recurring: recurring.rows };
+}
+
 // ---- Settings ----
 
 export async function getPrefs() {
