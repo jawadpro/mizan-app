@@ -48,11 +48,17 @@ export const smsInput = z.object({
   // The Shortcut's connection test: read the alert, save nothing.
   test: z.boolean().optional(),
   // Sent from the offline queue by "Import queued messages": counted under that run.
-  importRun: z.string().uuid().optional(),
+  importRun: z.lazy(() => importRunId).optional(),
 }).strict();
 
+/**
+ * An import run's id, as the Shortcut has it: either the bare id or its whole input, "mizan-import:<id>", so the
+ * Shortcut can pass its input along without editing it.
+ */
+const importRunId = z.string().trim().max(80).transform((s) => s.replace(/^mizan-import:/i, "")).pipe(z.string().uuid());
+
 /** The Shortcut's last request in "Import queued messages": everything in the queue has been sent. */
-export const importFinished = z.object({ importRun: z.string().uuid(), finished: z.literal(true) }).strict();
+export const importFinished = z.object({ importRun: importRunId, finished: z.literal(true) }).strict();
 
 export const listQuery = z.object({
   q: z.string().max(100).optional(),

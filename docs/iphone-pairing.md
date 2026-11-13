@@ -29,8 +29,9 @@ setup dialog shows "Connection test received".
 
 With no internet, the Shortcut saves each bank alert as a JSON file in its queue folder. **SMS setup › Queued
 messages › Import queued messages** (on the iPhone) starts an import and opens the Shortcut with the text
-`mizan-import:<id>`. The Shortcut sends each queued alert to `/api/sms` as usual, adding `"importRun": "<id>"`,
-deletes the file once Mizan has accepted it, and finally sends `{ "importRun": "<id>", "finished": true }`. Mizan
+`mizan-import:<id>`. The Shortcut sends each queued alert to `/api/sms` as usual, adding `"importRun"` set to that
+input as it is (`mizan-import:<id>` or just `<id>`),
+deletes the file once Mizan has accepted it, and finally sends `{ "importRun": "mizan-import:<id>", "finished": true }`. Mizan
 replies with a `message` such as "14 queued messages: 12 imported, 2 already in Mizan." for the Shortcut to show,
 and the app shows the same once you're back. Mizan stores only the counts.
 
@@ -95,25 +96,31 @@ Request Body **JSON**.
 
 ### Step 3. Import queued messages (new)
 
-1. **If** *Shortcut Input* **begins with** `mizan-import:`
-2. ↳ **Replace Text**: `mizan-import:` with nothing, in *Shortcut Input* → **Set Variable** `RunID`
-3. ↳ **Get Contents of Folder**: your queue folder (the one the Shortcut saves to when offline, e.g. `Shortcuts/Mizan/queue`)
-4. ↳ **Repeat with Each** item in *Contents of Folder*:
-   1. **Get Dictionary from Input**: *Repeat Item*
-   2. **Get Contents of URL** (`Endpoint`, POST, `Authorization` = `Auth`), JSON body:
-      - `sender` (Text) = *Dictionary Value* `sender`
-      - `text` (Text) = *Dictionary Value* `text`
-      - `receivedAt` (Text) = *Dictionary Value* `receivedAt`
-      - `importRun` (Text) = `RunID`
-   3. **Get Dictionary Value** `status` from *Contents of URL* (Mizan sends it only when it accepted the alert)
-   4. **If** *Dictionary Value* **has any value**: **Delete Files** *Repeat Item*. **End If**
-5. ↳ **End Repeat**
-6. ↳ **Get Contents of URL** (`Endpoint`, POST, `Authorization` = `Auth`), JSON body:
-   - `importRun` (Text) = `RunID`
-   - `finished` (Boolean) = **true**
-7. ↳ **Get Dictionary Value** `message` → **Show Notification** *Dictionary Value*
-8. ↳ **Stop This Shortcut**
-9. **End If**
+Every action in this step goes **inside** the If, between **If** and **End If**.
+
+1. Add **If**. Tap *Input* and pick **Shortcut Input**. Tap the condition and pick **begins with**, then type
+   `mizan-import:`
+2. Add **Get Contents of Folder**. Tap *Folder* and pick your queue folder (the one the Shortcut saves to when
+   offline, e.g. `Shortcuts/Mizan/queue`).
+3. Add **Repeat with Each**. It uses *Contents of Folder* by itself. Inside the repeat, add:
+   1. **Get Dictionary from Input**. Tap *Input* and pick **Repeat Item**.
+   2. **Get Contents of URL**. URL = `Endpoint`, Method **POST**, add Header `Authorization` = `Auth`, Request Body
+      **JSON** with four Text fields:
+      - `sender` = *Dictionary Value* `sender` (tap the field, pick **Select Variable** › *Dictionary*, then tap it
+        and type the key `sender`; same for the next two)
+      - `text` = *Dictionary Value* `text`
+      - `receivedAt` = *Dictionary Value* `receivedAt`
+      - `importRun` = **Shortcut Input** (just pick the variable; send it exactly as it is)
+   3. **Get Dictionary Value**: key `status`, from *Contents of URL*. Mizan sends `status` only when it accepted
+      the alert.
+   4. **If** *Dictionary Value* **has any value** → **Delete Files**: *Repeat Item* → **End If**
+4. After **End Repeat**, add **Get Contents of URL** once more: URL = `Endpoint`, POST, Header `Authorization` =
+   `Auth`, Request Body **JSON** with two fields:
+   - `importRun` (Text) = **Shortcut Input**
+   - `finished` (Boolean) = **True**
+5. **Get Dictionary Value**: key `message`, from *Contents of URL* → **Show Notification**: *Dictionary Value*
+6. **Stop This Shortcut**
+7. **End If** (Shortcuts adds this one for you)
 
 A file is deleted only after Mizan accepted it, so a failed send stays in the queue for next time. Mizan skips an alert
 it already has, so sending one twice is safe. When you go back to Mizan, it shows for example
