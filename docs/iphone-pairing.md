@@ -1,34 +1,43 @@
 # Connecting an iPhone with a pairing code
 
-**SMS setup › Connected iPhones › Connect iPhone** walks through four steps: add the Mizan Shortcut, pair, create
-the Message automation, and test. Nothing is copied or typed by hand.
+**Connect iPhone** in the menu shows one QR code. Scanning it on the iPhone adds the Mizan Shortcut (first time only)
+and pairs it. Then the page shows the last steps: the Message automation and a test. Nothing is copied or typed by
+hand. The menu item has a red dot until an iPhone is connected, and a green one after.
 
 ## How pairing works
 
 1. Mizan makes an 8-character code (for example `8PTP-KRVR`). It works once, for 10 minutes. Mizan stores only an
    HMAC of it.
 2. The iPhone gets the code by scanning the QR code (it opens `/pair#CODE`; the code stays in the `#` part, which
-   browsers never send to a server), by tapping **Connect this iPhone** on the iPhone itself, or by typing it into the
-   Shortcut.
-3. The Shortcut opens `<this Mizan>/api/devices/pair?code=CODE` (or POSTs `{ "code", "name" }` there). Mizan replies,
-   once:
+   browsers never send to a server), or from the **Connect this iPhone** button when Mizan is open on the iPhone. The
+   button runs `shortcuts://x-callback-url/run-shortcut?name=Mizan&input=text&text=<pair link>` (current iOS needs
+   the x-callback-url form).
+3. The Shortcut opens `<this Mizan>/api/devices/pair?code=CODE` with **Get Contents of URL** (GET or POST; a JSON body
+   `{ "code", "name" }` also works). Mizan replies:
 
    ```json
-   { "ok": true, "endpoint": "https://<this Mizan>/api/sms", "authorization": "Bearer mzd_…", "token": "mzd_…", "deviceId": "…" }
+   { "ok": true, "endpoint": "https://<this Mizan>/api/sms", "authorization": "Bearer mzd_…", "confirm": "https://<this Mizan>/api/devices/confirm", "token": "mzd_…", "deviceId": "…" }
    ```
 
    The Shortcut saves that reply on the iPhone and sends each alert to `endpoint` with the `Authorization` header set
    to `authorization`. Because the address comes from this reply, the same shared Shortcut works with any Mizan.
-4. Each iPhone has its own token. Mizan keeps only its SHA-256 digest. **Remove** stops it at once; **Reconnect**
-   gives the iPhone a new token and stops the old one. Up to 5 iPhones can be connected.
+4. Right after saving, the Shortcut calls `confirm` (GET or POST, no body) with that `Authorization` header. Only
+   then does Mizan show the iPhone as connected. Any later alert or test run confirms it too, so a Shortcut without
+   this step still connects the first time you run it by hand.
+5. Until it's confirmed, opening the pair link again within the 10 minutes replaces the unconfirmed pairing. So a link
+   preview, a browser or a Shortcut run that fails before saving can't use up the code. Once confirmed, the code is
+   spent.
+6. Each iPhone has its own token. Mizan keeps only its SHA-256 digest. **Remove** stops it at once; **Reconnect**
+   gives the iPhone a new token, and the old one stops working once the iPhone confirms the new one. Up to 5 iPhones
+   can be connected.
 
 Running the paired Shortcut by hand sends a test alert with `"test": true`: Mizan reads it, saves nothing, and the
-setup dialog shows "Connection test received".
+Connect iPhone page shows "Test from the Shortcut" in green.
 
 ## Import queued messages
 
-With no internet, the Shortcut saves each bank alert as a JSON file in its queue folder. **SMS setup › Queued
-messages › Import queued messages** (on the iPhone) starts an import and opens the Shortcut with the text
+With no internet, the Shortcut saves each bank alert as a JSON file in its queue folder. **Review inbox › Import
+queued messages** (shown only on the iPhone) starts an import and opens the Shortcut with the text
 `mizan-import:<id>`. The Shortcut sends each queued alert to `/api/sms` as usual, adding `"importRun"` set to that
 input as it is (`mizan-import:<id>` or just `<id>`),
 deletes the file once Mizan has accepted it, and finally sends `{ "importRun": "mizan-import:<id>", "finished": true }`. Mizan
@@ -39,14 +48,14 @@ and the app shows the same once you're back. Mizan stores only the counts.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `MIZAN_SHORTCUT_URL` | the shared Mizan Shortcut on iCloud | The **Add the Shortcut** link and QR code. |
+| `MIZAN_SHORTCUT_URL` | the shared Mizan Shortcut on iCloud (`DEFAULT_SHORTCUT_URL` in `src/lib/paired-devices.ts`) | The **Get the Shortcut** link. To publish a new Shortcut version, change that one constant or set this variable. |
 | `MIZAN_SHORTCUT_NAME` | `Mizan` | The Shortcut name the **Connect this iPhone** button runs. |
 | `APP_URL` | the address the request came in on | The address handed to the iPhone, if people reach Mizan on a different one. |
 
 ## The older Shortcut
 
-The Expense Manager Shortcut, with the URL and SMS token typed in by hand, keeps working unchanged. Its details stay
-on the SMS setup page under "Using the older Shortcut".
+The app no longer shows the URL and SMS token for setting up a Shortcut by hand. A Shortcut already set up that way
+keeps working: `/api/sms` still accepts the SMS token.
 
 ## Database
 
@@ -77,9 +86,12 @@ Before you start, in the Shortcut's details (the **ⓘ** button), set **Receive*
 2. ↳ **Get Contents of URL**: *Shortcut Input* (method GET)
 3. ↳ **Save File**: *Contents of URL* → folder `Shortcuts/Mizan`, name `device.json`. Turn **Ask Where to Save** off and
    **Overwrite If File Exists** on.
-4. ↳ **Show Notification**: `This iPhone is connected to Mizan.`
-5. ↳ **Stop This Shortcut**
-6. **End If**
+4. ↳ **Get Dictionary Value** `confirm` from *Contents of URL*, then **Get Contents of URL**: *Dictionary Value*,
+   method POST, Header `Authorization` = *Dictionary Value* `authorization` (from *Contents of URL*). This tells Mizan
+   the key is saved; until then Mizan shows "Waiting for the iPhone to save its key".
+5. ↳ **Show Notification**: `This iPhone is connected to Mizan.`
+6. ↳ **Stop This Shortcut**
+7. **End If**
 
 ### Step 2. Read the saved address and key (right below Step 1)
 
@@ -151,7 +163,7 @@ You can delete the separate **Import Queued Messages** Shortcut once this works.
 
 1. In Shortcuts › **Settings** (or iPhone Settings › Apps › Shortcuts) › **Advanced**: turn on
    **Allow Deleting Without Confirmation**.
-2. In Mizan, open **SMS setup › Connect iPhone**, and pair.
-3. Run the Shortcut once by hand. Mizan shows **Connection test received**. Choose **Always Allow** when iPhone asks.
+2. In Mizan, open **Connect iPhone** and scan the QR code.
+3. Run the Shortcut once by hand. Mizan shows **Test from the Shortcut** in green. Choose **Always Allow** when iPhone asks.
 4. To check the import: turn on Airplane Mode, send yourself a test, turn it off, then tap **Import queued messages** in
-   Mizan on the iPhone.
+   Mizan's Review inbox on the iPhone.

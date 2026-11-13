@@ -17,14 +17,20 @@ export type DevicesInfo = {
 
 export type PairingCode = { code: string; expiresAt: string; runUrl: string; pairPageUrl: string; payload: string };
 
+/** Fired with `detail: true` when an iPhone is connected, false when none is. */
+export const IPHONE_STATUS = "mizan:iphone-status";
+
 /** Paired iPhones, refreshed every few seconds while `live` (during setup, to notice pairing and tests). */
 export function useDevices(live = false) {
   const [data, setData] = useState<DevicesInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      setData(await apiFetch<DevicesInfo & { ok: true }>("/api/devices"));
+      const d = await apiFetch<DevicesInfo & { ok: true }>("/api/devices");
+      setData(d);
       setError(null);
+      // Lets the menu's red or green dot follow along without its own polling.
+      window.dispatchEvent(new CustomEvent(IPHONE_STATUS, { detail: d.items.some(isConnected) }));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -78,9 +84,15 @@ export function ago(iso: string | null, now = Date.now()): string {
   return d === 1 ? "yesterday" : `${d} days ago`;
 }
 
+/** Connected means the iPhone has used its key at least once, so it really saved it. */
+export const isConnected = (d: Device) => !d.revoked_at && !!d.last_seen_at;
+
 /** What the device list says about a device, in plain words. */
 export function deviceStatus(d: Device): { tone: "ok" | "wait" | "warn" | "off"; label: string; detail: string } {
-  if (d.revoked_at) return { tone: "off", label: "Removed", detail: `Removed ${ago(d.revoked_at)}. Its token no longer works.` };
+  if (d.revoked_at) return { tone: "off", label: "Removed", detail: `Removed ${ago(d.revoked_at)}. It can't send alerts any more.` };
+  if (!d.last_seen_at) {
+    return { tone: "warn", label: "Not finished", detail: "This iPhone got a code but hasn't confirmed it saved its key. Open Shortcuts and tap the Mizan Shortcut once, or remove it and scan again." };
+  }
   if (d.last_sms_at) {
     const stale = Date.now() - Date.parse(d.last_sms_at) > 14 * 86400e3;
     return stale
@@ -88,7 +100,7 @@ export function deviceStatus(d: Device): { tone: "ok" | "wait" | "warn" | "off";
       : { tone: "ok", label: "Working", detail: `Last bank alert ${ago(d.last_sms_at)}.` };
   }
   if (d.last_test_at) return { tone: "wait", label: "Test received", detail: `The Shortcut reached Mizan ${ago(d.last_test_at)}. Waiting for the first real bank alert.` };
-  return { tone: "wait", label: "Paired", detail: "Connected. Waiting for the first message from this iPhone." };
+  return { tone: "ok", label: "Connected", detail: "Waiting for the first message from this iPhone." };
 }
 
 export function isIphone(): boolean {

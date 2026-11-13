@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ALPHABET, CODE_LEN, formatCode, normalizeCode, randomCode } from "@/lib/pairing-code";
 import { importFinished, smsInput } from "@/lib/validation";
+import { pairPayload, shortcutRunUrl } from "@/lib/shortcut-link";
 
 describe("pairing codes", () => {
   it("are 8 characters from the unambiguous alphabet", () => {
@@ -40,5 +41,15 @@ describe("import run ids from the Shortcut", () => {
   it("reject anything else", () => {
     expect(smsInput.safeParse({ ...alert, importRun: "mizan-import:nope" }).success).toBe(false);
     expect(importFinished.safeParse({ importRun: id, finished: "true" }).success).toBe(false);
+  });
+});
+
+describe("links that open the Shortcut", () => {
+  it("use the x-callback-url form and carry the pairing link as text", () => {
+    const url = shortcutRunUrl("Mizan", pairPayload("https://mizan.example.com", "ABCD2345"));
+    expect(url).toBe("shortcuts://x-callback-url/run-shortcut?name=Mizan&input=text&text=https%3A%2F%2Fmizan.example.com%2Fapi%2Fdevices%2Fpair%3Fcode%3DABCD2345");
+  });
+  it("encode a Shortcut name with spaces", () => {
+    expect(shortcutRunUrl("Expense Manager", "mizan-import:x")).toContain("name=Expense%20Manager&input=text&text=mizan-import%3Ax");
   });
 });

@@ -8,8 +8,6 @@ import BankMessages from "@/components/BankMessages";
 import MessageTester from "@/components/MessageTester";
 import PushToggle from "@/components/PushToggle";
 import ConnectedDevices from "@/components/ConnectedDevices";
-import ShortcutSteps from "@/components/ShortcutSteps";
-import SmsToken from "@/components/SmsToken";
 import { useToast } from "@/components/Toast";
 import { useData } from "@/components/useData";
 import type { BankItem } from "@/components/useBanks";
@@ -170,19 +168,12 @@ function NameStep({ back, next }: { back: () => void; next: () => void }) {
   );
 }
 
-function IphoneStep({ endpoint, back, next }: { endpoint: string; back: () => void; next: () => void }) {
+function IphoneStep({ back, next }: { back: () => void; next: () => void }) {
   return (
     <>
-      <h1>Forward alerts from your iPhone</h1>
-      <p className="muted">The Mizan Shortcut sends each bank SMS to Mizan as it arrives. Add it, then pair it with a one-time code: nothing to copy or type. You can also do this later from SMS setup in the menu.</p>
-      <div className="setup-panel"><ConnectedDevices /></div>
-      <details className="setup-more">
-        <summary>Use the older Shortcut instead (URL and token typed by hand)</summary>
-        <div className="setup-panel">
-          <div className="setup-kv"><span>Token</span><SmsToken /></div>
-        </div>
-        <div className="setup-panel"><ShortcutSteps endpoint={endpoint} /></div>
-      </details>
+      <h1>Connect your iPhone</h1>
+      <p className="muted">The Mizan Shortcut sends each bank SMS to Mizan as it arrives. Scan the QR code with your iPhone to connect: nothing to copy or type. You can also do this later from Connect iPhone in the menu.</p>
+      <div className="setup-panel cx-wizard"><ConnectedDevices /></div>
       <div className="setup-actions">
         <button className="btn ghost" onClick={back}>Back</button>
         <button className="btn primary" onClick={next}>Continue</button>
@@ -231,7 +222,7 @@ function FinishStep({ back }: { back: () => void }) {
   );
 }
 
-export default function SetupWizard({ db, hasPassword, endpoint }: { db: DbState; hasPassword: boolean; endpoint: string }) {
+export default function SetupWizard({ db, hasPassword }: { db: DbState; hasPassword: boolean }) {
   const [at, setAt] = useState(hasPassword ? 2 : 0);
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -246,7 +237,7 @@ export default function SetupWizard({ db, hasPassword, endpoint }: { db: DbState
         {at === 1 && <PassphraseStep next={go(2)} />}
         {at === 2 && <BanksStep next={go(3)} />}
         {at === 3 && <NameStep back={go(2)} next={go(4)} />}
-        {at === 4 && <IphoneStep endpoint={endpoint} back={go(3)} next={go(5)} />}
+        {at === 4 && <IphoneStep back={go(3)} next={go(5)} />}
         {at === 5 && <FinishStep back={go(4)} />}
       </div>
     </div>
