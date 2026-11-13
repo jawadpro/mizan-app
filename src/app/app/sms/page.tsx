@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ForIphone from "@/components/ForIphone";
 import ConnectedDevices from "@/components/ConnectedDevices";
 import "../../setup.css";
 
@@ -10,7 +11,7 @@ export default function ConnectIphonePage() {
       <div className="page-head">
         <div>
           <h1>Connect iPhone</h1>
-          <p className="muted">Mizan reads your bank alerts as they arrive on your iPhone. Scan one QR code to connect: nothing to copy or type.</p>
+          <p className="muted">Mizan reads your bank alerts as they arrive on your iPhone. <ForIphone iphone={<>Tap the two buttons below to connect: nothing to copy or type.</>} other={<>Scan one QR code to connect: nothing to copy or type.</>} /></p>
         </div>
       </div>
       <div className="cx-page">
