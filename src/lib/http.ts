@@ -1,5 +1,5 @@
 import "server-only";
-import { AuthError } from "./auth";
+import { AuthError, ConfirmRequired } from "./auth";
 import { ConfigError } from "./env";
 import { loadConfig } from "./config";
 
@@ -57,6 +57,8 @@ export function handle<A extends unknown[]>(fn: (...args: A) => Promise<Response
     } catch (e) {
       if (e instanceof HttpError) return errorJson(e.status, e.message, e.extra);
       if (e instanceof AuthError) return errorJson(e.status, e.message);
+      // The browser asks for the passphrase and sends the request again.
+      if (e instanceof ConfirmRequired) return errorJson(403, e.message, { confirm: true });
       if (e instanceof ConfigError) {
         console.error("[mizan] configuration error:", e.message);
         return errorJson(503, "Server is not fully configured yet");

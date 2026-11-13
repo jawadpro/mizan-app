@@ -6,7 +6,7 @@ import { getPrefs } from "@/lib/repo";
 export const dynamic = "force-dynamic";
 
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   try {
     const { currency } = await getPrefs();
     return json({ ok: true, ...(await fetchMetalPrices(currency)) });

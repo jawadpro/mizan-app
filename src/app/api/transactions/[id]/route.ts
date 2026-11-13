@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Ctx = { params: Promise<{ id: string }> };
 
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const { id } = await ctx.params;
   if (!UUID.test(id)) throw new HttpError(404, "Not found");
   const body = await readJson(req, 4096);
@@ -22,7 +22,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 });
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const { id } = await ctx.params;
   if (!UUID.test(id) || !(await deleteTransaction(id))) throw new HttpError(404, "Transaction not found");
   return json({ ok: true });

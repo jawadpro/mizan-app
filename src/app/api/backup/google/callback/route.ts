@@ -7,7 +7,7 @@ import { STATE_COOKIE, publicOrigin } from "@/lib/oauth-state";
 export const dynamic = "force-dynamic";
 
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const origin = publicOrigin(req);
   const url = new URL(req.url);
   const back = (result: string) =>

@@ -14,12 +14,12 @@ async function idOf(ctx: Ctx) {
 }
 
 export const GET = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   return json({ ok: true, items: await setAsideContributions(await idOf(ctx)) });
 });
 
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await idOf(ctx);
   const parsed = setAsideInput.safeParse(await readJson(req, 2048));
   if (!parsed.success) throw new HttpError(400, "Please fix the highlighted fields", { fields: parsed.error.flatten().fieldErrors });
@@ -28,14 +28,14 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 });
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   if (!(await deleteSetAside(await idOf(ctx)))) throw new HttpError(404, "Set-aside not found");
   return json({ ok: true });
 });
 
 /** POST { action: "start-fresh" } clears an overpayment so the set-aside goes back to zero. */
 export const POST = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await idOf(ctx);
   const body = (await readJson(req, 256)) as { action?: unknown } | null;
   if (body?.action !== "start-fresh") throw new HttpError(400, "Unknown action");

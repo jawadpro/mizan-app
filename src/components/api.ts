@@ -28,7 +28,24 @@ export function resourceUrl(space: Space, resource: "analytics" | "transactions"
   return qs ? `${path}?${qs}` : path;
 }
 
-export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Sensitive actions (adjusting the balance, removing a bank, …) answer 403 with confirm: true until the passphrase
+ * has been entered in the last few minutes. The page shell registers a prompt here; apiFetch shows it and,
+ * once the passphrase is accepted, sends the request again.
+ */
+type ConfirmPrompt = () => Promise<boolean>;
+let confirmPrompt: ConfirmPrompt | null = null;
+export function setConfirmPrompt(fn: ConfirmPrompt | null) {
+  confirmPrompt = fn;
+}
+
+export class CancelledError extends ApiError {
+  constructor() {
+    super(0, "Nothing was changed: the passphrase wasn't entered.");
+  }
+}
+
+export async function apiFetch<T>(url: string, init: RequestInit = {}, retried = false): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set("content-type", "application/json");
   if (init.method && init.method !== "GET") headers.set("x-csrf-token", csrf());
@@ -45,7 +62,11 @@ export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<
     /* non-JSON */
   }
   if (!res.ok) {
-    const d = (data ?? {}) as { error?: string; fields?: Record<string, string[]> };
+    const d = (data ?? {}) as { error?: string; fields?: Record<string, string[]>; confirm?: boolean };
+    if (res.status === 403 && d.confirm && !retried && confirmPrompt) {
+      if (await confirmPrompt()) return apiFetch<T>(url, init, true);
+      throw new CancelledError();
+    }
     if (res.status === 401 && typeof window !== "undefined" && !url.includes("/auth/")) {
       window.location.href = "/login?expired=1";
     }

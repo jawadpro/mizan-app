@@ -16,7 +16,7 @@ const saveInput = z.object({
 }).strict();
 
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const today = todayPkt();
   const ramadan = currentOrNextRamadan(today);
   const { years, payments } = await zakatRecords();
@@ -40,7 +40,7 @@ export const GET = handle(async (req: Request) => {
 });
 
 export const PUT = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const parsed = saveInput.safeParse(await readJson(req, 1024));
   if (!parsed.success) throw new HttpError(400, "Please check the Zakat figures", { fields: parsed.error.flatten().fieldErrors });
   const v = parsed.data;
@@ -52,7 +52,7 @@ export const PUT = handle(async (req: Request) => {
 });
 
 export const DELETE = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const year = Number(new URL(req.url).searchParams.get("year"));
   if (!Number.isInteger(year) || year < 1400 || year > 1600) throw new HttpError(400, "Unknown year");
   if (!(await deleteZakatYear(year))) throw new HttpError(404, "Nothing saved for that year");

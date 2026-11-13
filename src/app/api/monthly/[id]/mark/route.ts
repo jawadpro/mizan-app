@@ -16,7 +16,7 @@ async function itemId(ctx: Ctx) {
 
 /** PUT { month, status: "paid" | "skipped", transactionId?, full?, amount?, note? } ticks an item off or adds a part. */
 export const PUT = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await itemId(ctx);
   const parsed = monthlyMarkInput.safeParse(await readJson(req, 1024));
   if (!parsed.success) throw new HttpError(400, "Please fix the highlighted fields", { fields: parsed.error.flatten().fieldErrors });
@@ -28,7 +28,7 @@ export const PUT = handle(async (req: Request, ctx: Ctx) => {
 
 /** DELETE { month } puts it back to not paid for that month; { month, transactionId } removes just that part. */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await itemId(ctx);
   const body = (await readJson(req, 256)) as { month?: unknown; transactionId?: unknown } | null;
   if (!isMonth(body?.month)) throw new HttpError(400, "month must be YYYY-MM");

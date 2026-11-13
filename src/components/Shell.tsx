@@ -11,6 +11,8 @@ import { NEXT_THEME, THEME_LABEL, useTheme } from "./theme";
 import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
 import BrandMark from "@/components/BrandMark";
 import PullToRefresh from "./PullToRefresh";
+import ConfirmPassphrase from "./ConfirmPassphrase";
+import "@/app/security.css";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
 
@@ -123,7 +125,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
       window.location.href = "/login";
     }
   }
-  const title = allLinks.find((l) => l.href === path)?.label ?? "Mizan";
+  const title = allLinks.find((l) => l.href === path)?.label ?? (path === `${base}/bin` ? "Recycle bin" : "Mizan");
   const themeButton = (cls: string, withLabel: boolean) => (
     <button type="button" className={cls} onClick={() => setTheme(NEXT_THEME[theme])} aria-label={`Theme: ${THEME_LABEL[theme]}. Switch to ${THEME_LABEL[NEXT_THEME[theme]]}`} title={`Theme: ${THEME_LABEL[theme]}`}>
       {ICONS[theme]}
@@ -133,6 +135,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
   return (
     <ToastProvider>
       <PullToRefresh />
+      {space === "app" && <ConfirmPassphrase />}
       <div className="layout">
         <aside className="sidebar">
           <div className="side-brand">

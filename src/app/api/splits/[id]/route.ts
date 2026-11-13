@@ -16,7 +16,7 @@ async function shareId(ctx: Ctx) {
 
 /** GET returns the share; GET ?matches=1[&q=] incoming money that could be its repayment, best guesses first. */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await shareId(ctx);
   const sp = searchParamsObject(req.url);
   if (sp.matches) {
@@ -30,7 +30,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 });
 
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await shareId(ctx);
   const parsed = shareInput.safeParse(await readJson(req, 2048));
   if (!parsed.success) throw new HttpError(400, "Please fix the highlighted fields", { fields: parsed.error.flatten().fieldErrors });
@@ -42,7 +42,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
 /** POST { action: "link" | "unlink", transactionId } | { action: "settle", note } | { action: "reopen" }. */
 export const POST = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await shareId(ctx);
   const parsed = splitAction.safeParse(await readJson(req, 1024));
   if (!parsed.success) throw new HttpError(400, "Unknown action");
@@ -62,7 +62,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
 });
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   if (!(await deleteShare(await shareId(ctx)))) throw new HttpError(404, "Share not found");
   return json({ ok: true });
 });

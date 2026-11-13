@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth";
+import { requireConfirmed, requireSession } from "@/lib/auth";
 import { HttpError, handle, json, readJson } from "@/lib/http";
 import { deleteBankForGood, listBanksWithRecords, restoreBank } from "@/lib/repo";
 
@@ -14,7 +14,7 @@ async function idOf(ctx: Ctx) {
 
 /** POST { action: "restore" } brings a removed bank back with its history. */
 export const POST = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await idOf(ctx);
   const body = (await readJson(req, 256)) as { action?: unknown } | null;
   if (body?.action !== "restore") throw new HttpError(400, "Unknown action");
@@ -24,7 +24,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
 
 /** DELETE { confirm: "<bank name>" } deletes a removed bank for good; its transactions stay, without a bank. */
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireConfirmed(req);
   const id = await idOf(ctx);
   const body = (await readJson(req, 512)) as { confirm?: unknown } | null;
   if (!(await deleteBankForGood(id, typeof body?.confirm === "string" ? body.confirm : ""))) throw new HttpError(404, "That bank isn't in Removed banks");

@@ -15,6 +15,7 @@ import BankList from "./BankList";
 import MessageTester from "./MessageTester";
 import { LimitModal, type LimitEdit } from "./SpendingCheck";
 import { ChangePassphraseModal } from "./ChangePassphrase";
+import Security from "./Security";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const RANGES: { id: Prefs["defaultRange"]; label: string }[] = [
@@ -185,10 +186,12 @@ export default function Settings() {
             <Row title="Passphrase" hint="Change the passphrase you sign in with. Other devices are signed out when you do.">
               <button className="btn sm" onClick={() => setPassOpen(true)}>Change passphrase</button>
             </Row>
+            <Security />
           </Section>
 
           <Section id="data" title="Data and setup">
             <Link className="set-link" href="/app/sms"><span><span className="set-title">SMS setup</span><span className="set-hint">Forward bank alerts from your iPhone.</span></span><span aria-hidden>›</span></Link>
+            <Link className="set-link" href="/app/bin"><span><span className="set-title">Recycle bin</span><span className="set-hint">Deleted transactions wait here for 30 days and can be put back.</span></span><span aria-hidden>›</span></Link>
             <Link className="set-link" href="/app/backup"><span><span className="set-title">Backups</span><span className="set-hint">Nightly copies to your Google Drive.</span></span><span aria-hidden>›</span></Link>
             <a className="set-link" href="/api/transactions/export"><span><span className="set-title">Download all transactions</span><span className="set-hint">A CSV file you can open in Excel or Sheets.</span></span><span aria-hidden>↓</span></a>
           </Section>

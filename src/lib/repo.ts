@@ -8,6 +8,7 @@ import { normalizePrefs, type Prefs } from "./preferences";
 import { normalizeWords, type SmsWords } from "./sms/keywords";
 import { bankDigits, MAX_DIGITS, type Bank } from "./banks";
 import { BANK_CHARGES, TAX_DEDUCTED, type ChargeEdits } from "./charges";
+import { binTransaction } from "./bin";
 
 export type TxRow = {
   id: string;
@@ -311,9 +312,9 @@ export async function updateTransaction(id: string, t: TransactionInput, charges
   }));
 }
 
+/** Moves a transaction to the recycle bin, where it can be restored for 30 days. */
 export async function deleteTransaction(id: string) {
-  const r = await q(`DELETE FROM app.transactions WHERE id=$1`, [id]);
-  return (r.rowCount ?? 0) > 0;
+  return binTransaction(id);
 }
 
 export type ReviewRow = {

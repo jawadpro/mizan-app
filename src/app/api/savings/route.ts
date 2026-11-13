@@ -9,7 +9,7 @@ import { todayPkt } from "@/lib/time";
 export const dynamic = "force-dynamic";
 
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const today = todayPkt();
   const [data, funds, prefs] = await Promise.all([savingsData(today), listSetAsides(), getPrefs()]);
   setDisplayCurrency(prefs.currency);
@@ -23,7 +23,7 @@ const targetInput = z.object({ target: z.string().max(20) });
 
 /** PUT { target: "25,000" } sets the monthly savings target; an empty target goes back to the suggestion. */
 export const PUT = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const parsed = targetInput.safeParse(await readJson(req, 512));
   if (!parsed.success) throw new HttpError(400, "Enter a monthly amount like 25,000");
   const t = parsed.data.target.trim();
