@@ -50,7 +50,7 @@ export function PairIphone({ onPaired, replaces }: { onPaired: (d: Device) => vo
     );
   }
   if (error) return <div className="alert error" role="alert"><span>{error}</span><button className="btn sm" onClick={renew}>Try again</button></div>;
-  if (!code) return <p className="small muted iph-loading">Making a QR code…</p>;
+  if (!code) return <p className="small muted iph-loading">{phone ? "Getting ready…" : "Making a QR code…"}</p>;
   const shortcut = devices.data?.shortcut ?? { url: null, name: "Mizan" };
   const mm = Math.floor(secondsLeft / 60);
   const ss = String(secondsLeft % 60).padStart(2, "0");
@@ -62,7 +62,7 @@ export function PairIphone({ onPaired, replaces }: { onPaired: (d: Device) => vo
   const expiry = (
     <div className="small muted" aria-live="polite">
       {secondsLeft > 0 ? <>Works for {mm}:{ss}. </> : "Making a new one… "}
-      <button type="button" className="linkish" onClick={renew}>New QR code</button>
+      <button type="button" className="linkish" onClick={renew}>{phone ? "New link" : "New QR code"}</button>
     </div>
   );
   if (phone) {

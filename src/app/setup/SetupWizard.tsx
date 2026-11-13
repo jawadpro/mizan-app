@@ -7,6 +7,7 @@ import BankList from "@/components/BankList";
 import BankMessages from "@/components/BankMessages";
 import MessageTester from "@/components/MessageTester";
 import PushToggle from "@/components/PushToggle";
+import ForIphone from "@/components/ForIphone";
 import ConnectedDevices from "@/components/ConnectedDevices";
 import { useToast } from "@/components/Toast";
 import { useData } from "@/components/useData";
@@ -172,7 +173,7 @@ function IphoneStep({ back, next }: { back: () => void; next: () => void }) {
   return (
     <>
       <h1>Connect your iPhone</h1>
-      <p className="muted">The Mizan Shortcut sends each bank SMS to Mizan as it arrives. Scan the QR code with your iPhone to connect: nothing to copy or type. You can also do this later from Connect iPhone in the menu.</p>
+      <p className="muted">The Mizan Shortcut sends each bank SMS to Mizan as it arrives. <ForIphone iphone={<>Tap the two buttons below to connect: nothing to copy or type.</>} other={<>Scan the QR code with your iPhone to connect: nothing to copy or type.</>} /> You can also do this later from Connect iPhone in the menu.</p>
       <div className="setup-panel cx-wizard"><ConnectedDevices /></div>
       <div className="setup-actions">
         <button className="btn ghost" onClick={back}>Back</button>
