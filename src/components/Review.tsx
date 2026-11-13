@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KIND_LABEL } from "@/lib/categories";
 import { formatPaisa, getDisplayCurrency } from "@/lib/money";
 import { formatDatePkt, formatTimePkt } from "@/lib/time";
@@ -9,7 +9,6 @@ import { Empty, ErrorBox, Loading } from "./States";
 import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useBanks } from "./useBanks";
 import PushToggle from "./PushToggle";
-import ImportQueue from "./ImportQueue";
 import ChargesField, { type ChargesKind } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { ReviewItem } from "./types";
@@ -30,6 +29,11 @@ export default function Review({ space }: { space: Space }) {
   const [remember, setRemember] = useState(true);
   const toast = useToast();
   const readOnly = space === "demo";
+  // Queued messages imported from the More menu can land here; show them without a manual refresh.
+  useEffect(() => {
+    window.addEventListener(REVIEW_CHANGED, reload);
+    return () => window.removeEventListener(REVIEW_CHANGED, reload);
+  }, [reload]);
   const { banks, nameOf } = useBanks(space);
   /** Digits from the alert that the picked bank doesn't have saved yet, so they can be remembered on it. */
   const newDigits = (item: ReviewItem, bankId: string | null) => {
@@ -67,7 +71,6 @@ export default function Review({ space }: { space: Space }) {
         </div>
       </div>
       {!readOnly && <PushToggle />}
-      {!readOnly && <ImportQueue onImported={reload} />}
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading && !data ? <div className="card"><Loading rows={5} /></div> : data && data.items.length === 0 ? (
         <div className="card"><Empty icon="✅" title="All caught up">No alerts are waiting for review.</Empty></div>
       ) : (

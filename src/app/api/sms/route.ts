@@ -46,7 +46,7 @@ export const POST = handle(async (req: Request) => {
   const done = importFinished.safeParse(body);
   if (done.success) {
     const run = await finishImportRun(done.data.importRun, deviceId);
-    if (!run) return errorJson(404, "That import has expired. Start it again from the Review inbox in Mizan.");
+    if (!run) return errorJson(404, "That import has expired. Start it again from More › Import queued messages in Mizan.");
     return json({ ok: true, finished: true, message: importSummary(run), ...counts(run) });
   }
   const parsed = smsInput.safeParse(body);

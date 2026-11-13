@@ -13,6 +13,7 @@ import BrandMark from "@/components/BrandMark";
 import PullToRefresh from "./PullToRefresh";
 import ConfirmPassphrase from "./ConfirmPassphrase";
 import { IPHONE_STATUS } from "./paired-devices";
+import { useImportQueue } from "./ImportQueue";
 import "@/app/security.css";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
@@ -39,13 +40,22 @@ const ICONS = {
   system: svg(<><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></>),
   light: svg(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>),
   dark: svg(<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />),
+  download: svg(<><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" /><path d="M4.5 15.5V19a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3.5" /></>),
 };
 
-export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: { space: Space; children: React.ReactNode; currency?: string }) {
+type ShellProps = { space: Space; children: React.ReactNode; currency?: string };
+
+// The toast provider wraps everything, so the menu itself can show toasts (Import queued messages does).
+export default function Shell(props: ShellProps) {
+  return <ToastProvider><ShellBody {...props} /></ToastProvider>;
+}
+
+function ShellBody({ space, children, currency = DEFAULT_CURRENCY }: ShellProps) {
   // Set before any child renders, on the server and in the browser, so every amount uses the chosen currency.
   setDisplayCurrency(currency);
   const path = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const base = space === "demo" ? "/demo" : "/app";
   const links = [
     { href: base, label: "Dashboard", icon: ICONS.home },
@@ -84,6 +94,10 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
     setMoreOpen(false);
     setTapped(null);
   }, [path]);
+  useEffect(() => {
+    if (!moreOpen) setSigningOut(false);
+  }, [moreOpen]);
+  const importQueue = useImportQueue();
 
   // How many SMS alerts wait in the review inbox; refreshed on navigation, focus and after a review.
   const [pending, setPending] = useState(0);
@@ -159,7 +173,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
     </button>
   );
   return (
-    <ToastProvider>
+    <>
       <PullToRefresh />
       {space === "app" && <ConfirmPassphrase />}
       <div className="layout">
@@ -230,17 +244,32 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
         <div className="sheet-back" onClick={() => setMoreOpen(false)}>
           <div className="sheet" role="dialog" aria-modal="true" aria-label="More" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grip" aria-hidden />
-            {moreLinks.map((l) => (
-              <Link key={l.href} href={l.href} className={`sheet-item${path === l.href ? " active" : ""}`}>
-                <span className="sheet-label">{l.label}{badge(l.href)}{dot(l.href)}</span>
-                <span aria-hidden>›</span>
-              </Link>
-            ))}
-            <button type="button" className="sheet-item danger" onClick={logout}>Sign out</button>
-            <button type="button" className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} onClick={() => setMoreOpen(false)}>Close</button>
+            <div className="sheet-list">
+              {moreLinks.map((l) => (
+                <Link key={l.href} href={l.href} className={`sheet-item${path === l.href ? " active" : ""}`}>
+                  <span className="sheet-icon">{l.icon}</span>
+                  <span className="sheet-label">{l.label}{badge(l.href)}{dot(l.href)}</span>
+                  <span className="sheet-chev" aria-hidden>›</span>
+                </Link>
+              ))}
+              {space === "app" && importQueue.available && (
+                <button type="button" className="sheet-item" onClick={() => { importQueue.start(); }} disabled={importQueue.running}>
+                  <span className="sheet-icon">{ICONS.download}</span>
+                  <span className="sheet-label">{importQueue.label}</span>
+                  <span className="sheet-chev" aria-hidden>›</span>
+                </button>
+              )}
+            </div>
+            <div className="sheet-foot">
+              <button type="button" className="btn sheet-close" onClick={() => setMoreOpen(false)}>Close</button>
+              {/* Two taps, small and away from the list, so it isn't hit by accident. */}
+              <button type="button" className={`sheet-signout${signingOut ? " confirm" : ""}`} onClick={() => (signingOut ? logout() : setSigningOut(true))}>
+                {ICONS.out}<span>{signingOut ? "Tap again to sign out" : "Sign out"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </ToastProvider>
+    </>
   );
 }

@@ -93,10 +93,3 @@
 .pair-flow-head { display: flex; align-items: center; gap: 10px; }
 .pair-flow li.done .iph-dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .pair-flow .btn { justify-content: center; min-height: 46px; }
-
-/* Import queued messages, in the Review inbox on the iPhone */
-.iq { margin-bottom: 12px; }
-.iq-row { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; }
-.iq-text { flex: 1 1 240px; min-width: 0; display: grid; gap: 2px; }
-.iq-row .btn { flex: none; }
-@media (max-width: 560px) { .iq-row .btn { width: 100%; justify-content: center; } }
