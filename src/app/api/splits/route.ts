@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** GET lists open and recently settled shares; GET ?bill=<transaction id> the shares on one payment. */
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const bill = searchParamsObject(req.url).bill;
   const owner = await ownerName();
   if (bill !== undefined) {
@@ -23,7 +23,7 @@ export const GET = handle(async (req: Request) => {
 
 /** POST { transactionId, shares: [{ person, amount, note }] } splits a payment. */
 export const POST = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const parsed = splitInput.safeParse(await readJson(req, 8192));
   if (!parsed.success) throw new HttpError(400, "Please fix the highlighted fields", { fields: parsed.error.flatten().fieldErrors, issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })) });
   const r = await addShares(parsed.data.transactionId, parsed.data.shares);

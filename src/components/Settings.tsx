@@ -1,7 +1,7 @@
 "use client";
 import "@/app/settings.css";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CURRENCIES, formatPaisa, paisaToDecimal, setDisplayCurrency } from "@/lib/money";
 import type { Prefs } from "@/lib/preferences";
 import { apiFetch } from "./api";
@@ -15,6 +15,7 @@ import BankList from "./BankList";
 import MessageTester from "./MessageTester";
 import { LimitModal, type LimitEdit } from "./SpendingCheck";
 import { ChangePassphraseModal } from "./ChangePassphrase";
+import Security from "./Security";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const RANGES: { id: Prefs["defaultRange"]; label: string }[] = [
@@ -54,7 +55,35 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
+const TABS = [
+  { id: "general", label: "General" },
+  { id: "spending", label: "Spending" },
+  { id: "bank", label: "Banks" },
+  { id: "security", label: "Sign-in" },
+  { id: "data", label: "Data" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+// Old links pointed at a section on the long page; they open the tab it now lives on.
+const TAB_OF: Record<string, TabId> = { home: "general", appearance: "general", notifications: "general" };
+
+function tabFromHash(): TabId {
+  const h = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+  return (TABS.find((t) => t.id === h)?.id ?? TAB_OF[h] ?? "general") as TabId;
+}
+
 export default function Settings() {
+  const [tab, setTabState] = useState<TabId>("general");
+  useEffect(() => {
+    setTabState(tabFromHash());
+    const onHash = () => setTabState(tabFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  const setTab = (t: TabId) => {
+    setTabState(t);
+    // Kept in the address, so a reload or the back button returns to the same tab.
+    history.replaceState(null, "", `#${t}`);
+  };
   const { data, error, loading, reload } = useData<{ prefs: Prefs }>("/api/preferences");
   const limits = useData<{ items: { category: string; limit: number }[] }>("/api/limits");
   const [local, setLocal] = useState<Partial<Prefs>>({});
@@ -103,6 +132,12 @@ export default function Settings() {
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !p ? <div className="card"><Loading rows={6} /></div> : p && (
         <div className="set-grid">
+          <div className="seg set-tabs" role="tablist" aria-label="Settings sections">
+            {TABS.map((t) => (
+              <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}</button>
+            ))}
+          </div>
+          {tab === "general" && <>
           <Section id="home" title="Overview page">
             <Row title="Spending check" hint="A bell at the top shows a count when spending runs ahead of usual or a limit is near. Tap it for the tips and your monthly limits.">
               <Switch label="Spending check" on={p.spendingCheck} onChange={(v) => save({ spendingCheck: v })} />
@@ -116,8 +151,9 @@ export default function Settings() {
               </select>
             </Row>
           </Section>
+          </>}
 
-          <Section id="spending" title="Spending check">
+          {tab === "spending" && <Section id="spending" title="Spending check">
             <Row title="Warn me when a limit reaches" hint="You're always told again once a limit is passed." dim={!p.spendingCheck}>
               <div className="seg" role="group" aria-label="Warn at">
                 {([70, 80, 90] as const).map((n) => (
@@ -142,9 +178,9 @@ export default function Settings() {
                 </div>
               )}
             </div>
-          </Section>
+          </Section>}
 
-          <Section id="bank" title="Bank messages">
+          {tab === "bank" && <Section id="bank" title="Bank messages">
             <BankList onSaved={bump} />
             <Row title="Your name" hint="As banks print it in alerts. Separate several with commas. Transfers to or from this name are filed under Own accounts, not spending.">
               <input className="set-name" aria-label="Your name as banks print it" maxLength={300} placeholder="e.g. Muhammad Ali Khan" value={ownNames ?? p.ownNames}
@@ -154,8 +190,9 @@ export default function Settings() {
             </Row>
             <BankMessages onSaved={bump} />
             <MessageTester ownNames={ownNames ?? p.ownNames} version={version} />
-          </Section>
+          </Section>}
 
+          {tab === "general" && <>
           <Section id="appearance" title="Appearance">
             <Row title="Currency" hint="Every amount is shown in this currency, on every device. Amounts are not converted.">
               <select value={p.currency} onChange={(e) => saveCurrency(e.target.value as Prefs["currency"])} aria-label="Currency">
@@ -180,18 +217,21 @@ export default function Settings() {
               <Switch label="Show amounts and names in notifications" on={p.notifyDetails} onChange={(v) => save({ notifyDetails: v })} />
             </Row>
           </Section>
+          </>}
 
-          <Section id="security" title="Sign-in">
+          {tab === "security" && <Section id="security" title="Sign-in">
             <Row title="Passphrase" hint="Change the passphrase you sign in with. Other devices are signed out when you do.">
               <button className="btn sm" onClick={() => setPassOpen(true)}>Change passphrase</button>
             </Row>
-          </Section>
+            <Security />
+          </Section>}
 
-          <Section id="data" title="Data and setup">
+          {tab === "data" && <Section id="data" title="Data and setup">
             <Link className="set-link" href="/app/sms"><span><span className="set-title">SMS setup</span><span className="set-hint">Forward bank alerts from your iPhone.</span></span><span aria-hidden>›</span></Link>
+            <Link className="set-link" href="/app/bin"><span><span className="set-title">Recycle bin</span><span className="set-hint">Deleted transactions wait here for 30 days and can be put back.</span></span><span aria-hidden>›</span></Link>
             <Link className="set-link" href="/app/backup"><span><span className="set-title">Backups</span><span className="set-hint">Nightly copies to your Google Drive.</span></span><span aria-hidden>›</span></Link>
             <a className="set-link" href="/api/transactions/export"><span><span className="set-title">Download all transactions</span><span className="set-hint">A CSV file you can open in Excel or Sheets.</span></span><span aria-hidden>↓</span></a>
-          </Section>
+          </Section>}
         </div>
       )}
 

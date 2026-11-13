@@ -81,3 +81,9 @@
 /* Change passphrase */
 .pass-form { display: grid; gap: 12px; }
 .pass-form .modal-foot { margin-top: 0; }
+
+/* Settings tabs: one group at a time instead of one long page. Scrolls sideways on a narrow phone. */
+.set-tabs { display: flex; overflow-x: auto; scrollbar-width: none; max-width: 100%; justify-self: start; }
+.set-tabs::-webkit-scrollbar { display: none; }
+.set-tabs button { white-space: nowrap; flex: none; }
+@media (max-width: 560px) { .set-tabs { justify-self: stretch; } .set-tabs button { flex: 1 0 auto; } }

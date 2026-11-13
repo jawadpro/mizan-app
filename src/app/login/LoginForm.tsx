@@ -1,5 +1,4 @@
 "use client";
-import PasswordInput from "@/components/PasswordInput";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { apiFetch } from "@/components/api";
@@ -26,7 +25,7 @@ export default function LoginForm() {
     <form onSubmit={submit} style={{ display: "grid", gap: 14, marginTop: 18 }}>
       {expired && !err && <div className="alert warn">Your session ended. Please sign in again.</div>}
       <label className="field">Passphrase
-        <PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required autoFocus />
+        <input type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required autoFocus />
       </label>
       <label className="check">
         <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />

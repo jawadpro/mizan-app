@@ -137,7 +137,7 @@ export default function SpendingCheck({ onNavigate, onClose }: { onNavigate?: ()
               })}
             </div>
           )}
-          <p className="small muted spend-note">Charity, Zakat and Savings are never counted as overspending. <Link href="/app/settings">Spending check settings</Link></p>
+          <p className="small muted spend-note">Charity, Zakat and Savings are never counted as overspending. <Link href="/app/settings#spending">Spending check settings</Link></p>
         </>
       )}
 

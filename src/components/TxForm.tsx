@@ -33,7 +33,7 @@ export default function TxForm({
   submitLabel: string;
   onSubmit: (d: TxDraft) => Promise<void>;
   onClose: () => void;
-  /** When editing, shows a Delete button that asks once more before removing the transaction. */
+  /** When editing, shows a Delete button that asks once more before moving the transaction to the recycle bin. */
   onDelete?: () => Promise<void>;
   children?: React.ReactNode;
   /** Extra inputs shown at the end of the form; receives the server's field errors. */
@@ -152,7 +152,7 @@ export default function TxForm({
           {err && <div className="alert error" style={{ marginTop: 14 }} role="alert">{err}</div>}
           {confirmDelete ? (
             <div className="delete-confirm" role="alert">
-              <p>Delete this {d.kind === "expense" ? "expense" : "transaction"} for good? It will be removed from your totals and can&apos;t be undone.</p>
+              <p>Delete this {d.kind === "expense" ? "expense" : "transaction"}? It leaves your totals and goes to the recycle bin (Settings → Recycle bin), where you can restore it for 30 days.</p>
               <div className="modal-foot">
                 <button type="button" className="btn" onClick={() => setConfirmDelete(false)} disabled={busy} autoFocus>Keep it</button>
                 <button type="button" className="btn danger-solid" onClick={remove} disabled={busy}>{busy ? "Deleting…" : "Yes, delete"}</button>

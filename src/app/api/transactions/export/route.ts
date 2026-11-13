@@ -4,6 +4,6 @@ import { getExport } from "@/lib/handlers";
 
 export const dynamic = "force-dynamic";
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   return getExport("app", req);
 });

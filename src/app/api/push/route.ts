@@ -12,12 +12,12 @@ const subscribeInput = z.object({
 });
 
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   return json({ ok: true, publicKey: vapidPublicKey() });
 });
 
 export const POST = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const parsed = subscribeInput.safeParse(await readJson(req, 4096));
   if (!parsed.success) throw new HttpError(400, "This browser's notification details were not accepted");
   await saveSubscription(parsed.data);
@@ -25,7 +25,7 @@ export const POST = handle(async (req: Request) => {
 });
 
 export const DELETE = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const parsed = z.object({ endpoint }).safeParse(await readJson(req, 2048));
   if (!parsed.success) throw new HttpError(400, "Unknown device");
   await deleteSubscription(parsed.data.endpoint);

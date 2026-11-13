@@ -4,6 +4,7 @@ import { verifyPassword } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { errorJson, handle, json, readJson } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
+import { signOutOthers } from "@/lib/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ const MAX = 256;
 
 /** Changes the passphrase. Needs the current one; signs out every other device and keeps this one signed in. */
 export const POST = handle(async (req: Request) => {
-  const session = requireSession(req);
+  const session = await requireSession(req);
   const ip = clientIp(req);
   if (!(await rateLimit(`passphrase:ip:${ip}`, 5, 900)) || !(await rateLimit("passphrase:global", 20, 900))) {
     return errorJson(429, "Too many attempts. Try again in 15 minutes.");
@@ -31,7 +32,9 @@ export const POST = handle(async (req: Request) => {
     return errorJson(400, "Choose a passphrase different from the current one", { fields: { next: ["Choose a passphrase different from the current one"] } });
   }
   await changePassphrase(next);
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: sessionHeaders(wasRemembered(session)) });
+  // Every other device is signed out; this one gets a fresh session.
+  await signOutOthers(null);
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: await sessionHeaders(req, wasRemembered(session)) });
 });
 
 export function GET() {

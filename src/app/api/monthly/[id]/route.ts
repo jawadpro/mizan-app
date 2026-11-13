@@ -16,7 +16,7 @@ async function itemId(ctx: Ctx) {
 
 /** GET ?month=YYYY-MM[&q=] lists transactions that could be this month's payment, best guesses first. */
 export const GET = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await itemId(ctx);
   const sp = searchParamsObject(req.url);
   if (!isMonth(sp.month)) throw new HttpError(400, "month must be YYYY-MM");
@@ -27,7 +27,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
 });
 
 export const PATCH = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await itemId(ctx);
   const parsed = monthlyItemInput.safeParse(await readJson(req, 2048));
   if (!parsed.success) throw new HttpError(400, "Please fix the highlighted fields", { fields: parsed.error.flatten().fieldErrors });
@@ -37,7 +37,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
 
 /** POST { action: "stop", lastMonth } takes it off the list after that month; { action: "resume" } puts it back. */
 export const POST = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   const id = await itemId(ctx);
   const body = (await readJson(req, 256)) as { action?: unknown; lastMonth?: unknown } | null;
   let ok: boolean;
@@ -49,7 +49,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
 });
 
 export const DELETE = handle(async (req: Request, ctx: Ctx) => {
-  requireSession(req);
+  await requireSession(req);
   if (!(await deleteMonthlyItem(await itemId(ctx)))) throw new HttpError(404, "Payment not found");
   return json({ ok: true });
 });

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
-  requireSession(req);
+  await requireSession(req);
   const { id } = await ctx.params;
   if (!UUID.test(id)) throw new HttpError(404, "Not found");
   const body = (await readJson(req, 4096)) as { action?: string; transaction?: unknown; charges?: unknown; chargesKind?: unknown; rememberAccount?: unknown };

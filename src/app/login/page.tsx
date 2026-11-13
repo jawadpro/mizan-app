@@ -4,7 +4,6 @@ import { getSession } from "@/lib/auth";
 import { setupState } from "@/lib/config";
 import LoginForm from "./LoginForm";
 import "../extra.css";
-import BrandMark from "@/components/BrandMark";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
@@ -21,7 +20,7 @@ export default async function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="card login-card">
-        <div className="brand" style={{ marginBottom: 12 }}><BrandMark /> Mizan</div>
+        <div className="brand" style={{ marginBottom: 12 }}><span className="brand-mark" aria-hidden>م</span> Mizan</div>
         <h1 style={{ fontSize: "1.5rem" }}>Welcome back</h1>
         <p className="muted" style={{ marginTop: 4 }}>Enter your passphrase to open your finances.</p>
         <Suspense><LoginForm /></Suspense>

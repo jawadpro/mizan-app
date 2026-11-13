@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** Sends the signed-in owner to Google's consent screen, with a one-time state value to stop forged callbacks. */
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const origin = publicOrigin(req);
   const state = crypto.randomBytes(24).toString("base64url");
   const secure = origin.startsWith("https://") ? "; Secure" : "";

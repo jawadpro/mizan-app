@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { assertSameOrigin, requireSession, sessionHeaders } from "@/lib/auth";
+import { assertSameOrigin, requireConfirmed, requireSession, sessionHeaders } from "@/lib/auth";
 import { claimInstall, finishSetup, MIN_PASSPHRASE, ownerSmsToken, regenerateSmsToken, savedSmsToken, setupState } from "@/lib/config";
 import { env } from "@/lib/env";
 import { HttpError, errorJson, handle, json, readJson } from "@/lib/http";
@@ -15,7 +15,7 @@ export const GET = handle(async (req: Request) => {
   let signedIn = false;
   if (state.hasPassword) {
     try {
-      requireSession(req);
+      await requireSession(req);
       signedIn = true;
       token = ownerSmsToken();
     } catch {
@@ -44,14 +44,16 @@ export const POST = handle(async (req: Request) => {
     if (state.hasPassword) throw new HttpError(409, "Mizan already has a passphrase. Sign in instead.");
     const origin = new URL(req.headers.get("origin")!).origin;
     if (!(await claimInstall(body.password, origin))) throw new HttpError(409, "Mizan already has a passphrase. Sign in instead.");
-    return new Response(JSON.stringify({ ok: true, smsToken: savedSmsToken() }), { status: 200, headers: sessionHeaders(body.remember !== false) });
+    return new Response(JSON.stringify({ ok: true, smsToken: savedSmsToken() }), { status: 200, headers: await sessionHeaders(req, body.remember !== false) });
   }
 
-  requireSession(req);
+  await requireSession(req);
   if (body.action === "finish") {
     await finishSetup();
     return json({ ok: true });
   }
+  // A new SMS token breaks the iPhone Shortcut until it is updated, so it asks for the passphrase first.
+  await requireConfirmed(req);
   if (env.fromEnv("SMS_INGEST_TOKEN")) throw new HttpError(409, "The SMS token is set in your environment variables; change it there.");
   return json({ ok: true, smsToken: await regenerateSmsToken() });
 });

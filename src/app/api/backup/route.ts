@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export const GET = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const configured = googleConfigured();
   const isConnected = configured && (await connected());
   const latest = isConnected ? await latestBackup().catch(() => null) : null;
@@ -16,7 +16,7 @@ export const GET = handle(async (req: Request) => {
 
 /** "Back up now": same as the nightly job. */
 export const POST = handle(async (req: Request) => {
-  requireSession(req);
+  await requireSession(req);
   const r = await runBackup();
   return json(r, r.ok ? 200 : 502);
 });

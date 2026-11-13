@@ -169,15 +169,15 @@ export default function Calendar({ space }: { space: Space }) {
   async function destroy(id: string) {
     await apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
     setEditing(null);
-    toast("Transaction deleted", "ok");
+    toast("Moved to the recycle bin", "ok");
     reload();
   }
   async function remove(t: Tx) {
-    if (!window.confirm(`Delete ${formatPaisa(t.amount_paisa)} ${t.counterparty ? `to ${t.counterparty}` : ""}? This can't be undone.`)) return;
+    if (!window.confirm(`Delete ${formatPaisa(t.amount_paisa)} ${t.counterparty ? `to ${t.counterparty}` : ""}? It goes to the recycle bin, where you can restore it for 30 days.`)) return;
     try {
       await apiFetch(`/api/transactions/${t.id}`, { method: "DELETE" });
       setOpen(null);
-      toast("Transaction deleted", "ok");
+      toast("Moved to the recycle bin", "ok");
       reload();
     } catch (e) {
       toast((e as Error).message, "error");

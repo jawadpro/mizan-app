@@ -24,7 +24,7 @@ export const POST = handle(async (req: Request) => {
   if (!password || !verifyPassword(password, env.adminPasswordHash())) {
     return errorJson(401, "That passphrase is not correct");
   }
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: sessionHeaders(body?.remember !== false) });
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: await sessionHeaders(req, body?.remember !== false) });
 });
 
 export function GET() {
