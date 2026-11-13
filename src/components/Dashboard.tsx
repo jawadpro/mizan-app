@@ -225,7 +225,7 @@ export default function Dashboard({ space, showBalance, top, defaultPreset = "30
         <div className="card">
           <Empty title="No transactions in this period">
             {space === "app" ? (
-              <p>Add one by hand from <Link href="/app/transactions">Transactions</Link>, or set up the <Link href="/app/sms">iPhone SMS shortcut</Link>.</p>
+              <p>Add one by hand from <Link href="/app/transactions">Transactions</Link>, or <Link href="/app/sms">connect your iPhone</Link> to bring them in from bank alerts.</p>
             ) : (
               <p>Try a longer date range.</p>
             )}

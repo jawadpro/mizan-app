@@ -12,6 +12,7 @@ import { DEFAULT_CURRENCY, setDisplayCurrency } from "@/lib/money";
 import BrandMark from "@/components/BrandMark";
 import PullToRefresh from "./PullToRefresh";
 import ConfirmPassphrase from "./ConfirmPassphrase";
+import { IPHONE_STATUS } from "./paired-devices";
 import "@/app/security.css";
 
 type Tab = { href: string; label: string; icon: React.ReactNode };
@@ -58,7 +59,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
     { href: `${base}/review`, label: "Review inbox", icon: ICONS.inbox },
   ];
   const setupLinks = space === "app" ? [
-    { href: `${base}/sms`, label: "SMS setup", icon: ICONS.phone },
+    { href: `${base}/sms`, label: "Connect iPhone", icon: ICONS.phone },
     { href: `${base}/backup`, label: "Backups", icon: ICONS.cloud },
     { href: `${base}/settings`, label: "Settings", icon: ICONS.gear },
   ] : [];
@@ -108,6 +109,31 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
     const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
     (pending > 0 ? nav.setAppBadge?.(pending) : nav.clearAppBadge?.())?.catch(() => {});
   }, [space, pending]);
+  // Whether an iPhone is connected, for the red or green dot beside Connect iPhone. Refreshed like the count above.
+  const [iphone, setIphone] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (space !== "app") return;
+    let live = true;
+    const load = () =>
+      apiFetch<{ items: { revoked_at: string | null; last_seen_at: string | null }[] }>("/api/devices")
+        .then((d) => live && setIphone(d.items.some((x) => !x.revoked_at && !!x.last_seen_at)))
+        .catch(() => {});
+    load();
+    const onVisible = () => document.visibilityState === "visible" && load();
+    const onStatus = (e: Event) => setIphone(!!(e as CustomEvent<boolean>).detail);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener(IPHONE_STATUS, onStatus);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener(IPHONE_STATUS, onStatus);
+    };
+  }, [space, path]);
+  const iphoneHref = `${base}/sms`;
+  const dot = (href: string) =>
+    href === iphoneHref && iphone !== null
+      ? <span className={`nav-dot${iphone ? " on" : ""}`} role="img" aria-label={iphone ? "iPhone connected" : "No iPhone connected"} title={iphone ? "iPhone connected" : "No iPhone connected"} />
+      : null;
   const reviewHref = `${base}/review`;
   const badge = (href: string) =>
     href === reviewHref && pending > 0 ? <span className="count-badge" aria-label={`${pending} to review`}>{pending > 99 ? "99+" : pending}</span> : null;
@@ -157,6 +183,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
               <Link key={l.href} href={l.href} className={`side-link${path === l.href ? " active" : ""}`} aria-current={path === l.href ? "page" : undefined}>
                 {l.icon}
                 <span>{l.label}</span>
+                {dot(l.href)}
               </Link>
             ))}
           </nav>
@@ -205,7 +232,7 @@ export default function Shell({ space, children, currency = DEFAULT_CURRENCY }: 
             <div className="sheet-grip" aria-hidden />
             {moreLinks.map((l) => (
               <Link key={l.href} href={l.href} className={`sheet-item${path === l.href ? " active" : ""}`}>
-                <span className="sheet-label">{l.label}{badge(l.href)}</span>
+                <span className="sheet-label">{l.label}{badge(l.href)}{dot(l.href)}</span>
                 <span aria-hidden>›</span>
               </Link>
             ))}

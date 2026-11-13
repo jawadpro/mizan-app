@@ -3,6 +3,7 @@ import { errorJson, handle, json } from "@/lib/http";
 import { rateLimit } from "@/lib/ratelimit";
 import { shortcutConfig } from "@/lib/paired-devices";
 import { startImportRun } from "@/lib/import-runs";
+import { shortcutRunUrl } from "@/lib/shortcut-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,6 @@ export const POST = handle(async (req: Request) => {
   if (!(await rateLimit("importrun", 30, 3600))) return errorJson(429, "Too many imports in an hour. Try again later.");
   const id = await startImportRun();
   const input = `mizan-import:${id}`;
-  const runUrl = `shortcuts://run-shortcut?name=${encodeURIComponent(shortcutConfig().name)}&input=text&text=${encodeURIComponent(input)}`;
+  const runUrl = shortcutRunUrl(shortcutConfig().name, input);
   return json({ ok: true, id, input, runUrl });
 });

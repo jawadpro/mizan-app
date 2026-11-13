@@ -25,54 +25,48 @@
 .setup-panel > .field { margin-top: 12px; }
 .setup-more { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
 .setup-more summary { cursor: pointer; font-size: 0.9rem; font-weight: 500; }
-.setup-kv { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px 0 0; font-size: 0.9rem; }
-.setup-kv > span { color: var(--muted); padding-top: 2px; }
-.setup-kv code { word-break: break-all; }
 .setup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
-
-.shortcut-steps { padding-left: 18px; line-height: 1.7; margin: 12px 0 0; }
-.sms-token { display: grid; gap: 8px; }
-.sms-token-value { word-break: break-all; font-size: 0.85rem; }
-.sms-token-row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
-.sms-headers { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.sms-header { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 6px 12px; align-items: center; }
-.sms-header-key, .sms-header-val { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.sms-header code { word-break: break-all; font-size: 0.85rem; }
-@media (max-width: 560px) { .sms-header { grid-template-columns: minmax(0, 1fr); } .sms-header + .sms-header { border-top: 1px solid var(--border); padding-top: 8px; } }
-
-.shortcut-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
-.shortcut-card { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); text-decoration: none; font-size: 0.86rem; }
-.shortcut-card span { color: var(--muted); }
-.shortcut-card:hover { background: var(--hover); }
-.shortcut-card .shortcut-add { color: var(--accent-ink); font-weight: 600; margin-top: 4px; }
-.shortcut-url { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
-.shortcut-url code { word-break: break-all; }
 
 /* iPhone pairing and connected iPhones */
 .linkish { border: 0; background: none; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .qr { display: block; border-radius: 12px; border: 1px solid var(--border); background: #fff; }
-.iph-qr { margin: 0; display: grid; justify-items: center; gap: 8px; text-align: center; max-width: 210px; }
-.iph-install, .iph-pair { display: flex; gap: 22px; align-items: center; padding-top: 12px; flex-wrap: wrap; }
-.iph-install-text, .iph-pair-text { flex: 1 1 240px; display: grid; gap: 10px; justify-items: start; }
+.iph-qr { margin: 0; display: grid; justify-items: center; gap: 8px; text-align: center; flex: none; }
+.iph-qr .qr { width: 200px; height: 200px; max-width: 100%; }
+.iph-pair { display: flex; gap: 24px; align-items: center; padding-top: 12px; flex-wrap: wrap; min-width: 0; }
+.iph-pair.phone { display: grid; gap: 12px; align-items: stretch; }
+.iph-pair.phone .pair-flow { margin: 0; }
+.iph-pair-text { flex: 1 1 260px; min-width: 0; display: grid; gap: 12px; justify-items: start; }
+.iph-loading { padding: 12px 0; }
+@media (max-width: 560px) {
+  .iph-pair { justify-content: center; }
+  .iph-qr .qr { width: 180px; height: 180px; }
+}
+
+/* Connect iPhone page */
+.cx-page { display: grid; gap: 16px; max-width: 760px; }
+.cx-notes h3 { margin: 0 0 8px; }
+.cx-notes ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 0.93rem; line-height: 1.55; color: var(--muted); }
+.cx-notes a { color: var(--accent-ink); }
+.cx-status { display: flex; align-items: flex-start; gap: 10px; line-height: 1.45; }
+.cx-status > .status-dot { margin-top: 6px; }
+.cx-status > span:last-child { min-width: 0; }
+.cx-pair { margin-top: 4px; }
+.cx-next { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.cx-next h3 { margin: 0; }
+.iph-modal { width: min(620px, 100%); }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--down); box-shadow: 0 0 0 3px var(--down-soft); }
+.on > .status-dot, .status-dot.on { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .iph-list, .iph-steps { margin: 0; padding-left: 20px; line-height: 1.65; font-size: 0.93rem; }
 .iph-steps li + li { margin-top: 6px; }
 .iph-steps code, .iph-list code { font-size: 0.85em; }
 .iph-auto { padding-top: 12px; display: grid; gap: 12px; }
-.iph-code { font-family: var(--mono); font-size: 2rem; font-weight: 600; letter-spacing: 0.12em; padding: 8px 14px; border: 1px dashed var(--border-strong); border-radius: 12px; user-select: all; }
-.iph-code-label { margin-top: 4px; }
-.iph-run { min-height: 48px; padding: 0 22px; font-size: 1rem; justify-content: center; width: 100%; }
 .iph-waiting { display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .iph-pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: iph-pulse 1.4s ease-in-out infinite; }
 @keyframes iph-pulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .iph-pulse { animation: none; } }
 .iph-success { display: flex; gap: 12px; align-items: center; padding: 16px 0 4px; }
 .iph-check { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-weight: 700; flex: none; }
-.iph-tests { display: grid; gap: 10px; padding-top: 12px; }
-.iph-test { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.iph-test.ok { border-color: var(--accent); background: var(--accent-soft); }
 .iph-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 0.8rem; font-weight: 700; flex: none; border: 1px solid var(--border-strong); background: var(--surface); }
-.iph-test.ok .iph-dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.pair-code-big { font-family: var(--mono); font-size: 2.2rem; font-weight: 600; letter-spacing: .12em; text-align: center; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 12px; }
 
 .dev-list { display: grid; gap: 10px; }
 .dev-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
@@ -99,3 +93,10 @@
 .pair-flow-head { display: flex; align-items: center; gap: 10px; }
 .pair-flow li.done .iph-dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .pair-flow .btn { justify-content: center; min-height: 46px; }
+
+/* Import queued messages, in the Review inbox on the iPhone */
+.iq { margin-bottom: 12px; }
+.iq-row { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; }
+.iq-text { flex: 1 1 240px; min-width: 0; display: grid; gap: 2px; }
+.iq-row .btn { flex: none; }
+@media (max-width: 560px) { .iq-row .btn { width: 100%; justify-content: center; } }

@@ -37,7 +37,7 @@ export const POST = handle(async (req: Request) => {
     // Slow down token guessing: 10 failures per IP per 10 minutes.
     await rateLimit(`sms:fail:${ip}`, 10, 600);
     return errorJson(401, m && looksLikeDeviceToken(m[1])
-      ? "This iPhone isn't connected to Mizan any more. Pair it again from SMS setup › Connected iPhones."
+      ? "This iPhone isn't connected to Mizan any more. Scan the QR code in Mizan › Connect iPhone again."
       : "Invalid or missing bearer token");
   }
   if (!(await rateLimit("sms:global", 120, 60))) return errorJson(429, "Too many requests");
@@ -46,7 +46,7 @@ export const POST = handle(async (req: Request) => {
   const done = importFinished.safeParse(body);
   if (done.success) {
     const run = await finishImportRun(done.data.importRun, deviceId);
-    if (!run) return errorJson(404, "That import has expired. Start it again from SMS setup in Mizan.");
+    if (!run) return errorJson(404, "That import has expired. Start it again from the Review inbox in Mizan.");
     return json({ ok: true, finished: true, message: importSummary(run), ...counts(run) });
   }
   const parsed = smsInput.safeParse(body);

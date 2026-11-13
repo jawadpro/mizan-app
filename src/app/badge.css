@@ -4,3 +4,8 @@
 .count-badge.on-icon { position: absolute; top: -5px; right: -12px; margin: 0; border: 2px solid var(--surface); height: 20px; min-width: 20px; padding: 0 5px; }
 .sheet-label { display: inline-flex; align-items: center; }
 .sheet-item span.count-badge { color: var(--surface); font-size: 0.72rem; }
+
+/* Connect iPhone in the menu: red until an iPhone is connected, then green. */
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; flex: none; background: var(--down); box-shadow: 0 0 0 3px var(--down-soft); }
+.nav-dot.on { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sheet-label .nav-dot { display: inline-block; margin-left: 8px; vertical-align: 1px; }

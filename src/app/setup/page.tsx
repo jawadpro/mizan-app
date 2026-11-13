@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { setupState } from "@/lib/config";
@@ -22,11 +21,9 @@ export default async function SetupPage() {
   }
   if (state.done) redirect(signedIn ? "/app" : "/login");
   if (state.hasPassword && !signedIn) redirect("/login");
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "your-app.vercel.app";
   return (
     <ToastProvider>
-      <SetupWizard db={state.db} hasPassword={state.hasPassword} endpoint={`https://${host}/api/sms`} />
+      <SetupWizard db={state.db} hasPassword={state.hasPassword} />
     </ToastProvider>
   );
 }

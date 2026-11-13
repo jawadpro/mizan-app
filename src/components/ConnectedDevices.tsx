@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "./api";
 import CloseButton from "./CloseButton";
-import { AutomationGuide, InstallShortcut, PairIphone, TestConnection } from "./IphoneSetup";
-import { ago, deviceStatus, useDevices, type Device, type DevicesInfo } from "./paired-devices";
+import { AutomationGuide, PairIphone } from "./IphoneSetup";
+import { ago, deviceStatus, isConnected, useDevices, type Device, type DevicesInfo } from "./paired-devices";
 import { useToast } from "./Toast";
 import "@/app/setup.css";
 
@@ -13,11 +13,11 @@ const PHONE = (
   </svg>
 );
 
-const STEPS = ["Add Shortcut", "Pair", "Automation", "Test"] as const;
+const STEPS = ["Scan", "Automation"] as const;
 
-/** "Connect iPhone" (or "Reconnect", which replaces a device's token) as a short guided dialog. */
+/** "Add another iPhone" or "Reconnect" (which replaces a device's key) as a short guided dialog. */
 function ConnectDialog({ info, replaces, onClose }: { info: DevicesInfo | null; replaces?: Device; onClose: () => void }) {
-  const [step, setStep] = useState(replaces ? 1 : 0);
+  const [step, setStep] = useState(0);
   const [device, setDevice] = useState<Device | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -27,7 +27,7 @@ function ConnectDialog({ info, replaces, onClose }: { info: DevicesInfo | null; 
   const name = info?.shortcut.name ?? "Mizan";
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="connect-title" style={{ maxWidth: 640 }}>
+      <div className="modal iph-modal" role="dialog" aria-modal="true" aria-labelledby="connect-title">
         <div className="modal-head">
           <h2 id="connect-title">{replaces ? `Reconnect ${replaces.name}` : "Connect an iPhone"}</h2>
           <CloseButton onClick={onClose} />
@@ -39,19 +39,17 @@ function ConnectDialog({ info, replaces, onClose }: { info: DevicesInfo | null; 
             </li>
           ))}
         </ol>
-        {step === 0 && <InstallShortcut info={info} />}
-        {step === 1 && (
+        {step === 0 && (
           <>
-            {replaces && <p className="small muted">The new pairing replaces {replaces.name}&apos;s old token, which stops working as soon as the iPhone pairs.</p>}
+            {replaces && <p className="small muted" style={{ margin: 0 }}>{replaces.name}&apos;s old key stops working once the iPhone has saved the new one.</p>}
             <PairIphone onPaired={setDevice} replaces={replaces?.id} />
           </>
         )}
-        {step === 2 && <AutomationGuide shortcutName={name} senders={[]} />}
-        {step === 3 && <TestConnection device={device} shortcutName={name} />}
+        {step === 1 && <AutomationGuide shortcutName={name} senders={[]} />}
         <div className="modal-foot">
           {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>Back</button>}
           {step < STEPS.length - 1
-            ? <button className="btn primary" disabled={step === 1 && !device} onClick={() => setStep(step + 1)}>{step === 1 && !device ? "Waiting for iPhone…" : "Continue"}</button>
+            ? <button className="btn primary" disabled={step === 0 && !device} onClick={() => setStep(step + 1)}>{step === 0 && !device ? "Waiting for iPhone…" : "Continue"}</button>
             : <button className="btn primary" onClick={onClose}>Done</button>}
         </div>
       </div>
@@ -102,7 +100,7 @@ function DeviceItem({ d, onChanged, onReconnect }: { d: Device; onChanged: () =>
         )}
         <div className="dev-meta">{st.detail}</div>
         <div className="dev-meta">
-          Paired {new Date(d.paired_at).toLocaleDateString()} · token ending …{d.token_hint}
+          Paired {new Date(d.paired_at).toLocaleDateString()}
           {d.last_test_at && <> · last test {ago(d.last_test_at)}</>}
         </div>
         {(d.imported_count + d.review_count + d.duplicate_count + d.failed_count) > 0 && (
@@ -124,23 +122,51 @@ function DeviceItem({ d, onChanged, onReconnect }: { d: Device; onChanged: () =>
   );
 }
 
-/** SMS setup › Connected iPhones: every paired iPhone, with status, revoke and "add another". */
+/**
+ * Connect iPhone: the connection status, every paired iPhone, and pairing. Two steps: scan the QR code (right on the
+ * page while nothing is connected; "Add another iPhone" opens it in a dialog after that), then turn on the Message
+ * automation, whose instructions stay underneath until the first bank alert arrives.
+ */
 export default function ConnectedDevices() {
-  const { data, error, reload } = useDevices();
+  const { data, error, reload } = useDevices(true);
   const [dialog, setDialog] = useState<{ replaces?: Device } | null>(null);
   const active = data?.items.filter((d) => !d.revoked_at) ?? [];
+  const connected = active.filter(isConnected);
   const removed = data?.items.filter((d) => d.revoked_at) ?? [];
+  const name = data?.shortcut.name ?? "Mizan";
+  const finishing = connected.length > 0 && !connected.some((d) => d.last_sms_at);
+  const onPaired = useCallback(() => reload(), [reload]);
   return (
     <div className="devices">
       {error && <div className="alert error">{error}</div>}
       {!data && !error && <p className="small muted">Loading…</p>}
-      {data && active.length === 0 && (
-        <div className="alert warn"><span>No iPhone is connected yet, so no bank alerts are coming in.</span></div>
+      {data && (
+        <div className={`cx-status ${connected.length ? "on" : "off"}`} role="status">
+          <span className="status-dot" aria-hidden />
+          <span>
+            {connected.length
+              ? <><b>{connected.length === 1 ? "1 iPhone connected" : `${connected.length} iPhones connected`}</b><span className="muted"> · bank alerts come in by themselves</span></>
+              : <><b>Not connected</b><span className="muted"> · no bank alerts are coming in yet</span></>}
+          </span>
+        </div>
       )}
-      {active.length > 0 && <ul className="dev-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>{active.map((d) => <DeviceItem key={d.id} d={d} onChanged={reload} onReconnect={() => setDialog({ replaces: d })} />)}</ul>}
-      <div className="toolbar" style={{ marginTop: 12 }}>
-        <button className="btn primary" onClick={() => setDialog({})}>{active.length ? "Add another iPhone" : "Connect iPhone"}</button>
-      </div>
+      {data && connected.length === 0 && (
+        <div className="cx-pair">
+          <PairIphone onPaired={onPaired} />
+        </div>
+      )}
+      {active.length > 0 && <ul className="dev-list" style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>{active.map((d) => <DeviceItem key={d.id} d={d} onChanged={reload} onReconnect={() => setDialog({ replaces: d })} />)}</ul>}
+      {connected.length > 0 && (
+        <div className="toolbar" style={{ marginTop: 12 }}>
+          <button className="btn" onClick={() => setDialog({})}>Add another iPhone</button>
+        </div>
+      )}
+      {finishing && (
+        <div className="cx-next">
+          <h3>Now turn on the automation</h3>
+          <AutomationGuide shortcutName={name} senders={[]} />
+        </div>
+      )}
       {removed.length > 0 && (
         <details className="setup-more">
           <summary>Removed in the last 30 days ({removed.length})</summary>

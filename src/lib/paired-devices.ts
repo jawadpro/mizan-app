@@ -4,16 +4,21 @@ import { q, tx } from "./db";
 import { env } from "./env";
 import { formatCode, normalizeCode, randomCode } from "./pairing-code";
 
-// iPhone pairing: Mizan shows a short single-use code; the universal Mizan Shortcut opens
+// iPhone pairing: Mizan shows a QR code with a short single-use code; the universal Mizan Shortcut opens
 // <address>/api/devices/pair?code=… and gets back this address and a token for that iPhone alone, which it keeps
-// on the phone. The older Shortcut (URL and SMS token pasted by hand) keeps working alongside.
+// on the phone. A device counts as connected only once the iPhone has used its token (last_seen_at is set), so
+// Mizan never says "connected" before the phone has actually saved its key. Shortcuts set up by hand with the SMS
+// token keep working; the app just no longer shows that way.
 
 export const PAIRING_TTL_MIN = 10;
 export const MAX_DEVICES = 5;
 const TOKEN_RE = /^mzd_[A-Za-z0-9_-]{43}$/;
 
-/** The shared iCloud Shortcut. It holds no address or token: pairing hands it this Mizan's address. */
-const DEFAULT_SHORTCUT_URL = "https://www.icloud.com/shortcuts/d7ae4227390b4671b52dc6f44556d671";
+/**
+ * The shared iCloud Shortcut. It holds no address or token: pairing hands it this Mizan's address.
+ * To publish a new version of the Shortcut, change this one line (or set MIZAN_SHORTCUT_URL on the server).
+ */
+export const DEFAULT_SHORTCUT_URL = "https://www.icloud.com/shortcuts/d7ae4227390b4671b52dc6f44556d671";
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest();
 const codeDigest = (code: string) => crypto.createHmac("sha256", env.sessionSecret()).update(`pair:${code}`).digest();
@@ -55,30 +60,44 @@ export async function createPairingCode(opts: { name?: string; replaces?: string
 
 export type PairResult = { ok: true; deviceId: string; token: string } | { ok: false; reason: "invalid" | "limit" };
 
-/** Turns a valid, unused, unexpired code into a new device and returns its token, once. Only a digest is kept. */
+/**
+ * Turns a valid, unexpired code into a new device and returns its token. Only a digest is kept.
+ *
+ * The device is "pending" until the iPhone first uses its token (see authenticateDevice). Until then the same code
+ * may be used again within its 10 minutes, and the newer use replaces the pending device. That way a link preview,
+ * a browser or a Shortcut run that fails before saving its key can't use up the code: whatever opens the link
+ * last, and then proves it kept the key, is the device that stays.
+ */
 export async function redeemPairingCode(rawCode: string, rawName: string): Promise<PairResult> {
   const code = normalizeCode(rawCode);
   if (!code) return { ok: false, reason: "invalid" };
   const token = `mzd_${crypto.randomBytes(32).toString("base64url")}`;
   return tx(async (run) => {
-    const used = await run<{ device_name: string | null; replaces_id: string | null }>(
-      `UPDATE app.pairing_codes SET used_at = now()
-       WHERE code_digest = $1 AND used_at IS NULL AND expires_at > now()
-       RETURNING device_name, replaces_id`,
+    const used = await run<{ device_name: string | null; replaces_id: string | null; prior_id: string | null }>(
+      `UPDATE app.pairing_codes pc SET used_at = now()
+       WHERE code_digest = $1 AND expires_at > now()
+         AND (used_at IS NULL OR device_id IN (SELECT id FROM app.paired_devices WHERE last_seen_at IS NULL AND revoked_at IS NULL))
+       RETURNING device_name, replaces_id, device_id AS prior_id`,
       [codeDigest(code)],
     );
     const pc = used.rows[0];
     if (!pc) return { ok: false, reason: "invalid" } as const;
+    let priorName: string | null = null;
+    if (pc.prior_id) {
+      // An earlier use of this code that never confirmed: drop it, this one takes its place.
+      const prior = await run<{ name: string }>(`DELETE FROM app.paired_devices WHERE id = $1 AND last_seen_at IS NULL RETURNING name`, [pc.prior_id]);
+      priorName = prior.rows[0]?.name ?? null;
+    }
     let keptName: string | null = null;
     if (pc.replaces_id) {
-      // Reconnecting replaces the old token and keeps the name the iPhone had.
-      const old = await run<{ name: string }>(
-        `UPDATE app.paired_devices SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL RETURNING name`, [pc.replaces_id]);
+      // Reconnecting keeps the name the iPhone had. The old token keeps working until the new one is confirmed.
+      const old = await run<{ name: string }>(`SELECT name FROM app.paired_devices WHERE id = $1 AND revoked_at IS NULL`, [pc.replaces_id]);
       keptName = old.rows[0]?.name ?? null;
     }
-    const active = await run<{ n: number }>(`SELECT count(*)::int AS n FROM app.paired_devices WHERE revoked_at IS NULL`);
+    const active = await run<{ n: number }>(
+      `SELECT count(*)::int AS n FROM app.paired_devices WHERE revoked_at IS NULL AND id IS DISTINCT FROM $1::uuid`, [pc.replaces_id]);
     if (active.rows[0].n >= MAX_DEVICES) return { ok: false, reason: "limit" } as const;
-    const name = (pc.device_name || keptName || rawName.replace(/[\u0000-\u001f]/g, "").trim() || "iPhone").slice(0, 60);
+    const name = (pc.device_name || keptName || priorName || rawName.replace(/[\u0000-\u001f]/g, "").trim() || "iPhone").slice(0, 60);
     const dev = await run<{ id: string }>(
       `INSERT INTO app.paired_devices (name, token_digest, token_hint) VALUES ($1, $2, $3) RETURNING id`,
       [name, sha256(token), token.slice(-4)],
@@ -90,14 +109,29 @@ export async function redeemPairingCode(rawCode: string, rawName: string): Promi
 
 export const looksLikeDeviceToken = (t: string) => TOKEN_RE.test(t);
 
-/** The paired iPhone a device token belongs to, or null (wrong or removed). */
+/**
+ * The paired iPhone a device token belongs to, or null (wrong or removed). The first time a token is used, the
+ * pairing is confirmed: the iPhone has saved its key. Only then does a Reconnect stop the old token.
+ */
 export async function authenticateDevice(token: string): Promise<string | null> {
   if (!TOKEN_RE.test(token)) return null;
-  const { rows } = await q<{ id: string }>(
-    `UPDATE app.paired_devices SET last_seen_at = now() WHERE token_digest = $1 AND revoked_at IS NULL RETURNING id`,
+  const { rows } = await q<{ id: string; first: boolean }>(
+    `UPDATE app.paired_devices p SET last_seen_at = now()
+     FROM (SELECT id, last_seen_at IS NULL AS first FROM app.paired_devices WHERE token_digest = $1 AND revoked_at IS NULL) o
+     WHERE p.id = o.id
+     RETURNING p.id, o.first`,
     [sha256(token)],
   );
-  return rows[0]?.id ?? null;
+  const dev = rows[0];
+  if (!dev) return null;
+  if (dev.first) {
+    await q(
+      `UPDATE app.paired_devices SET revoked_at = now()
+       WHERE revoked_at IS NULL AND id <> $1 AND id IN (SELECT replaces_id FROM app.pairing_codes WHERE device_id = $1)`,
+      [dev.id],
+    );
+  }
+  return dev.id;
 }
 
 const COUNTER: Record<string, string> = {

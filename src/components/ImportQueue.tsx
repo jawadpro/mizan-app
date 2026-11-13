@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiFetch } from "./api";
+import { apiFetch, REVIEW_CHANGED } from "./api";
 import { isIphone } from "./paired-devices";
 import { useToast } from "./Toast";
+import "@/app/setup.css";
 
 type Run = {
   id: string; finished_at: string | null; sent_count: number; imported_count: number; review_count: number;
@@ -17,7 +18,7 @@ const GIVE_UP_MS = 15 * 60e3;
  * "Import queued messages": opens the Mizan Shortcut in import mode. It sends each alert it saved while offline,
  * then says it's finished; this page follows along and shows how many were imported.
  */
-export default function ImportQueue({ shortcutName = "Mizan" }: { shortcutName?: string }) {
+export default function ImportQueue({ shortcutName = "Mizan", onImported }: { shortcutName?: string; onImported?: () => void }) {
   const toast = useToast();
   const [phone, setPhone] = useState(false);
   const [pending, setPending] = useState<{ id: string; at: number } | null>(null);
@@ -44,12 +45,14 @@ export default function ImportQueue({ shortcutName = "Mizan" }: { shortcutName?:
         if (announced.current !== id) {
           announced.current = id;
           toast(s.summary, s.run.failed_count ? "error" : "ok");
+          onImported?.();
+          window.dispatchEvent(new Event(REVIEW_CHANGED));
         }
       }
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [toast]);
+  }, [toast, onImported]);
 
   // Follow the run while the Shortcut works, and as soon as you come back to Mizan.
   useEffect(() => {
@@ -82,18 +85,19 @@ export default function ImportQueue({ shortcutName = "Mizan" }: { shortcutName?:
   }
 
   const run = status?.run;
+  // Only the iPhone that holds the queue can use this, so it only shows there (or while an import is running).
+  if (!phone && !pending && !run) return null;
   return (
-    <div className="iq">
-      <p className="small muted" style={{ margin: 0 }}>
-        With no internet, the {shortcutName} Shortcut keeps each bank alert in a queue on the iPhone. Back online, tap the button to send them all;
-        Mizan skips any it already has.
-      </p>
-      <div className="toolbar" style={{ marginTop: 10 }}>
-        <button className="btn" onClick={start} disabled={busy || !phone} title={phone ? undefined : "Open Mizan on the iPhone that has the queue"}>
+    <div className="card iq">
+      <div className="iq-row">
+        <div className="iq-text">
+          <b>Queued messages</b>
+          <div className="small muted">Alerts that arrived with no internet wait in the {shortcutName} Shortcut. Send them to Mizan; it skips any it already has.</div>
+        </div>
+        <button className="btn" onClick={start} disabled={busy || !phone}>
           {busy ? "Opening Shortcut…" : "Import queued messages"}
         </button>
       </div>
-      {!phone && <p className="small muted">Open Mizan on the iPhone that has the queue to use this button.</p>}
       {pending && !run?.finished_at && (
         <div className="iph-waiting small" role="status" style={{ marginTop: 8 }}>
           <span className="iph-pulse" aria-hidden /> {run?.sent_count ? `${run.sent_count} sent so far…` : "Waiting for the Shortcut…"}
