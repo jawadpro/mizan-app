@@ -10,15 +10,16 @@ import { addBankCharge, getPrefs, getSmsWords, listBanks } from "../repo";
 const splitList = (s: string | undefined) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
 
 /** Reads an alert with the owner's banks, words and name from Settings. If Settings can't be loaded, the built-in MCB rules decide, so no alert is lost. */
-async function read(input: { sender: string; text: string; receivedAt: Date }): Promise<{ result: ParseResult; bankId: string | null }> {
+async function read(input: { sender: string; text: string; receivedAt: Date }): Promise<{ result: ParseResult; bankId: string | null; currency: string | null }> {
   const trusted = splitList(process.env.SMS_TRUSTED_SENDERS);
   // The user's own name(s), as banks print them, so transfers between their own accounts are recognised.
   const envNames = splitList(process.env.SMS_OWN_NAMES);
   const [banks, words, prefs] = await Promise.all([listBanks().catch(() => null), getSmsWords().catch(() => undefined), getPrefs().catch(() => null)]);
   const ownNames = [...envNames, ...splitList(prefs?.ownNames)];
-  if (!banks) return { result: parseSms({ ...input, trustedSenders: trusted, ownNames, words }), bankId: null };
-  const { result, bank } = readAlert(input, { banks, words, ownNames, extraTrusted: trusted });
-  return { result, bankId: bank?.id ?? null };
+  const currency = prefs?.currency ?? null;
+  if (!banks) return { result: parseSms({ ...input, trustedSenders: trusted, ownNames, words, currency }), bankId: null, currency };
+  const { result, bank } = readAlert(input, { banks, words, ownNames, extraTrusted: trusted, currency });
+  return { result, bankId: bank?.id ?? null, currency };
 }
 
 export type IngestOutcome =
@@ -30,7 +31,7 @@ export type IngestOutcome =
 class Duplicate extends Error {}
 
 export async function ingestSms(input: { sender: string; text: string; receivedAt: Date }): Promise<IngestOutcome> {
-  const { result, bankId } = await read(input);
+  const { result, bankId, currency } = await read(input);
   // OTPs and promotions are dropped without storing anything.
   if (result.status === "ignored") return { status: "ignored", reason: result.reason };
 
@@ -74,7 +75,7 @@ export async function ingestSms(input: { sender: string; text: string; receivedA
       const rev = await run<{ id: string }>(
         `INSERT INTO app.review_items (sms_import_id, reason, redacted_text, sender, received_at, kind, amount_paisa, occurred_at, counterparty, category, account_hint, bank_ref, bank_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
-        [importId, reason, redactSms(input.text), input.sender.slice(0, 64), input.receivedAt, f.kind, f.amountPaisa, f.occurredAt, f.counterparty, f.category, f.accountHint, f.bankRef, bankId],
+        [importId, reason, redactSms(input.text, currency), input.sender.slice(0, 64), input.receivedAt, f.kind, f.amountPaisa, f.occurredAt, f.counterparty, f.category, f.accountHint, f.bankRef, bankId],
       );
       return { status: "review", reviewId: rev.rows[0].id, reason } as const;
     });

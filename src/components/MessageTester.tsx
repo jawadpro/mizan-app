@@ -1,10 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { KIND_LABEL } from "@/lib/categories";
-import { formatPaisa } from "@/lib/money";
+import { formatPaisa, getDisplayCurrency } from "@/lib/money";
 import { formatDatePkt, formatTimePkt } from "@/lib/time";
 import { readAlert } from "@/lib/sms/read";
-import { findDate } from "@/lib/sms/parser";
+import { findDate, monthFirstFor } from "@/lib/sms/parser";
 import type { SmsWords } from "@/lib/sms/keywords";
 import { useData } from "./useData";
 import type { BankItem } from "./useBanks";
@@ -22,9 +22,10 @@ export default function MessageTester({ ownNames, version }: { ownNames: string;
     if (!banks || text.trim().length < 10) return null;
     const names = ownNames.split(",").map((x) => x.trim()).filter(Boolean);
     // Read it as if it had just arrived, so an older example isn't flagged for its date.
-    const d = findDate(text);
+    const currency = getDisplayCurrency();
+    const d = findDate(text, monthFirstFor(currency));
     const receivedAt = d ? new Date(Date.UTC(d.y, d.m, d.d, d.hh ?? 12, (d.mm ?? 0) + 1) - 5 * 3600e3) : new Date();
-    return readAlert({ sender, text, receivedAt }, { banks, words, ownNames: names });
+    return readAlert({ sender, text, receivedAt }, { banks, words, ownNames: names, currency });
   }, [banks, words, ownNames, sender, text]);
 
   const r = out?.result;

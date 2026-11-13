@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { KIND_LABEL } from "@/lib/categories";
-import { formatPaisa } from "@/lib/money";
+import { formatPaisa, getDisplayCurrency } from "@/lib/money";
 import { formatDatePkt, formatTimePkt } from "@/lib/time";
 import { apiFetch, resourceUrl, REVIEW_CHANGED, type Space } from "./api";
 import { useData } from "./useData";
@@ -17,7 +17,7 @@ import { ACCOUNT_UNCLEAR, bankDigits } from "@/lib/banks";
 
 /** A charge the alert itself names ("and Tax/Charges 5.00") fills the charges box, ready to confirm. */
 function chargesIn(it: ReviewItem): string {
-  const c = it.kind === "expense" && it.redacted_text ? findCharges(it.redacted_text) : null;
+  const c = it.kind === "expense" && it.redacted_text ? findCharges(it.redacted_text, getDisplayCurrency()) : null;
   return c ? (c / 100).toFixed(2) : "";
 }
 
