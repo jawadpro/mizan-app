@@ -323,7 +323,7 @@ export function parseSms(input: ParseInput): ParseResult {
   // Decide: import only when every required fact was read unambiguously.
   const review = (reason: string): ParseResult => ({ status: "review", reason, fields });
   if (input.knownSender === false) return review("Sender isn't one of your banks in Settings");
-  if (input.knownSender === undefined && !isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not a recognised MCB sender");
+  if (input.knownSender === undefined && !isTrustedSender(input.sender, input.trustedSenders)) return review("Sender is not one of your banks");
   if (FOREIGN_RE.test(text)) return review("Foreign-currency amount present");
   if (UNSURE_RE.test(directional)) return review("Reversal, refund, pending or failed wording");
   if (distinct.length === 0) return review("No transaction amount found (balances are ignored)");

@@ -6,7 +6,7 @@ import { useData } from "./useData";
 export type BankItem = { id: string; name: string; senders: string; account_hint: string; auto_import: boolean; hold_transfers: boolean; active: boolean; records?: number };
 export type RemovedBankItem = { id: string; name: string; account_hint: string; records: number; archived_at: string };
 
-/** "MCB ••1234", with "(paused)" while the bank is paused: how a bank is named in pickers. */
+/** "My Bank ••1234", with "(paused)" while the bank is paused: how a bank is named in pickers. */
 export function bankLabel(b: Pick<BankItem, "name" | "account_hint"> & { active?: boolean }) {
   return `${b.name}${b.account_hint ? ` ${digitsLabel(b.account_hint)}` : ""}${b.active === false ? " (paused)" : ""}`;
 }

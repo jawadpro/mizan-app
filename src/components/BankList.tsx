@@ -109,10 +109,10 @@ export default function BankList({ onSaved }: { onSaved?: () => void }) {
               {r.active === false && <div className="small muted" style={{ marginBottom: 8 }}>Paused: its alerts wait in Review until you resume it. Its transactions and balance stay as they are.</div>}
               <div className="bank-grid">
                 <label className="field">Bank name
-                  <input value={r.name} maxLength={60} placeholder="e.g. MCB" onChange={(e) => update(r.key, { name: e.target.value })} />
+                  <input value={r.name} maxLength={60} placeholder="e.g. My Bank" onChange={(e) => update(r.key, { name: e.target.value })} />
                 </label>
                 <label className="field">Senders <span className="hint">Commas between; * means “starts with”</span>
-                  <input value={r.senders} maxLength={300} placeholder="e.g. MCB*, 6222, 8222" onChange={(e) => update(r.key, { senders: e.target.value })} />
+                  <input value={r.senders} maxLength={300} placeholder="e.g. MYBANK*, 1234" onChange={(e) => update(r.key, { senders: e.target.value })} />
                 </label>
                 <label className="field">Account digits <span className="hint">Last 4, plus cards</span>
                   <input value={r.account_hint} inputMode="numeric" maxLength={40} placeholder="e.g. 1234, 4321" onChange={(e) => update(r.key, { account_hint: e.target.value.replace(/[^\d, ]/g, "") })} />
