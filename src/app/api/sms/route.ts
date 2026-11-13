@@ -3,7 +3,8 @@ import { safeEqual } from "@/lib/crypto";
 import { errorJson, handle, json, readJson } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
 import { smsInput } from "@/lib/validation";
-import { ingestSms } from "@/lib/sms/ingest";
+import { ingestSms, previewSms } from "@/lib/sms/ingest";
+import { authenticateDevice, looksLikeDeviceToken, recordIngest, recordTest } from "@/lib/paired-devices";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,8 +12,18 @@ export const dynamic = "force-dynamic";
 const MAX_BODY_BYTES = 4 * 1024;
 
 /**
+ * Who sent this: a paired iPhone's own token (from pairing), or the SMS token (the older Shortcut where the URL and
+ * token are pasted by hand, which keeps working). Returns the paired device's id, null for the SMS token, or false.
+ */
+async function sender(token: string): Promise<string | null | false> {
+  if (looksLikeDeviceToken(token)) return (await authenticateDevice(token)) ?? false;
+  return safeEqual(token, env.smsToken()) ? null : false;
+}
+
+/**
  * Receives bank alert SMS forwarded by an iPhone Shortcut.
- * Auth: `Authorization: Bearer <SMS_INGEST_TOKEN>`. The token and message text are never logged.
+ * Auth: `Authorization: Bearer <this iPhone's token from pairing, or SMS_INGEST_TOKEN>`. With `"test": true` the
+ * alert is only read, never saved. The token and message text are never logged.
  */
 export const POST = handle(async (req: Request) => {
   const ip = clientIp(req);
@@ -20,10 +31,13 @@ export const POST = handle(async (req: Request) => {
 
   const auth = req.headers.get("authorization") ?? "";
   const m = /^Bearer\s+(\S{1,512})$/.exec(auth);
-  if (!m || !safeEqual(m[1], env.smsToken())) {
+  const deviceId = m ? await sender(m[1]) : false;
+  if (deviceId === false) {
     // Slow down token guessing: 10 failures per IP per 10 minutes.
     await rateLimit(`sms:fail:${ip}`, 10, 600);
-    return errorJson(401, "Invalid or missing bearer token");
+    return errorJson(401, m && looksLikeDeviceToken(m[1])
+      ? "This iPhone isn't connected to Mizan any more. Pair it again from SMS setup › Connected iPhones."
+      : "Invalid or missing bearer token");
   }
   if (!(await rateLimit("sms:global", 120, 60))) return errorJson(429, "Too many requests");
 
@@ -35,7 +49,19 @@ export const POST = handle(async (req: Request) => {
   const receivedAt = new Date(parsed.data.receivedAt);
   if (receivedAt.getTime() > Date.now() + 10 * 60e3) return errorJson(400, "receivedAt is in the future");
 
-  const out = await ingestSms({ sender: parsed.data.sender, text: parsed.data.text, receivedAt });
+  const input = { sender: parsed.data.sender, text: parsed.data.text, receivedAt };
+  if (parsed.data.test) {
+    if (deviceId) await recordTest(deviceId);
+    return json({ ok: true, test: true, message: "Mizan received a test from this iPhone. Nothing was saved.", reading: await previewSms(input) });
+  }
+  let out;
+  try {
+    out = await ingestSms(input);
+  } catch (e) {
+    if (deviceId) await recordIngest(deviceId, "failed").catch(() => {});
+    throw e;
+  }
+  if (deviceId) await recordIngest(deviceId, out.status).catch(() => {});
   const status = out.status === "imported" ? 201 : out.status === "review" ? 202 : 200;
   return json({ ok: true, ...out }, status);
 });

@@ -45,6 +45,8 @@ export const smsInput = z.object({
     .string()
     .max(40)
     .refine((s) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})$/.test(s) && !Number.isNaN(Date.parse(s)), "receivedAt must be ISO 8601 with a timezone, e.g. 2026-10-15T14:30:00+05:00"),
+  // The Shortcut's connection test: read the alert, save nothing.
+  test: z.boolean().optional(),
 }).strict();
 
 export const listQuery = z.object({

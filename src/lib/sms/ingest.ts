@@ -30,6 +30,14 @@ export type IngestOutcome =
 
 class Duplicate extends Error {}
 
+/** How Mizan would read an alert, without saving anything (the Shortcut's connection test). */
+export async function previewSms(input: { sender: string; text: string; receivedAt: Date }) {
+  const { result } = await read(input);
+  if (result.status === "ignored") return { status: "ignored" as const, reason: result.reason };
+  const f = result.fields;
+  return { status: result.status, kind: f.kind ?? null, amountPaisa: f.amountPaisa ?? null };
+}
+
 export async function ingestSms(input: { sender: string; text: string; receivedAt: Date }): Promise<IngestOutcome> {
   const { result, bankId, currency } = await read(input);
   // OTPs and promotions are dropped without storing anything.
