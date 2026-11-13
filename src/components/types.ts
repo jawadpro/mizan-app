@@ -66,6 +66,8 @@ export type SetAside = {
   starts_on: string;
   ended_on: string | null;
   purpose: "giving" | "saving";
+  /** The bank whose incoming money fills it; null for all banks. */
+  bank_id: string | null;
   forgiven: number;
   allocated: number;
   sources: number;

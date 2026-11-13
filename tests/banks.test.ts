@@ -153,3 +153,25 @@ describe("several accounts at the same banks", () => {
     expect(chooseBank(js, "JS BANK", ["8"]).bank?.name).toBe("JS Main");
   });
 });
+
+describe("bank filter", () => {
+  const ubl = "11111111-2222-4333-8444-555555555555";
+  const mcbId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  it("reads ?bank= safely", async () => {
+    const { bankParam } = await import("@/lib/banks");
+    expect(bankParam(null)).toBe("");
+    expect(bankParam("none")).toBe("none");
+    expect(bankParam(ubl.toUpperCase())).toBe(ubl);
+    expect(bankParam("'; drop table")).toBe("");
+  });
+  it("shows shared items everywhere and a bank's items only under that bank", async () => {
+    const { showsForBank } = await import("@/lib/banks");
+    expect(showsForBank(null, "")).toBe(true);
+    expect(showsForBank(null, ubl)).toBe(true);
+    expect(showsForBank(null, "none")).toBe(true);
+    expect(showsForBank(ubl, "")).toBe(true);
+    expect(showsForBank(ubl, ubl)).toBe(true);
+    expect(showsForBank(ubl, mcbId)).toBe(false);
+    expect(showsForBank(ubl, "none")).toBe(false);
+  });
+});

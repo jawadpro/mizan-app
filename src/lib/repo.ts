@@ -484,6 +484,8 @@ export type SetAsideRow = {
   starts_on: string;
   ended_on: string | null;
   purpose: "giving" | "saving";
+  /** The bank whose incoming money fills it; null for all banks. */
+  bank_id: string | null;
   forgiven: number;
   allocated: number;
   sources: number;
@@ -493,12 +495,13 @@ export type SetAsideRow = {
 
 const MATCHES = `t.category <> '${OWN_ACCOUNTS}' AND ((s.applies_to = 'incoming' AND t.kind IN ('income', 'remittance')) OR t.kind = s.applies_to)
   AND t.occurred_at >= (s.starts_on::timestamp AT TIME ZONE 'Asia/Karachi')
-  AND (s.ended_on IS NULL OR t.occurred_at < ((s.ended_on + 1)::timestamp AT TIME ZONE 'Asia/Karachi'))`;
+  AND (s.ended_on IS NULL OR t.occurred_at < ((s.ended_on + 1)::timestamp AT TIME ZONE 'Asia/Karachi'))
+  AND (s.bank_id IS NULL OR t.bank_id = s.bank_id)`;
 
 export async function listSetAsides(): Promise<SetAsideRow[]> {
   const { rows } = await q<Omit<SetAsideRow, "remaining">>(
     `SELECT s.id, s.name, s.percent_bp, s.applies_to, to_char(s.starts_on, 'YYYY-MM-DD') AS starts_on, to_char(s.ended_on, 'YYYY-MM-DD') AS ended_on,
-            s.purpose, s.forgiven_paisa::float8 AS forgiven,
+            s.purpose, s.bank_id, s.forgiven_paisa::float8 AS forgiven,
             coalesce(src.allocated, 0)::float8 AS allocated, coalesce(src.n, 0)::int AS sources,
             coalesce(out.used, 0)::float8 AS used
      FROM app.set_asides s
@@ -528,18 +531,35 @@ export async function setAsideContributions(id: string) {
 /** Names that read as charity default to "giving" when no purpose is chosen. */
 export const GIVING_NAME = /(allah|charit|sadq|sadaq|zakat|donat|khair|fitr|qurban|masjid|mosque)/i;
 
+/** A set-aside linked to a bank that was removed meanwhile. */
+async function savingSetAside<T>(fn: () => Promise<T>) {
+  try {
+    return await fn();
+  } catch (e) {
+    if ((e as { code?: string })?.code === "23503") throw new HttpError(400, "That bank no longer exists", { fields: { bankId: ["Choose another bank"] } });
+    throw e;
+  }
+}
+
 export async function createSetAside(v: SetAsideInput) {
-  const { rows } = await q<{ id: string }>(
-    `INSERT INTO app.set_asides (name, percent_bp, applies_to, starts_on, ended_on, purpose) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-    [v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null, v.purpose ?? (GIVING_NAME.test(v.name) ? "giving" : "saving")],
+  const { rows } = await savingSetAside(() =>
+    q<{ id: string }>(
+      `INSERT INTO app.set_asides (name, percent_bp, applies_to, starts_on, ended_on, purpose, bank_id) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null, v.purpose ?? (GIVING_NAME.test(v.name) ? "giving" : "saving"), v.bankId ?? null],
+    ),
   );
   return rows[0].id;
 }
 
+/** Left out, the purpose and bank stay as they were (pausing sends neither). */
 export async function updateSetAside(id: string, v: SetAsideInput) {
-  const r = await q(
-    `UPDATE app.set_asides SET name=$2, percent_bp=$3, applies_to=$4, starts_on=$5, ended_on=$6, purpose=coalesce($7, purpose) WHERE id=$1`,
-    [id, v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null, v.purpose ?? null],
+  const r = await savingSetAside(() =>
+    q(
+      `UPDATE app.set_asides SET name=$2, percent_bp=$3, applies_to=$4, starts_on=$5, ended_on=$6, purpose=coalesce($7, purpose),
+              bank_id = CASE WHEN $8::boolean THEN $9::uuid ELSE bank_id END
+       WHERE id=$1`,
+      [id, v.name, v.percentBp, v.appliesTo, v.startsOn, v.endedOn ?? null, v.purpose ?? null, v.bankId !== undefined, v.bankId ?? null],
+    ),
   );
   return (r.rowCount ?? 0) > 0;
 }
@@ -635,11 +655,18 @@ export async function spendingCheckData(today: string) {
   };
 }
 
-/** Totals for the savings plan: whole months the records fully cover (up to six), this month so far, and monthly payments. */
-export async function savingsData(today: string) {
+/** Limits a query to one bank's transactions: `param` holds "", "none" (cash) or a bank id. */
+const ONE_BANK = (param: string) => `(${param}::text = '' OR (${param}::text = 'none' AND bank_id IS NULL) OR bank_id::text = ${param}::text)`;
+
+/**
+ * Totals for the savings plan: whole months the records fully cover (up to six), this month so far, and monthly
+ * payments. With a bank ("none" for cash), only that bank's transactions count, and monthly payments are left out
+ * because they aren't tied to a bank.
+ */
+export async function savingsData(today: string, bank = "") {
   const monthStart = `${today.slice(0, 8)}01`;
   const local = `(occurred_at AT TIME ZONE 'Asia/Karachi')`;
-  const first = await q<{ first: string | null }>(`SELECT to_char(min(${local}), 'YYYY-MM-DD') AS first FROM app.transactions`);
+  const first = await q<{ first: string | null }>(`SELECT to_char(min(${local}), 'YYYY-MM-DD') AS first FROM app.transactions WHERE ${ONE_BANK("$1")}`, [bank]);
   const f = first.rows[0]?.first;
   let months = 0;
   if (f) {
@@ -653,13 +680,15 @@ export async function savingsData(today: string) {
     q<{ month: string; kind: Kind; category: string; total: number }>(
       `SELECT to_char(${local}, 'YYYY-MM') AS month, kind, category, sum(amount_paisa)::float8 AS total
        FROM app.transactions
-       WHERE ${NOT_OWN}
+       WHERE ${NOT_OWN} AND ${ONE_BANK("$4")}
          AND occurred_at >= (($1::date - make_interval(months => $2::int))::timestamp AT TIME ZONE 'Asia/Karachi')
          AND occurred_at < (($3::date + 1)::timestamp AT TIME ZONE 'Asia/Karachi')
        GROUP BY 1, 2, 3`,
-      [monthStart, months, today],
+      [monthStart, months, today, bank],
     ),
-    q<{ name: string; amount: number | null; category: string }>(
+    bank
+      ? Promise.resolve({ rows: [] as { name: string; amount: number | null; category: string }[] })
+      : q<{ name: string; amount: number | null; category: string }>(
       `SELECT name, amount_paisa::float8 AS amount, category FROM app.monthly_items
        WHERE starts_month <= $1::date AND (ended_month IS NULL OR ended_month >= $1::date)`,
       [monthStart],

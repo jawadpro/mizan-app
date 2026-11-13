@@ -17,6 +17,8 @@ export const DEFAULT_PREFS = {
   notifyDetails: true,
   /** Monthly savings target in paisa; 0 means follow the savings plan's suggestion. */
   savingsTarget: 0,
+  /** Monthly savings targets for one bank ("none" for cash) at a time, by bank id; a bank not listed follows the suggestion. */
+  savingsTargets: {} as Record<string, number>,
 };
 export type Prefs = typeof DEFAULT_PREFS;
 
@@ -30,6 +32,7 @@ export const prefsPatch = z
     notifyImports: z.boolean(),
     notifyDetails: z.boolean(),
     savingsTarget: z.number().int().min(0).max(1e14),
+    savingsTargets: z.record(z.string().regex(/^(none|[0-9a-f-]{36})$/), z.number().int().min(1).max(1e14)).refine((r) => Object.keys(r).length <= 40),
     ownNames: z.string().max(300).transform((s) => s.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ")),
   })
   .partial()

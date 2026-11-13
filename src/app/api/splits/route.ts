@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth";
+import { bankParam } from "@/lib/banks";
 import { HttpError, handle, json, readJson } from "@/lib/http";
 import { formatPaisa } from "@/lib/money";
 import { addShares, listSplits, ownerName, splitPeople, splitsForBill } from "@/lib/splits-repo";
@@ -7,10 +8,11 @@ import { searchParamsObject, splitInput } from "@/lib/validation";
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** GET lists open and recently settled shares; GET ?bill=<transaction id> the shares on one payment. */
+/** GET lists open and recently settled shares (?bank=<id|none> for one bank's); GET ?bill=<transaction id> the shares on one payment. */
 export const GET = handle(async (req: Request) => {
   await requireSession(req);
-  const bill = searchParamsObject(req.url).bill;
+  const sp = searchParamsObject(req.url);
+  const bill = sp.bill;
   const owner = await ownerName();
   if (bill !== undefined) {
     if (!UUID.test(bill)) throw new HttpError(404, "Transaction not found");
@@ -18,7 +20,7 @@ export const GET = handle(async (req: Request) => {
     if (!d) throw new HttpError(404, "Transaction not found");
     return json({ ok: true, owner, people: await splitPeople(), ...d });
   }
-  return json({ ok: true, owner, ...(await listSplits()) });
+  return json({ ok: true, owner, ...(await listSplits(bankParam(sp.bank))) });
 });
 
 /** POST { transactionId, shares: [{ person, amount, note }] } splits a payment. */

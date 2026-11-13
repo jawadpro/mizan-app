@@ -9,6 +9,10 @@ import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useToast } from "./Toast";
 import type { SetAside, Tx } from "./types";
 import CloseButton from "./CloseButton";
+import BankPicker, { useBankTag } from "./BankPicker";
+import { showsForBank } from "@/lib/banks";
+import { bankLabel, useBanks } from "./useBanks";
+import { useSelectedBank } from "./useSelectedBank";
 
 const APPLIES: Record<SetAside["applies_to"], string> = {
   remittance: "every remittance",
@@ -16,7 +20,7 @@ const APPLIES: Record<SetAside["applies_to"], string> = {
   incoming: "all money coming in",
 };
 
-type Draft = { name: string; percent: string; appliesTo: SetAside["applies_to"]; startsOn: string; endedOn: string | null; purpose: SetAside["purpose"] | null };
+type Draft = { name: string; percent: string; appliesTo: SetAside["applies_to"]; startsOn: string; endedOn: string | null; purpose: SetAside["purpose"] | null; bankId: string | null };
 
 const GIVING_NAME = /(allah|charit|sadq|sadaq|zakat|donat|khair|fitr|qurban|masjid|mosque)/i;
 
@@ -30,7 +34,12 @@ export default function SetAsides() {
   const [paying, setPaying] = useState<SetAside | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const toast = useToast();
-  const items = data?.items ?? [];
+  // With a bank picked, its own set-asides show alongside the shared ones (linked to no bank).
+  const [bank] = useSelectedBank();
+  const { nameOf, multi } = useBanks();
+  const bankTag = useBankTag();
+  const every = data?.items ?? [];
+  const items = every.filter((f) => showsForBank(f.bank_id, bank));
 
   async function remove(f: SetAside) {
     if (!window.confirm(`Delete "${f.name}"? Payments already tagged to it stay in your transactions.`)) return;
@@ -83,11 +92,18 @@ export default function SetAsides() {
           <h1>Set-asides</h1>
           <p className="muted">Automatically put a share of incoming money aside, for example 10% of remittances for charity or 20% of salary for savings.</p>
         </div>
-        <div className="toolbar"><button className="btn primary" onClick={() => setEditing("new")}>+ New set-aside</button></div>
+        <div className="toolbar"><BankPicker /><button className="btn primary" onClick={() => setEditing("new")}>+ New set-aside</button></div>
       </div>
 
       {error && <ErrorBox message={error} onRetry={reload} />}
-      {loading && !data ? <div className="card"><Loading /></div> : items.length === 0 ? (
+      {loading && !data ? <div className="card"><Loading /></div> : items.length === 0 && every.length > 0 ? (
+        <div className="card">
+          <Empty icon="🏦" title={`No set-asides for ${bank === "none" ? "cash" : nameOf(bank) ?? "this bank"}`}>
+            <p>Your set-asides are all linked to other banks. Pick All banks above to see them, or create one for this bank.</p>
+            <button className="btn primary" style={{ marginTop: 12 }} onClick={() => setEditing("new")}>New set-aside</button>
+          </Empty>
+        </div>
+      ) : items.length === 0 ? (
         <div className="card">
           <Empty icon="🤲" title="No set-asides yet">
             <p>Create one and Mizan will work out how much to keep aside from every matching payment, including ones imported from SMS.</p>
@@ -103,7 +119,7 @@ export default function SetAsides() {
                 {f.ended_on ? <span className="pill">Paused</span> : <span className="pill sms">{pct(f.percent_bp)}</span>}
               </div>
               <p className="small muted">
-                {pct(f.percent_bp)} of {APPLIES[f.applies_to]} from {formatDatePkt(f.starts_on)}{f.ended_on ? ` to ${formatDatePkt(f.ended_on)}` : ""}
+                {pct(f.percent_bp)} of {bankTag(f.bank_id) ? <>{APPLIES[f.applies_to].replace(/ coming in$/, " coming")} into <strong>{bankTag(f.bank_id)}</strong></> : <>{APPLIES[f.applies_to]}{multi ? " in any bank" : ""}</>} from {formatDatePkt(f.starts_on)}{f.ended_on ? ` to ${formatDatePkt(f.ended_on)}` : ""}
               </p>
               <FundStatus f={f} />
               <div className="toolbar" style={{ marginTop: 14 }}>
@@ -123,6 +139,7 @@ export default function SetAsides() {
       {editing && (
         <SetAsideForm
           initial={editing === "new" ? null : editing}
+          defaultBank={bank && bank !== "none" ? bank : null}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); toast(editing === "new" ? "Set-aside created" : "Set-aside updated", "ok"); reload(); }}
         />
@@ -131,7 +148,7 @@ export default function SetAsides() {
         <TxForm
           title={`Pay from ${paying.name}`}
           submitLabel="Record payment"
-          initial={{ ...draftFrom({ kind: "expense", category: /charit|sadqa|sadaqah|zakat|donat/i.test(paying.name) ? "Charity" : /sav/i.test(paying.name) ? "Savings" : "Uncategorized" }), setAsideId: paying.id }}
+          initial={{ ...draftFrom({ kind: "expense", category: /charit|sadqa|sadaqah|zakat|donat/i.test(paying.name) ? "Charity" : /sav/i.test(paying.name) ? "Savings" : "Uncategorized", bank_id: paying.bank_id }), setAsideId: paying.id }}
           onSubmit={pay}
           onClose={() => setPaying(null)}
         />
@@ -202,10 +219,11 @@ function Contributions({ id }: { id: string }) {
   );
 }
 
-function SetAsideForm({ initial, onClose, onSaved }: { initial: SetAside | null; onClose: () => void; onSaved: () => void }) {
+function SetAsideForm({ initial, defaultBank, onClose, onSaved }: { initial: SetAside | null; defaultBank: string | null; onClose: () => void; onSaved: () => void }) {
+  const { banks, multi, nameOf } = useBanks();
   const [d, setD] = useState<Draft>(() => initial
-    ? { name: initial.name, percent: String(initial.percent_bp / 100), appliesTo: initial.applies_to, startsOn: initial.starts_on, endedOn: initial.ended_on, purpose: initial.purpose }
-    : { name: "", percent: "10", appliesTo: "remittance", startsOn: todayPkt(), endedOn: null, purpose: null });
+    ? { name: initial.name, percent: String(initial.percent_bp / 100), appliesTo: initial.applies_to, startsOn: initial.starts_on, endedOn: initial.ended_on, purpose: initial.purpose, bankId: initial.bank_id }
+    : { name: "", percent: "10", appliesTo: "remittance", startsOn: todayPkt(), endedOn: null, purpose: null, bankId: defaultBank });
   const purpose = d.purpose ?? (GIVING_NAME.test(d.name) ? "giving" : "saving");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -254,6 +272,17 @@ function SetAsideForm({ initial, onClose, onSaved }: { initial: SetAside | null;
                 <option value="incoming">All money coming in</option>
               </select>
             </label>
+            {multi && (
+              <label className="field full">Bank
+                <select value={d.bankId ?? ""} onChange={(e) => setD({ ...d, bankId: e.target.value || null })}>
+                  <option value="">All banks</option>
+                  {banks.map((b) => <option key={b.id} value={b.id}>{bankLabel(b)}</option>)}
+                  {d.bankId && !banks.some((b) => b.id === d.bankId) && <option value={d.bankId}>{nameOf(d.bankId) ?? "Removed bank"}</option>}
+                </select>
+                <span className="small muted">{d.bankId ? `Only money coming into ${nameOf(d.bankId) ?? "this bank"} is counted, and it shows when that bank is picked.` : "Money coming into any bank is counted, and it shows whichever bank is picked."}</span>
+                {fields.bankId && <span className="err">{fields.bankId[0]}</span>}
+              </label>
+            )}
             <label className="field full">What is it for?
               <select value={purpose} onChange={(e) => setD({ ...d, purpose: e.target.value as SetAside["purpose"] })}>
                 <option value="giving">Giving (charity, sadaqah, zakat)</option>

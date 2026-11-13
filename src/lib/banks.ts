@@ -114,3 +114,25 @@ export function chooseBank<B extends Bank>(banks: B[], sender: string, digits: s
 export function pickBank<B extends Bank>(banks: B[], sender: string, digits: string[] | string | null, extraTrusted: string[] = []): B | null {
   return chooseBank(banks, sender, digits, extraTrusted).bank;
 }
+
+// ---- The bank filter ----
+// Overview, Transactions, Set-asides, Bill splits and Savings share one bank pick: "" is all banks, "none" is cash
+// (no bank), else a bank id. Set-asides and splits can belong to one bank; those that belong to none are shared.
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Reads a ?bank= value: "", "none" or a bank id. Anything else counts as all banks. */
+export function bankParam(v: string | null | undefined): string {
+  if (!v) return "";
+  if (v === "none") return "none";
+  return UUID.test(v) ? v.toLowerCase() : "";
+}
+
+/**
+ * Whether something linked to `itemBank` shows while `picked` is chosen. Shared items (no bank) show everywhere;
+ * one bank's items show under that bank and under all banks, but not under another bank or cash.
+ */
+export function showsForBank(itemBank: string | null | undefined, picked: string): boolean {
+  if (!picked || !itemBank) return true;
+  return picked !== "none" && itemBank.toLowerCase() === picked.toLowerCase();
+}

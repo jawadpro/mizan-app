@@ -3,13 +3,16 @@ import "@/app/savings.css";
 import Link from "next/link";
 import { formatPaisa } from "@/lib/money";
 import { useData } from "./useData";
-import type { SavingsData } from "./SavingsPlan";
+import { savingsUrl, type SavingsData } from "./SavingsPlan";
+import { useSelectedBank } from "./useSelectedBank";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 
 /** One line on the dashboard: this month's savings against the target. Hidden until there is a plan. */
 export default function SavingsStrip() {
-  const { data } = useData<SavingsData>("/api/savings");
+  // Follows the bank picked on Overview, like the rest of the page.
+  const [bank] = useSelectedBank();
+  const { data } = useData<SavingsData>(savingsUrl(bank));
   if (!data?.ready || data.target <= 0) return null;
   const tm = data.thisMonth;
   // Money left over mid-month still has rent and bills to cover, so show where the month is heading.

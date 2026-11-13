@@ -21,3 +21,14 @@ describe("settings", () => {
     expect(buildInsights({ ...input, warnAt: 0.7 }).tips[0].id).toBe("limit-near:Groceries");
   });
 });
+
+describe("per-bank savings targets", () => {
+  it("keeps valid targets and drops bad ones without touching other settings", async () => {
+    const { normalizePrefs } = await import("@/lib/preferences");
+    const ok = normalizePrefs({ savingsTargets: { "11111111-2222-4333-8444-555555555555": 2500000, none: 100000 }, savingsTarget: 5 });
+    expect(ok.savingsTargets).toEqual({ "11111111-2222-4333-8444-555555555555": 2500000, none: 100000 });
+    expect(ok.savingsTarget).toBe(5);
+    expect(normalizePrefs({ savingsTargets: { "not a bank": 5 } }).savingsTargets).toEqual({});
+    expect(normalizePrefs({}).savingsTargets).toEqual({});
+  });
+});

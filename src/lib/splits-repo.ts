@@ -1,10 +1,12 @@
 import "server-only";
 import { q, tx } from "./db";
+import { showsForBank } from "./banks";
 import { getPrefs } from "./repo";
 import { isPaidBack, rankFor, suggestShares, type InTx } from "./splits";
 
 export type SplitPayment = InTx & { kind: string };
-export type Bill = { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null };
+/** bank_id: the bank the payment went out of, which is the bank its shares belong to; null for cash. */
+export type Bill = { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null; bank_id: string | null };
 export type ShareRow = {
   id: string;
   transaction_id: string;
@@ -27,7 +29,7 @@ export type ShareInput = { person: string; amount: number; note: string | null }
 const SHARE_SQL = `
   SELECT s.id, s.transaction_id, s.person, s.amount_paisa::float8 AS amount_paisa, s.note, s.settled_at, s.settled_note, s.created_at,
          json_build_object('id', b.id, 'amount_paisa', b.amount_paisa::float8, 'occurred_at', b.occurred_at, 'category', b.category,
-                           'counterparty', b.counterparty, 'note', b.note) AS bill,
+                           'counterparty', b.counterparty, 'note', b.note, 'bank_id', b.bank_id) AS bill,
          (SELECT count(*) FROM app.splits o WHERE o.transaction_id = s.transaction_id)::int AS shares_on_bill,
          (SELECT sum(o.amount_paisa) FROM app.splits o WHERE o.transaction_id = s.transaction_id)::float8 AS shared_total,
          coalesce((SELECT json_agg(json_build_object('id', t.id, 'kind', t.kind, 'amount_paisa', t.amount_paisa::float8, 'occurred_at', t.occurred_at,
@@ -70,10 +72,13 @@ async function incoming(search?: string, since?: string) {
   return rows;
 }
 
-/** Every open share with a likely repayment, and the shares settled in the last 60 days. */
-export async function listSplits() {
+/**
+ * Every open share with a likely repayment, and the shares settled in the last 60 days. With a bank picked
+ * ("none" for cash), only shares on payments from that bank, plus those on cash payments, which belong to no bank.
+ */
+export async function listSplits(bank = "") {
   const { rows } = await q<ShareRow>(`${SHARE_SQL} ORDER BY b.occurred_at DESC, s.created_at`);
-  const all = rows.map(finish);
+  const all = rows.map(finish).filter((s) => showsForBank(s.bill.bank_id, bank));
   const open = all.filter((s) => s.state === "open");
   const cutoff = Date.now() - 60 * 86400e3;
   const settled = all
@@ -97,7 +102,7 @@ export async function listSplits() {
 /** The shares on one payment, for its split form. */
 export async function splitsForBill(transactionId: string) {
   const { rows: bill } = await q<Bill & { kind: string; parent_id: string | null }>(
-    `SELECT id, kind, parent_id, amount_paisa::float8 AS amount_paisa, occurred_at, category, counterparty, note FROM app.transactions WHERE id = $1`,
+    `SELECT id, kind, parent_id, amount_paisa::float8 AS amount_paisa, occurred_at, category, counterparty, note, bank_id FROM app.transactions WHERE id = $1`,
     [transactionId],
   );
   if (!bill.length) return null;
