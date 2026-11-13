@@ -36,8 +36,8 @@ optional; the app doesn't wait for it.
 
 ## Import queued messages
 
-With no internet, the Shortcut saves each bank alert as a JSON file in its queue folder. **Review inbox › Import
-queued messages** (shown only on the iPhone) starts an import and opens the Shortcut with the text
+With no internet, the Shortcut saves each bank alert as a JSON file in its queue folder. **More › Import queued
+messages** in the phone menu (shown only on the iPhone) starts an import and opens the Shortcut with the text
 `mizan-import:<id>`. The Shortcut sends each queued alert to `/api/sms` as usual, adding `"importRun"` set to that
 input as it is (`mizan-import:<id>` or just `<id>`),
 deletes the file once Mizan has accepted it, and finally sends `{ "importRun": "mizan-import:<id>", "finished": true }`. Mizan
@@ -166,4 +166,4 @@ You can delete the separate **Import Queued Messages** Shortcut once this works.
 2. In Mizan, open **Connect iPhone** and scan the QR code.
 3. Optional: run the Shortcut once by hand to send a test alert (nothing is saved). Choose **Always Allow** when iPhone asks.
 4. To check the import: turn on Airplane Mode, send yourself a test, turn it off, then tap **Import queued messages** in
-   Mizan's Review inbox on the iPhone.
+   Mizan's More menu on the iPhone.
