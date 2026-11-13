@@ -19,7 +19,7 @@ const SHORT_TTL_S = 12 * 3600;
 type Session = { sid: string; exp: number; iat?: number; rem?: boolean; v?: number };
 
 /** A verified session, with what app.sessions knows about it. */
-export type LiveSession = Session & { confirmedAt: number | null; deviceId: string | null };
+export type LiveSession = Session & { confirmedAt: number | null };
 
 export function issueSession(remember: boolean): { sid: string; exp: number; cookie: string; csrf: string; maxAge: number | null } {
   const ttl = remember ? REMEMBER_TTL_S : SHORT_TTL_S;
@@ -41,16 +41,16 @@ export function clientOf(req: Request): { ua: string | null; ip: string | null }
 
 /**
  * Starts a session: saves it in app.sessions (so it shows under signed-in devices and can be signed out)
- * and returns the Set-Cookie headers. `deviceId` is the remembered device it was made on, if any.
+ * and returns the Set-Cookie headers.
  */
-export async function sessionHeaders(req: Request, remember: boolean, deviceId: string | null = null): Promise<Headers> {
+export async function sessionHeaders(req: Request, remember: boolean): Promise<Headers> {
   const s = issueSession(remember);
   const { ua, ip } = clientOf(req);
   try {
     await q(
-      `INSERT INTO app.sessions (sid, device_id, user_agent, ip, remembered, expires_at, confirmed_at)
-       VALUES ($1, $2, $3, $4, $5, to_timestamp($6), now())`,
-      [s.sid, deviceId, ua, ip, remember, s.exp],
+      `INSERT INTO app.sessions (sid, user_agent, ip, remembered, expires_at, confirmed_at)
+       VALUES ($1, $2, $3, $4, to_timestamp($5), now())`,
+      [s.sid, ua, ip, remember, s.exp],
     );
   } catch (e) {
     // Before the migration has run there is nowhere to save it; the session still works as before.
@@ -76,8 +76,8 @@ export function missingTable(e: unknown): boolean {
  */
 async function live(s: Session, ua: string | null, ip: string | null): Promise<LiveSession | null> {
   try {
-    const { rows } = await q<{ revoked: boolean; confirmed_ms: number | null; device_id: string | null; stale: boolean }>(
-      `SELECT revoked_at IS NOT NULL AS revoked, (extract(epoch FROM confirmed_at) * 1000)::float8 AS confirmed_ms, device_id,
+    const { rows } = await q<{ revoked: boolean; confirmed_ms: number | null; stale: boolean }>(
+      `SELECT revoked_at IS NOT NULL AS revoked, (extract(epoch FROM confirmed_at) * 1000)::float8 AS confirmed_ms,
               last_seen_at < now() - interval '5 minutes' AS stale
        FROM app.sessions WHERE sid = $1`,
       [s.sid],
@@ -90,15 +90,15 @@ async function live(s: Session, ua: string | null, ip: string | null): Promise<L
          VALUES ($1, $2, $3, $4, to_timestamp($5::float8 / 1000), to_timestamp($6)) ON CONFLICT (sid) DO NOTHING`,
         [s.sid, ua, ip, wasRemembered(s), s.iat ?? Date.now(), s.exp],
       );
-      return { ...s, confirmedAt: null, deviceId: null };
+      return { ...s, confirmedAt: null };
     }
     if (row.revoked) return null;
     if (row.stale) {
       q(`UPDATE app.sessions SET last_seen_at = now(), user_agent = coalesce($2, user_agent), ip = coalesce($3, ip) WHERE sid = $1`, [s.sid, ua, ip]).catch(() => {});
     }
-    return { ...s, confirmedAt: row.confirmed_ms, deviceId: row.device_id };
+    return { ...s, confirmedAt: row.confirmed_ms };
   } catch (e) {
-    if (missingTable(e)) return { ...s, confirmedAt: null, deviceId: null };
+    if (missingTable(e)) return { ...s, confirmedAt: null };
     throw e;
   }
 }

@@ -1,11 +1,4 @@
-// Plain helpers for showing devices and email addresses; no server-only imports, so tests can load them.
-
-export function maskEmail(email: string): string {
-  const [user, domain] = email.split("@");
-  if (!domain) return email;
-  const shown = user.length <= 2 ? user[0] ?? "" : user.slice(0, 2);
-  return `${shown}${"•".repeat(Math.max(1, Math.min(6, user.length - shown.length)))}@${domain}`;
-}
+// Plain helpers for showing devices; no server-only imports, so tests can load them.
 
 /** "iPhone · Safari" from a user agent, good enough to tell your devices apart. */
 export function deviceLabel(ua: string | null | undefined): string {

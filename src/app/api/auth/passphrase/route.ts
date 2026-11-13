@@ -32,9 +32,9 @@ export const POST = handle(async (req: Request) => {
     return errorJson(400, "Choose a passphrase different from the current one", { fields: { next: ["Choose a passphrase different from the current one"] } });
   }
   await changePassphrase(next);
-  // Every other device is signed out and forgotten (so it needs the email code again); this one gets a fresh session.
-  await signOutOthers(null, session.deviceId);
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: await sessionHeaders(req, wasRemembered(session), session.deviceId) });
+  // Every other device is signed out; this one gets a fresh session.
+  await signOutOthers(null);
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: await sessionHeaders(req, wasRemembered(session)) });
 });
 
 export function GET() {

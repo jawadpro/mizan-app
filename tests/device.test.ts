@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deviceLabel, maskEmail } from "@/lib/device";
+import { deviceLabel } from "@/lib/device";
 
 describe("deviceLabel", () => {
   it("names common devices and browsers", () => {
@@ -13,12 +13,5 @@ describe("deviceLabel", () => {
   it("falls back when unknown", () => {
     expect(deviceLabel(null)).toBe("Unknown device");
     expect(deviceLabel("curl/8.0")).toBe("Unknown device");
-  });
-});
-
-describe("maskEmail", () => {
-  it("keeps the start and the domain", () => {
-    expect(maskEmail("jawad@example.com")).toBe("ja•••@example.com");
-    expect(maskEmail("a@b.co")).toBe("a•@b.co");
   });
 });
