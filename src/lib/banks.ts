@@ -89,10 +89,11 @@ export function chooseBank<B extends Bank>(banks: B[], sender: string, digits: s
     const trusted = banks[0] && extraTrusted.some((t) => t.trim() && t.trim().toUpperCase() === sender.trim().toUpperCase());
     return { bank: trusted ? banks[0] : null, choices: [], unclear: null };
   }
+  // Only one bank uses this sender: every alert from it is that account's. Saved digits only tell apart several
+  // accounts at one bank, so a number they don't list (a card, the other party's account) changes nothing here.
+  if (hits.length === 1) return { bank: hits[0], choices: [], unclear: null };
   const withDigits = hits.filter((b) => bankDigits(b).length);
   const open = hits.filter((b) => !bankDigits(b).length);
-  // One bank for this sender and no digits saved on it: every alert is that account's.
-  if (!withDigits.length && hits.length === 1) return { bank: hits[0], choices: [], unclear: null };
 
   for (const d of read) {
     const m = withDigits.filter((b) => bankDigits(b).some((s) => digitsMatch(s, d)));
@@ -106,7 +107,6 @@ export function chooseBank<B extends Bank>(banks: B[], sender: string, digits: s
     if (open.length === 1) return { bank: open[0], choices: [], unclear: null };
     return unclear(`••${shown} isn't saved on any of your banks`);
   }
-  if (hits.length === 1) return { bank: hits[0], choices: [], unclear: null };
   return unclear("the message shows no account number");
 }
 

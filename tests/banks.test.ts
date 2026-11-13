@@ -143,10 +143,10 @@ describe("several accounts at the same banks", () => {
     const one = [b("h", "HBL", "HBL", "")];
     expect(chooseBank(one, "HBL", []).bank?.name).toBe("HBL");
     expect(chooseBank(one, "HBL", ["1111"]).bank?.name).toBe("HBL");
-    // With digits saved, another account's alert is not filed under it.
+    // Digits saved on the only bank for a sender don't hold back an alert showing another number (a card, say).
     const saved = [b("h", "HBL", "HBL", "5678")];
     expect(chooseBank(saved, "HBL", []).bank?.name).toBe("HBL");
-    expect(chooseBank(saved, "HBL", ["1111"]).unclear).toContain("••1111");
+    expect(chooseBank(saved, "HBL", ["1111"]).bank?.name).toBe("HBL");
   });
   it("a short visible tail still picks its account", () => {
     const js = [b("j1", "JS Main", "JS BANK", "4248"), b("j2", "JS Zindigi", "JS BANK", "1357")];
@@ -173,5 +173,16 @@ describe("bank filter", () => {
     expect(showsForBank(ubl, ubl)).toBe(true);
     expect(showsForBank(ubl, mcbId)).toBe(false);
     expect(showsForBank(ubl, "none")).toBe(false);
+  });
+});
+
+describe("one bank for a sender", () => {
+  const only: Bank & { id: string } = { id: "o", name: "My Bank", senders: "MYBANK", account_hint: "1234", auto_import: true, hold_transfers: false };
+  const read = (text: string) => readAlert({ sender: "MYBANK", text, receivedAt: new Date("2026-11-13T12:00:00Z") }, { banks: [only] });
+  it("takes every alert from that sender, whatever number it shows", () => {
+    expect(read("PKR 6,392.60 was charged at NANDOS via Debit Card 4321 on 07-11-2026 at 19:49")).toMatchObject({ bank: { name: "My Bank" }, result: { status: "parsed" } });
+    expect(read("PKR 2,000.00 Debited from your A/C: 8350-1***7777 on 7-Nov-26 at 10:00:00").bank?.name).toBe("My Bank");
+    expect(read("PKR 500.00 debited at KFC on 07-11-2026").bank?.name).toBe("My Bank");
+    expect(read("PKR 500.00 debited at KFC on 07-11-2026").result.status).toBe("parsed");
   });
 });
