@@ -1,0 +1,41 @@
+/* Savings plan */
+.sv-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 900px) { .sv-grid { grid-template-columns: 1fr; } }
+.sv-hero { display: grid; align-content: start; gap: 4px; }
+.sv-big { font-size: 2.1rem; font-weight: 500; letter-spacing: -0.03em; color: var(--accent-ink); line-height: 1.15; }
+.sv-per { font-size: 0.95rem; color: var(--muted); font-family: inherit; letter-spacing: 0; }
+.sv-why { margin: 6px 0 4px; color: var(--text); }
+.sv-target { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--border); }
+.sv-target strong { font-weight: 600; }
+.sv-ahead { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.sv-chip { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); }
+.sv-chip .num { font-size: 0.98rem; }
+.sv-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.92rem; }
+.sv-row:first-child, .card-head + .sv-row { border-top: 0; }
+.sv-row.strong { font-weight: 600; }
+.sv-month .progress { margin-top: 12px; }
+.sv-month .progress > .warn { background: var(--gold); }
+.sv-status { margin: 10px 0 0; }
+.ink-ok { color: var(--accent-ink); font-weight: 600; }
+.sv-status .ink-warn, .sv-status .ink-bad { font-weight: 600; }
+.sv-tips { margin-bottom: 12px; }
+.tip.info::before { background: var(--accent); }
+.sv-save { margin-left: 8px; font-size: 0.74rem; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-ink); white-space: nowrap; vertical-align: 1px; }
+.sv-hist { display: grid; gap: 8px; }
+.sv-hist-row { display: grid; grid-template-columns: 5.2em minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 0.88rem; }
+.sv-hist-m { color: var(--muted); }
+.sv-bars { display: grid; gap: 3px; }
+.sv-bar { height: 6px; border-radius: 99px; min-width: 2px; }
+.sv-bar.in, .sv-key.in { background: var(--accent); }
+.sv-bar.out, .sv-key.out { background: var(--down); }
+.sv-hist-v { min-width: 6.5em; text-align: right; }
+.sv-legend { margin: 12px 0 0; }
+.sv-key { display: inline-block; width: 10px; height: 6px; border-radius: 99px; margin: 0 2px 1px 6px; }
+.sv-key:first-child { margin-left: 0; }
+.sv-tag { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; margin-left: 4px; }
+
+/* Dashboard strip */
+.sv-strip { margin-bottom: 12px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; text-decoration: none; color: inherit; }
+.sv-strip:hover { border-color: var(--border-strong); }
+.sv-strip .progress { flex: 1 1 120px; margin-top: 0; min-width: 100px; }
+.sv-strip-title { font-weight: 500; }
