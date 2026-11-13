@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import ConnectedDevices from "@/components/ConnectedDevices";
+import ImportQueue from "@/components/ImportQueue";
 import ShortcutSteps from "@/components/ShortcutSteps";
 import SmsToken from "@/components/SmsToken";
 import "../../setup.css";
@@ -23,6 +24,10 @@ export default async function SmsSetupPage() {
           <h2>Connected iPhones</h2>
           <p className="small muted" style={{ marginTop: 4 }}>Add the Mizan Shortcut, then pair it with a one-time code. The Shortcut fills in this Mizan&apos;s address and its own key by itself.</p>
           <div style={{ marginTop: 12 }}><ConnectedDevices /></div>
+        </div>
+        <div className="card">
+          <h3>Queued messages</h3>
+          <ImportQueue />
         </div>
         <h3 style={{ margin: "8px 0 0" }}>Using the older Shortcut</h3>
         <p className="small muted" style={{ margin: 0 }}>Already set up with the URL and SMS token typed in by hand? It keeps working; nothing to change.</p>

@@ -2,8 +2,9 @@ import { env } from "@/lib/env";
 import { safeEqual } from "@/lib/crypto";
 import { errorJson, handle, json, readJson } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/ratelimit";
-import { smsInput } from "@/lib/validation";
+import { importFinished, smsInput } from "@/lib/validation";
 import { ingestSms, previewSms } from "@/lib/sms/ingest";
+import { countImport, finishImportRun, importSummary } from "@/lib/import-runs";
 import { authenticateDevice, looksLikeDeviceToken, recordIngest, recordTest } from "@/lib/paired-devices";
 
 export const runtime = "nodejs";
@@ -42,6 +43,12 @@ export const POST = handle(async (req: Request) => {
   if (!(await rateLimit("sms:global", 120, 60))) return errorJson(429, "Too many requests");
 
   const body = await readJson(req, MAX_BODY_BYTES);
+  const done = importFinished.safeParse(body);
+  if (done.success) {
+    const run = await finishImportRun(done.data.importRun, deviceId);
+    if (!run) return errorJson(404, "That import has expired. Start it again from SMS setup in Mizan.");
+    return json({ ok: true, finished: true, message: importSummary(run), ...counts(run) });
+  }
   const parsed = smsInput.safeParse(body);
   if (!parsed.success) {
     return errorJson(400, "Invalid payload", { issues: parsed.error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`) });
@@ -59,12 +66,18 @@ export const POST = handle(async (req: Request) => {
     out = await ingestSms(input);
   } catch (e) {
     if (deviceId) await recordIngest(deviceId, "failed").catch(() => {});
+    if (parsed.data.importRun) await countImport(parsed.data.importRun, "failed", deviceId).catch(() => {});
     throw e;
   }
   if (deviceId) await recordIngest(deviceId, out.status).catch(() => {});
+  if (parsed.data.importRun) await countImport(parsed.data.importRun, out.status, deviceId).catch(() => {});
   const status = out.status === "imported" ? 201 : out.status === "review" ? 202 : 200;
   return json({ ok: true, ...out }, status);
 });
+
+function counts(r: { sent_count: number; imported_count: number; review_count: number; duplicate_count: number; ignored_count: number; failed_count: number }) {
+  return { sent: r.sent_count, imported: r.imported_count, review: r.review_count, duplicates: r.duplicate_count, ignored: r.ignored_count, failed: r.failed_count };
+}
 
 export function GET() {
   return errorJson(405, "Use POST");

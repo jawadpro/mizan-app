@@ -7,6 +7,7 @@ import BankList from "@/components/BankList";
 import BankMessages from "@/components/BankMessages";
 import MessageTester from "@/components/MessageTester";
 import PushToggle from "@/components/PushToggle";
+import ConnectedDevices from "@/components/ConnectedDevices";
 import ShortcutSteps from "@/components/ShortcutSteps";
 import SmsToken from "@/components/SmsToken";
 import { useToast } from "@/components/Toast";
@@ -173,11 +174,15 @@ function IphoneStep({ endpoint, back, next }: { endpoint: string; back: () => vo
   return (
     <>
       <h1>Forward alerts from your iPhone</h1>
-      <p className="muted">Two ready-made Shortcuts send each bank SMS to Mizan as it arrives. Open this page on your iPhone to add them. You can also do this later from SMS setup in the menu.</p>
-      <div className="setup-panel">
-        <div className="setup-kv"><span>Token</span><SmsToken /></div>
-      </div>
-      <div className="setup-panel"><ShortcutSteps endpoint={endpoint} /></div>
+      <p className="muted">The Mizan Shortcut sends each bank SMS to Mizan as it arrives. Add it, then pair it with a one-time code: nothing to copy or type. You can also do this later from SMS setup in the menu.</p>
+      <div className="setup-panel"><ConnectedDevices /></div>
+      <details className="setup-more">
+        <summary>Use the older Shortcut instead (URL and token typed by hand)</summary>
+        <div className="setup-panel">
+          <div className="setup-kv"><span>Token</span><SmsToken /></div>
+        </div>
+        <div className="setup-panel"><ShortcutSteps endpoint={endpoint} /></div>
+      </details>
       <div className="setup-actions">
         <button className="btn ghost" onClick={back}>Back</button>
         <button className="btn primary" onClick={next}>Continue</button>

@@ -1,6 +1,6 @@
 -- iPhone pairing. Each iPhone gets its own token by pairing with a short, single-use code shown in Mizan, so
 -- nobody copies a URL or token into a Shortcut. Mizan keeps only a SHA-256 digest of each device token and an
--- HMAC of each pairing code. Only adds tables: the SMS token and the older Shortcut keep working as before.
+-- HMAC of each pairing code. Also counts "Import queued messages" runs. Only adds tables: the SMS token and the older Shortcut keep working as before.
 
 CREATE TABLE IF NOT EXISTS app.paired_devices (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -31,3 +31,20 @@ CREATE TABLE IF NOT EXISTS app.pairing_codes (
   used_at      timestamptz
 );
 CREATE INDEX IF NOT EXISTS pairing_codes_created_idx ON app.pairing_codes (created_at DESC);
+
+-- "Import queued messages": the app starts a run, the Shortcut sends each alert from its offline queue tagged with
+-- the run's id and then says it's finished, and the app shows how many were imported. Counts only, no content.
+CREATE TABLE IF NOT EXISTS app.import_runs (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id        uuid REFERENCES app.paired_devices (id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  started_at       timestamptz,
+  finished_at      timestamptz,
+  sent_count       integer NOT NULL DEFAULT 0,
+  imported_count   integer NOT NULL DEFAULT 0,
+  review_count     integer NOT NULL DEFAULT 0,
+  duplicate_count  integer NOT NULL DEFAULT 0,
+  ignored_count    integer NOT NULL DEFAULT 0,
+  failed_count     integer NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS import_runs_created_idx ON app.import_runs (created_at DESC);

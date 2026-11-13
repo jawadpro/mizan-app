@@ -47,7 +47,12 @@ export const smsInput = z.object({
     .refine((s) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})$/.test(s) && !Number.isNaN(Date.parse(s)), "receivedAt must be ISO 8601 with a timezone, e.g. 2026-10-15T14:30:00+05:00"),
   // The Shortcut's connection test: read the alert, save nothing.
   test: z.boolean().optional(),
+  // Sent from the offline queue by "Import queued messages": counted under that run.
+  importRun: z.string().uuid().optional(),
 }).strict();
+
+/** The Shortcut's last request in "Import queued messages": everything in the queue has been sent. */
+export const importFinished = z.object({ importRun: z.string().uuid(), finished: z.literal(true) }).strict();
 
 export const listQuery = z.object({
   q: z.string().max(100).optional(),
