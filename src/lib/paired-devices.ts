@@ -18,7 +18,7 @@ const TOKEN_RE = /^mzd_[A-Za-z0-9_-]{43}$/;
  * The shared iCloud Shortcut. It holds no address or token: pairing hands it this Mizan's address.
  * To publish a new version of the Shortcut, change this one line (or set MIZAN_SHORTCUT_URL on the server).
  */
-export const DEFAULT_SHORTCUT_URL = "https://www.icloud.com/shortcuts/d7ae4227390b4671b52dc6f44556d671";
+export const DEFAULT_SHORTCUT_URL = "https://www.icloud.com/shortcuts/53c19555e5084b2f94c67f63471efc4e";
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest();
 const codeDigest = (code: string) => crypto.createHmac("sha256", env.sessionSecret()).update(`pair:${code}`).digest();
