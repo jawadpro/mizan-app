@@ -4,6 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 import pg from "pg";
 
+// A Vercel preview build (any branch or pull request) can share the live database; only production deploys change it.
+// Set MIGRATE_ON_PREVIEW=1 on a preview that has its own database.
+if (process.env.VERCEL_ENV === "preview" && process.env.MIGRATE_ON_PREVIEW !== "1") {
+  console.warn("[migrate] Vercel preview build; skipping migrations (set MIGRATE_ON_PREVIEW=1 to run them here).");
+  process.exit(0);
+}
+
 const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 if (!url) {
   console.warn("[migrate] DATABASE_URL is not set; skipping migrations. The app will show a setup error until a database is attached.");
