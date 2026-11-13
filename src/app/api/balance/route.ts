@@ -7,12 +7,16 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** `balance` is every account together, or one account's with ?bank=<id>. `accounts` lists each account's own. */
+/**
+ * `balance` is every account together, or one account's with ?bank=<id>. `accounts` lists each account's own.
+ * With every account, every set-aside comes out of the total. With one account, only the set-asides linked to it
+ * come out of its balance: shared ones come out of all the money together.
+ */
 async function summary(bank: string | null) {
   const [{ total, accounts }, funds] = await Promise.all([getBalances(), listSetAsides()]);
-  const setAside = funds.reduce((a, f) => a + Math.max(0, f.remaining), 0);
+  const setAside = funds.filter((f) => !bank || f.bank_id === bank).reduce((a, f) => a + Math.max(0, f.remaining), 0);
   const balance = bank ? accounts.find((a) => a.bank_id === bank) ?? null : total;
-  return { balance, accounts, setAside, freeToSpend: total ? total.balance - setAside : null };
+  return { balance, accounts, setAside, freeToSpend: balance ? balance.balance - setAside : null };
 }
 
 function bankParam(req: Request) {

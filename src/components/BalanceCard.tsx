@@ -37,8 +37,8 @@ export default function BalanceCard({ bank = "" }: { bank?: string }) {
   const unset = all ? banks.filter((x) => !data?.accounts?.some((a) => a.bank_id === x.id)) : [];
 
   const pct = b && b.anchor !== 0 && b.n > 0 ? Math.round((b.delta / Math.abs(b.anchor)) * 1000) / 10 : null;
-  // Set-asides come out of all the money together, so the split shows with every account added up.
-  const showSplit = !one && !!(data && b && data.setAside > 0 && b.balance > 0);
+  // With every account added up, all set-asides come out of the total; with one bank, only the ones linked to it.
+  const showSplit = !!(data && b && data.setAside > 0 && b.balance > 0);
   const free = data?.freeToSpend ?? 0;
   const whole = (p: number, o: { sign?: boolean } = {}) => (hidden ? masked() : formatPaisa(Math.round(p), o).replace(/\.\d\d$/, ""));
   const eye = (

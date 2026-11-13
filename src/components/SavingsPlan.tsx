@@ -12,16 +12,25 @@ import { Empty, ErrorBox, Loading } from "./States";
 import { useToast } from "./Toast";
 import CloseButton from "./CloseButton";
 import { LimitModal, TIPS_CHANGED, type LimitEdit } from "./SpendingCheck";
+import BankPicker from "./BankPicker";
+import { useBanks } from "./useBanks";
+import { useSelectedBank } from "./useSelectedBank";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const signed = (p: number) => (p < 0 ? `−${rs(-p)}` : rs(p));
 const SHOW = 4;
 
-export type SavingsData = Plan & { ok: true };
+export type SavingsData = Plan & { ok: true; bank?: string };
+
+/** The plan's address: with a bank picked, worked out from that bank's money with its own target. */
+export const savingsUrl = (bank: string) => (bank ? `/api/savings?bank=${encodeURIComponent(bank)}` : "/api/savings");
 
 /** How much can be saved each month, how this month is going, and tips for saving more. */
 export default function SavingsPlan() {
-  const { data, error, loading, reload } = useData<SavingsData>("/api/savings");
+  const [bank] = useSelectedBank();
+  const { nameOf } = useBanks();
+  const bankName = bank === "none" ? "cash" : bank ? nameOf(bank) ?? "this bank" : null;
+  const { data, error, loading, reload } = useData<SavingsData>(savingsUrl(bank));
   const limits = useData<{ items: { category: string }[] }>("/api/limits");
   const [editTarget, setEditTarget] = useState(false);
   const [limit, setLimit] = useState<LimitEdit | null>(null);
@@ -32,9 +41,16 @@ export default function SavingsPlan() {
     <div className="page-head">
       <div>
         <h1>Savings plan</h1>
-        <p className="muted">How much you can realistically save each month, worked out from your own income and spending.</p>
+        <p className="muted">
+          {bankName
+            ? `How much you can save each month from ${bankName} alone: only its income and spending count, with its own target. Monthly payments are left out because they aren't tied to a bank.`
+            : "How much you can realistically save each month, worked out from your own income and spending."}
+        </p>
       </div>
-      {data?.ready && <div className="toolbar"><button className="btn" onClick={() => setEditTarget(true)}>{data.targetIsOwn ? "Change target" : "Set my own target"}</button></div>}
+      <div className="toolbar">
+        <BankPicker />
+        {data?.ready && <button className="btn" onClick={() => setEditTarget(true)}>{data.targetIsOwn ? "Change target" : "Set my own target"}</button>}
+      </div>
     </div>
   );
 
@@ -47,7 +63,7 @@ export default function SavingsPlan() {
         {head}
         <div className="card">
           <Empty icon="🌱" title="Not enough history yet">
-            <p>The plan needs at least one full month of income and spending. Once this month is recorded, you&apos;ll see how much you can save and where to find it.</p>
+            <p>The plan needs at least one full month of income and spending{bankName ? ` in ${bankName}` : ""}. Once this month is recorded, you&apos;ll see how much you can save and where to find it.</p>
           </Empty>
         </div>
       </>
@@ -194,6 +210,8 @@ export default function SavingsPlan() {
 
       {editTarget && (
         <TargetModal
+          bank={bank}
+          bankName={bankName}
           plan={p}
           onClose={() => setEditTarget(false)}
           onSaved={(msg) => {
@@ -232,7 +250,7 @@ function TipRow({ t, action }: { t: SavingsTip; action: (a: SavingsTipAction) =>
   );
 }
 
-function TargetModal({ plan, onClose, onSaved }: { plan: Extract<Plan, { ready: true }>; onClose: () => void; onSaved: (msg: string) => void }) {
+function TargetModal({ plan, bank, bankName, onClose, onSaved }: { plan: Extract<Plan, { ready: true }>; bank: string; bankName: string | null; onClose: () => void; onSaved: (msg: string) => void }) {
   const [amount, setAmount] = useState(plan.targetIsOwn ? paisaToDecimal(plan.target).replace(/\.00$/, "") : paisaToDecimal(plan.suggested).replace(/\.00$/, ""));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -246,7 +264,7 @@ function TargetModal({ plan, onClose, onSaved }: { plan: Extract<Plan, { ready: 
     setBusy(true);
     setErr(null);
     try {
-      await apiFetch("/api/savings", { method: "PUT", body: JSON.stringify({ target }) });
+      await apiFetch("/api/savings", { method: "PUT", body: JSON.stringify({ target, bank: bank || undefined }) });
       onSaved(msg);
     } catch (ex) {
       const a = ex as ApiError;
@@ -259,7 +277,7 @@ function TargetModal({ plan, onClose, onSaved }: { plan: Extract<Plan, { ready: 
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="target-title" style={{ maxWidth: 440 }}>
         <div className="modal-head">
-          <h2 id="target-title">Monthly savings target</h2>
+          <h2 id="target-title">Monthly savings target{bankName ? ` for ${bankName}` : ""}</h2>
           <CloseButton onClick={onClose} />
         </div>
         <form onSubmit={(e) => { e.preventDefault(); save(amount, "Savings target saved"); }}>

@@ -11,6 +11,9 @@ import SplitForm from "./SplitForm";
 import { billTitle } from "./receipt";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
+import BankPicker, { useBankTag } from "./BankPicker";
+import { useBanks } from "./useBanks";
+import { useSelectedBank } from "./useSelectedBank";
 import "@/app/monthly.css";
 import "@/app/splits.css";
 
@@ -24,7 +27,7 @@ export type Share = {
   settled_at: string | null;
   settled_note: string | null;
   created_at: string;
-  bill: { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null };
+  bill: { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null; bank_id: string | null };
   shares_on_bill: number;
   shared_total: number;
   payments: (InTx & { kind: string })[];
@@ -39,7 +42,11 @@ const whole = (p: number) => formatPaisa(p).replace(/\.00$/, "");
 const owedOn = (s: Share) => Math.max(0, s.amount_paisa - s.paid);
 
 export default function Splits() {
-  const { data, error, loading, reload } = useData<Data>("/api/splits");
+  // A split belongs to the bank its payment went out of; with a bank picked, only its splits and cash ones show.
+  const [bank] = useSelectedBank();
+  const { nameOf } = useBanks();
+  const bankTag = useBankTag();
+  const { data, error, loading, reload } = useData<Data>(bank ? `/api/splits?bank=${encodeURIComponent(bank)}` : "/api/splits");
   const [receipt, setReceipt] = useState<Share | null>(null);
   const [linking, setLinking] = useState<Share | null>(null);
   const [billId, setBillId] = useState<string | null>(null);
@@ -78,6 +85,7 @@ export default function Splits() {
           <p className="muted">Paid for everyone? Split the payment, share a receipt, and tick each person off when their money comes in.</p>
         </div>
         <div className="toolbar">
+          <BankPicker />
           <button className="btn primary" onClick={() => setPicking(true)}>+ Split a payment</button>
         </div>
       </div>
@@ -86,7 +94,7 @@ export default function Splits() {
         <>
           <div className="card split-summary">
             <div>
-              <div className="small muted">Owed to you</div>
+              <div className="small muted">Owed to you{bank && bank !== "none" && nameOf(bank) ? ` · ${nameOf(bank)}` : bank === "none" ? " · cash" : ""}</div>
               <div className="split-owed num">{whole(data.owed)}</div>
             </div>
             <div className="small muted">
@@ -98,7 +106,7 @@ export default function Splits() {
           {groups.length === 0 ? (
             <div className="card">
               <Empty icon="🧾" title="No open splits">
-                <p className="muted">When you pay a bill for a group, open it in Transactions and tap Split, or start here.</p>
+                <p className="muted">{bank ? "Nothing is owed on payments for the bank picked above. Pick All banks to see every split, or " : "When you pay a bill for a group, open it in Transactions and tap Split, or "}start here.</p>
                 <p><button className="btn primary" onClick={() => setPicking(true)}>Split a payment</button></p>
               </Empty>
             </div>
@@ -114,7 +122,7 @@ export default function Splits() {
                   {g.shares.map((s) => (
                     <div key={s.id} className="split-item">
                       <div className="split-item-main">
-                        <div className="split-item-title">{billTitle(s)}</div>
+                        <div className="split-item-title">{billTitle(s)}{!bank && bankTag(s.bill.bank_id) && <span className="pill sms" style={{ marginLeft: 6 }}>{bankTag(s.bill.bank_id)}</span>}</div>
                         <div className="small muted">
                           {formatDatePkt(s.bill.occurred_at)} · bill {whole(s.bill.amount_paisa)}
                           {s.paid > 0 && <> · <span className="mp-paid">{whole(s.paid)} paid</span></>}
@@ -170,7 +178,7 @@ export default function Splits() {
       {receipt && <ReceiptModal share={receipt} owner={data?.owner ?? null} onClose={() => setReceipt(null)} />}
       {linking && <PaidBack share={linking} onClose={() => setLinking(null)} onDone={() => { setLinking(null); reload(); }} />}
       {billId && <SplitForm billId={billId} onClose={() => { setBillId(null); reload(); }} onChanged={reload} />}
-      {picking && <BillPicker onClose={() => setPicking(false)} onPick={(t) => { setPicking(false); setBillId(t.id); }} />}
+      {picking && <BillPicker bank={bank} onClose={() => setPicking(false)} onPick={(t) => { setPicking(false); setBillId(t.id); }} />}
     </>
   );
 }
@@ -289,11 +297,11 @@ function PaidBack({ share, onClose, onDone }: { share: Share; onClose: () => voi
 }
 
 /** Choose which payment to split: recent spending, searchable. */
-function BillPicker({ onClose, onPick }: { onClose: () => void; onPick: (t: Tx) => void }) {
+function BillPicker({ bank, onClose, onPick }: { bank: string; onClose: () => void; onPick: (t: Tx) => void }) {
   const [q, setQ] = useState("");
   const search = useDebounced(q);
   useEscape(onClose);
-  const { data, error, loading, reload } = useData<{ items: Tx[] }>(resourceUrl("app", "transactions", { kind: "expense", q: search, pageSize: 40 }));
+  const { data, error, loading, reload } = useData<{ items: Tx[] }>(resourceUrl("app", "transactions", { kind: "expense", q: search, pageSize: 40, bank: bank || undefined }));
   const items = (data?.items ?? []).filter((t) => t.category !== "Bank charges" && t.category !== "Tax deducted");
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -301,7 +309,7 @@ function BillPicker({ onClose, onPick }: { onClose: () => void; onPick: (t: Tx) 
         <div className="modal-head">
           <div>
             <h2 id="pick-title">Which payment?</h2>
-            <div className="small muted">Pick the bill you paid in full.</div>
+            <div className="small muted">Pick the bill you paid in full.{bank ? " Showing payments from the bank picked on the page." : ""}</div>
           </div>
           <CloseButton onClick={onClose} />
         </div>

@@ -110,6 +110,8 @@ export const setAsideInput = z
     startsOn: z.string().refine(isIsoDate, "Choose a start date"),
     endedOn: z.string().refine(isIsoDate, "Choose a valid end date").nullable().optional(),
     purpose: z.enum(["giving", "saving"]).optional(),
+    /** The bank whose incoming money fills it; null for all banks, left out to keep it as it is. */
+    bankId: z.string().uuid().nullable().optional(),
   })
   .refine((v) => !v.endedOn || v.endedOn >= v.startsOn, { message: "End date must be on or after the start date", path: ["endedOn"] })
   .transform(({ percent, ...rest }) => ({ ...rest, percentBp: percent }));
