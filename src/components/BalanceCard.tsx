@@ -11,6 +11,8 @@ import { bankLabel, useBanks } from "./useBanks";
 import { digitsLabel } from "@/lib/banks";
 import type { BalanceSummary } from "./types";
 import CloseButton from "./CloseButton";
+import { EyeIcon } from "./Eye";
+import { masked, useHiddenAmounts } from "./useHiddenAmounts";
 
 /**
  * Current bank balance: set by hand once per account, then moved by every transaction of that account dated after.
@@ -24,6 +26,7 @@ export default function BalanceCard({ bank = "" }: { bank?: string }) {
   const { data, error, loading, reload } = useData<BalanceSummary & { ok: true }>(cash ? null : one ? `/api/balance?bank=${one.id}` : "/api/balance");
   const [editing, setEditing] = useState(false);
   const toast = useToast();
+  const [hidden, setHidden] = useHiddenAmounts();
   const b = data?.balance ?? null;
   const all = multi && !one;
   const accountName = (id: string) => {
@@ -37,7 +40,12 @@ export default function BalanceCard({ bank = "" }: { bank?: string }) {
   // Set-asides come out of all the money together, so the split shows with every account added up.
   const showSplit = !one && !!(data && b && data.setAside > 0 && b.balance > 0);
   const free = data?.freeToSpend ?? 0;
-  const whole = (p: number, o: { sign?: boolean } = {}) => formatPaisa(Math.round(p), o).replace(/\.\d\d$/, "");
+  const whole = (p: number, o: { sign?: boolean } = {}) => (hidden ? masked() : formatPaisa(Math.round(p), o).replace(/\.\d\d$/, ""));
+  const eye = (
+    <button type="button" className="eye-btn" onClick={() => setHidden(!hidden)} aria-label={hidden ? "Show balance" : "Hide balance"} aria-pressed={hidden} title={hidden ? "Show balance" : "Hide balance"}>
+      <EyeIcon off={hidden} />
+    </button>
+  );
 
   if (cash) {
     return (
@@ -56,12 +64,12 @@ export default function BalanceCard({ bank = "" }: { bank?: string }) {
       {error ? <ErrorBox message={error} onRetry={reload} /> : (
         <div className="balance-card">
           <div className="label">
-            <span>{label}</span>
-            {pct != null && <span className={`delta ${pct >= 0 ? "good" : "bad"}`} title="Change since you last set the balance">{pct > 0 ? "+" : pct < 0 ? "−" : ""}{Math.abs(pct)}%</span>}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{label}{b && eye}</span>
+            {pct != null && !hidden && <span className={`delta ${pct >= 0 ? "good" : "bad"}`} title="Change since you last set the balance">{pct > 0 ? "+" : pct < 0 ? "−" : ""}{Math.abs(pct)}%</span>}
           </div>
           {loading && !data ? <Skeleton h={40} w={240} /> : b ? (
             <>
-              <div className="big" style={{ color: b.balance < 0 ? "var(--down-ink)" : undefined }}>{formatPaisa(b.balance)}</div>
+              <div className={`big${hidden ? " amount-hidden" : ""}`} style={{ color: b.balance < 0 && !hidden ? "var(--down-ink)" : undefined }}>{hidden ? masked() : formatPaisa(b.balance)}</div>
               {all ? (
                 <div className="small muted balance-accounts">
                   {(data?.accounts ?? []).map((a) => (
