@@ -56,6 +56,18 @@ export async function finishImportRun(id: string, deviceId: string | null): Prom
   return rows[0] ?? null;
 }
 
+/** The last import that finished, for the queue widget's "Last import 2 h ago". */
+export async function lastFinishedRun(): Promise<ImportRun | null> {
+  const { rows } = await q<ImportRun>(`SELECT ${COLS} FROM app.import_runs WHERE finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT 1`);
+  return rows[0] ?? null;
+}
+
+/** When the last bank alert reached Mizan from any paired iPhone. */
+export async function lastAlertAt(): Promise<string | null> {
+  const { rows } = await q<{ at: string | null }>(`SELECT max(last_sms_at) AS at FROM app.paired_devices WHERE kind = 'shortcut'`);
+  return rows[0]?.at ?? null;
+}
+
 /** One line for the Shortcut's notification and the app. */
 export function importSummary(r: Pick<ImportRun, "sent_count" | "imported_count" | "review_count" | "duplicate_count" | "ignored_count" | "failed_count">): string {
   if (r.sent_count === 0) return "No queued messages to import.";

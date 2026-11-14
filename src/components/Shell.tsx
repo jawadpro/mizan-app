@@ -40,6 +40,7 @@ const ICONS = {
   system: svg(<><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></>),
   light: svg(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>),
   dark: svg(<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />),
+  widgets: svg(<><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="7" rx="2" /><rect x="3.5" y="13.5" width="17" height="7" rx="2" /></>),
   download: svg(<><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" /><path d="M4.5 15.5V19a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3.5" /></>),
 };
 
@@ -252,6 +253,14 @@ function ShellBody({ space, children, currency = DEFAULT_CURRENCY }: ShellProps)
                   <span className="sheet-chev" aria-hidden>›</span>
                 </Link>
               ))}
+              {/* Home Screen widgets run on the iPhone, so the page is only in the phone's menu. */}
+              {space === "app" && importQueue.available && (
+                <Link href={`${base}/widgets`} className={`sheet-item${path === `${base}/widgets` ? " active" : ""}`}>
+                  <span className="sheet-icon">{ICONS.widgets}</span>
+                  <span className="sheet-label">Widgets</span>
+                  <span className="sheet-chev" aria-hidden>›</span>
+                </Link>
+              )}
               {space === "app" && importQueue.available && (
                 <button type="button" className="sheet-item" onClick={() => { importQueue.start(); }} disabled={importQueue.running}>
                   <span className="sheet-icon">{ICONS.download}</span>

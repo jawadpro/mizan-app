@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { leftLine, widgetStatus, widgetTx, widgetView, type WidgetSourceRow } from "@/lib/widget";
-import { WIDGET_SCRIPT_NAME, pairPayload, scriptableRunUrl } from "@/lib/shortcut-link";
+import { WIDGET_SCRIPT_NAME, pairPayload, scriptableRunUrl, shortcutRunUrl } from "@/lib/shortcut-link";
 
 const row = (o: Partial<WidgetSourceRow>): WidgetSourceRow => ({
   id: "i", name: "Rent", amount_paisa: 8500000, category: "Housing", payee: null, due_day: 5, paid: 0, state: null, txs: [], suggestion: null, ...o,
@@ -70,5 +70,13 @@ describe("Scriptable links", () => {
     expect(scriptableRunUrl(WIDGET_SCRIPT_NAME, { pair: pairPayload("https://m.example.com", "ABCD2345") }))
       .toBe("scriptable:///run/Mizan%20Payments?pair=https%3A%2F%2Fm.example.com%2Fapi%2Fdevices%2Fpair%3Fcode%3DABCD2345");
     expect(scriptableRunUrl("Mizan Payments")).toBe("scriptable:///run/Mizan%20Payments");
+  });
+});
+
+describe("Shortcut links back to the widget", () => {
+  it("add x-success and x-error", () => {
+    const url = shortcutRunUrl("Mizan", "mizan-import:abc", { success: "scriptable:///run/Mizan%20Queue?done=abc" });
+    expect(url).toBe("shortcuts://x-callback-url/run-shortcut?name=Mizan&input=text&text=mizan-import%3Aabc&x-success=scriptable%3A%2F%2F%2Frun%2FMizan%2520Queue%3Fdone%3Dabc");
+    expect(shortcutRunUrl("Mizan", "x")).not.toContain("x-success");
   });
 });

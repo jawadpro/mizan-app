@@ -23,7 +23,7 @@ export default function ConnectIphonePage() {
           <ul>
             <li>Add each bank and its SMS senders in <Link href="/app/settings">Settings</Link>, under Bank messages.</li>
             <li>Alerts Mizan can&apos;t read with confidence wait in the <Link href="/app/review">Review inbox</Link> instead of being guessed.</li>
-            <li>No internet when an alert arrives? The Shortcut keeps it. Back online, open Mizan on your iPhone, tap <b>More</b>, then <b>Import queued messages</b>.</li>
+            <li>No internet when an alert arrives? The Shortcut keeps it. Back online, open Mizan on your iPhone, tap <b>More</b>, then <b>Import queued messages</b>, or add the queued messages widget from <b>More › Widgets</b>.</li>
           </ul>
         </div>
       </div>
