@@ -8,13 +8,13 @@
 // This widget counts those files and adds up their amounts. Tap it and the Shortcut sends them all to Mizan; when
 // it's done you see how many were imported, and the widget goes back to "All synced".
 //
-// Setup: in Mizan, open SMS setup › Queued messages widget. Name this script "Mizan Queue" in Scriptable, and add a
+// Setup: in Mizan on the iPhone, open More › Widgets › Queued messages. Name this script "Mizan Queue" in Scriptable, and add a
 // Scriptable file bookmark named "Mizan Queue" for the Shortcut's queue folder (Scriptable › Settings › File
 // Bookmarks). The widget reads alerts only on this iPhone; they go to Mizan only when you import them.
 // It shares its connection with the Mizan Payments widget, so if that one is set up, there's nothing to connect.
 
 // Bumped with every change. The script checks your Mizan for a newer version and updates itself.
-const VERSION = 1;
+const VERSION = 2;
 const KEY = "mizan.widget";
 const UPDATE_KEY = "mizan.queue.checked";
 const BOOKMARK = "Mizan Queue";
@@ -104,7 +104,7 @@ function creds() {
 
 async function api(path, method) {
   const c = creds();
-  if (!c) throw new Error("This widget isn't connected to Mizan yet. In Mizan, open SMS setup › Queued messages widget.");
+  if (!c) throw new Error("This widget isn't connected to Mizan yet. In Mizan on your iPhone, open More › Widgets › Queued messages.");
   const req = new Request(c.server + path);
   req.method = method || "GET";
   req.timeoutInterval = 20;
@@ -395,7 +395,7 @@ async function interactive(params) {
     return;
   }
   if (!creds()) {
-    await say("Connect to Mizan", "In Mizan, open SMS setup › Queued messages widget and tap Connect the widget. (If the Mizan Payments widget is set up on this iPhone, run it once first.)");
+    await say("Connect to Mizan", "In Mizan on your iPhone, open More › Widgets › Queued messages and tap Connect the widget. If the Mizan Payments widget is already connected on this iPhone, this one uses it: nothing to do.");
     return;
   }
   if (!q.count) {

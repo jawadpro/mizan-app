@@ -130,7 +130,7 @@ const INTRO: Record<WidgetId, { title: string; text: string }> = {
 };
 
 /**
- * Sets up a Home Screen widget: "payments" (on the Monthly payments page) or "queue" (in SMS setup). Both share one
+ * Sets up a Home Screen widget: "payments" (on the Monthly payments page) or "queue" (on the Widgets page). Both share one
  * connection per iPhone, so the queue widget can skip connecting when a widget is already connected.
  */
 export default function WidgetSetup({ onClose, widget = "payments" }: { onClose: () => void; widget?: WidgetId }) {
