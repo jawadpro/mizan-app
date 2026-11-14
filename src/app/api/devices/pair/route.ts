@@ -41,13 +41,23 @@ async function pair(req: Request, body: unknown) {
   const out = await redeemPairingCode(parsed.data.code, parsed.data.name);
   if (!out.ok) {
     return out.reason === "limit"
-      ? errorJson(409, "Mizan already has 5 iPhones connected. Remove one in Mizan first.")
+      ? errorJson(409, out.kind === "widget"
+        ? "Mizan already has 5 widgets connected. Remove one in Mizan › Monthly payments › Widget first."
+        : "Mizan already has 5 iPhones connected. Remove one in Mizan first.")
       : errorJson(400, "That code didn't work. Codes work once and only for 10 minutes; make a new one in Mizan.");
   }
   // Everything the Shortcut needs to send alerts, ready to use as they are: the URL and the Authorization header.
   // `confirm` is where the Shortcut reports, with that header, that it saved the key; Mizan shows the iPhone as
   // connected from then on. Any later alert or test run confirms it too.
   const server = phoneUrl(req);
+  if (out.kind === "widget") {
+    // The widget's key reads the checklist and marks payments; it can't send bank alerts.
+    return json({
+      ok: true, kind: "widget", deviceId: out.deviceId, token: out.token, server,
+      widget: `${server}/api/widgets/monthly`, authorization: `Bearer ${out.token}`, confirm: `${server}/api/devices/confirm`,
+      message: "This widget is connected to Mizan.",
+    }, 201, { "cache-control": "no-store" });
+  }
   return json({
     ok: true, deviceId: out.deviceId, token: out.token,
     endpoint: `${server}/api/sms`, authorization: `Bearer ${out.token}`, confirm: `${server}/api/devices/confirm`,

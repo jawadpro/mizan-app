@@ -11,6 +11,7 @@ import TxForm, { draftFrom, type TxDraft } from "./TxForm";
 import { useToast } from "./Toast";
 import "@/app/monthly.css";
 import CloseButton from "./CloseButton";
+import WidgetSetup from "./WidgetSetup";
 
 export type MonthlyTx = { id: string; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null; note: string | null };
 export type MonthlyItem = {
@@ -101,6 +102,7 @@ export default function MonthlyPayments() {
   const { data, error, loading, reload } = useData<MonthlyData>(`/api/monthly${month ? `?month=${month}` : ""}`);
   const [editing, setEditing] = useState<MonthlyItem | "new" | null>(null);
   const [paying, setPaying] = useState<Row | null>(null);
+  const [widget, setWidget] = useState(false);
   const toast = useToast();
   const cur = data?.month ?? month;
   const thisMonth = data?.today.slice(0, 7);
@@ -156,7 +158,10 @@ export default function MonthlyPayments() {
           <h1>Monthly payments</h1>
           <p className="muted">Rent, bills, school fees: everything you pay every month, as a checklist that starts fresh each month.</p>
         </div>
-        <div className="toolbar"><button className="btn primary" onClick={() => setEditing("new")}>+ Add payment</button></div>
+        <div className="toolbar">
+          <button className="btn" onClick={() => setWidget(true)}>Home Screen widget</button>
+          <button className="btn primary" onClick={() => setEditing("new")}>+ Add payment</button>
+        </div>
       </div>
 
       {error && <ErrorBox message={error} onRetry={reload} />}
@@ -253,6 +258,7 @@ export default function MonthlyPayments() {
           onDelete={editing !== "new" ? () => remove(editing) : undefined}
         />
       )}
+      {widget && <WidgetSetup onClose={() => setWidget(false)} />}
       {paying && data && (
         <PayDialog r={paying} d={data} onClose={() => setPaying(null)} onMark={(body, msg) => mark(paying, body, msg)} onReload={reload} />
       )}

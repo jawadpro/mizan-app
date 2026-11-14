@@ -11,7 +11,15 @@ import { formatCode, normalizeCode, randomCode } from "./pairing-code";
 // token keep working; the app just no longer shows that way.
 
 export const PAIRING_TTL_MIN = 10;
+/** At most this many iPhones, and separately this many widgets. */
 export const MAX_DEVICES = 5;
+
+/**
+ * "shortcut": the Mizan Shortcut on an iPhone, which sends bank alerts. "widget": a home-screen widget (Scriptable),
+ * whose key can only read the monthly payments checklist and mark payments.
+ */
+export type DeviceKind = "shortcut" | "widget";
+export const DEVICE_KINDS: readonly DeviceKind[] = ["shortcut", "widget"];
 const TOKEN_RE = /^mzd_[A-Za-z0-9_-]{43}$/;
 
 /**
@@ -43,22 +51,23 @@ export function phoneUrl(req: Request): string {
 }
 
 /** A fresh single-use code. Any unused code made before stops working. */
-export async function createPairingCode(opts: { name?: string; replaces?: string } = {}) {
+export async function createPairingCode(opts: { name?: string; replaces?: string; kind?: DeviceKind } = {}) {
+  const kind: DeviceKind = opts.kind ?? "shortcut";
   const code = randomCode();
   const { rows } = await tx(async (run) => {
     await run(`DELETE FROM app.pairing_codes WHERE used_at IS NULL OR created_at < now() - interval '1 day'`);
     return run<{ expires_at: Date }>(
-      `INSERT INTO app.pairing_codes (code_digest, device_name, replaces_id, expires_at)
-       VALUES ($1, $2, (SELECT id FROM app.paired_devices WHERE id = $3::uuid AND revoked_at IS NULL),
-               now() + make_interval(mins => $4))
+      `INSERT INTO app.pairing_codes (code_digest, device_name, replaces_id, expires_at, device_kind)
+       VALUES ($1, $2, (SELECT id FROM app.paired_devices WHERE id = $3::uuid AND revoked_at IS NULL AND kind = $5),
+               now() + make_interval(mins => $4), $5)
        RETURNING expires_at`,
-      [codeDigest(code), opts.name?.trim().slice(0, 60) || null, opts.replaces ?? null, PAIRING_TTL_MIN],
+      [codeDigest(code), opts.name?.trim().slice(0, 60) || null, opts.replaces ?? null, PAIRING_TTL_MIN, kind],
     );
   });
   return { code, display: formatCode(code), expiresAt: rows[0].expires_at };
 }
 
-export type PairResult = { ok: true; deviceId: string; token: string } | { ok: false; reason: "invalid" | "limit" };
+export type PairResult = { ok: true; deviceId: string; token: string; kind: DeviceKind } | { ok: false; reason: "invalid" | "limit"; kind?: DeviceKind };
 
 /**
  * Turns a valid, unexpired code into a new device and returns its token. Only a digest is kept.
@@ -73,15 +82,16 @@ export async function redeemPairingCode(rawCode: string, rawName: string): Promi
   if (!code) return { ok: false, reason: "invalid" };
   const token = `mzd_${crypto.randomBytes(32).toString("base64url")}`;
   return tx(async (run) => {
-    const used = await run<{ device_name: string | null; replaces_id: string | null; prior_id: string | null }>(
+    const used = await run<{ device_name: string | null; replaces_id: string | null; prior_id: string | null; device_kind: DeviceKind }>(
       `UPDATE app.pairing_codes pc SET used_at = now()
        WHERE code_digest = $1 AND expires_at > now()
          AND (used_at IS NULL OR device_id IN (SELECT id FROM app.paired_devices WHERE last_seen_at IS NULL AND revoked_at IS NULL))
-       RETURNING device_name, replaces_id, device_id AS prior_id`,
+       RETURNING device_name, replaces_id, device_id AS prior_id, device_kind`,
       [codeDigest(code)],
     );
     const pc = used.rows[0];
     if (!pc) return { ok: false, reason: "invalid" } as const;
+    const kind = pc.device_kind;
     let priorName: string | null = null;
     if (pc.prior_id) {
       // An earlier use of this code that never confirmed: drop it, this one takes its place.
@@ -95,32 +105,36 @@ export async function redeemPairingCode(rawCode: string, rawName: string): Promi
       keptName = old.rows[0]?.name ?? null;
     }
     const active = await run<{ n: number }>(
-      `SELECT count(*)::int AS n FROM app.paired_devices WHERE revoked_at IS NULL AND id IS DISTINCT FROM $1::uuid`, [pc.replaces_id]);
-    if (active.rows[0].n >= MAX_DEVICES) return { ok: false, reason: "limit" } as const;
-    const name = (pc.device_name || keptName || priorName || rawName.replace(/[\u0000-\u001f]/g, "").trim() || "iPhone").slice(0, 60);
+      `SELECT count(*)::int AS n FROM app.paired_devices WHERE revoked_at IS NULL AND kind = $2 AND id IS DISTINCT FROM $1::uuid`,
+      [pc.replaces_id, kind]);
+    if (active.rows[0].n >= MAX_DEVICES) return { ok: false, reason: "limit", kind } as const;
+    const fallback = kind === "widget" ? "Widget" : "iPhone";
+    const name = (pc.device_name || keptName || priorName || rawName.replace(/[\u0000-\u001f]/g, "").trim() || fallback).slice(0, 60);
     const dev = await run<{ id: string }>(
-      `INSERT INTO app.paired_devices (name, token_digest, token_hint) VALUES ($1, $2, $3) RETURNING id`,
-      [name, sha256(token), token.slice(-4)],
+      `INSERT INTO app.paired_devices (name, token_digest, token_hint, kind) VALUES ($1, $2, $3, $4) RETURNING id`,
+      [name, sha256(token), token.slice(-4), kind],
     );
     await run(`UPDATE app.pairing_codes SET device_id = $1 WHERE code_digest = $2`, [dev.rows[0].id, codeDigest(code)]);
-    return { ok: true, deviceId: dev.rows[0].id, token } as const;
+    return { ok: true, deviceId: dev.rows[0].id, token, kind } as const;
   });
 }
 
 export const looksLikeDeviceToken = (t: string) => TOKEN_RE.test(t);
 
 /**
- * The paired iPhone a device token belongs to, or null (wrong or removed). The first time a token is used, the
- * pairing is confirmed: the iPhone has saved its key. Only then does a Reconnect stop the old token.
+ * The paired device a token belongs to, or null (wrong, removed, or not one of `kinds`). The first time a token is
+ * used, the pairing is confirmed: the device has saved its key. Only then does a Reconnect stop the old token.
+ * Sending bank alerts takes a Shortcut's key; a widget's key only works for the widget endpoints.
  */
-export async function authenticateDevice(token: string): Promise<string | null> {
+export async function authenticateDevice(token: string, kinds: readonly DeviceKind[] = ["shortcut"]): Promise<string | null> {
   if (!TOKEN_RE.test(token)) return null;
   const { rows } = await q<{ id: string; first: boolean }>(
     `UPDATE app.paired_devices p SET last_seen_at = now()
-     FROM (SELECT id, last_seen_at IS NULL AS first FROM app.paired_devices WHERE token_digest = $1 AND revoked_at IS NULL) o
+     FROM (SELECT id, last_seen_at IS NULL AS first FROM app.paired_devices
+           WHERE token_digest = $1 AND revoked_at IS NULL AND kind = ANY($2::text[])) o
      WHERE p.id = o.id
      RETURNING p.id, o.first`,
-    [sha256(token)],
+    [sha256(token), [...kinds]],
   );
   const dev = rows[0];
   if (!dev) return null;
@@ -151,25 +165,27 @@ export async function recordTest(deviceId: string) {
 }
 
 export type DeviceRow = {
-  id: string; name: string; kind: "shortcut"; token_hint: string; paired_at: string;
+  id: string; name: string; kind: DeviceKind; token_hint: string; paired_at: string;
   last_seen_at: string | null; last_sms_at: string | null; last_test_at: string | null; revoked_at: string | null;
   imported_count: number; review_count: number; duplicate_count: number; ignored_count: number; failed_count: number;
 };
 
-export async function listDevices(): Promise<DeviceRow[]> {
+export async function listDevices(kind: DeviceKind = "shortcut"): Promise<DeviceRow[]> {
   const { rows } = await q<DeviceRow>(
     `SELECT id, name, kind, token_hint, paired_at, last_seen_at, last_sms_at, last_test_at, revoked_at,
             imported_count, review_count, duplicate_count, ignored_count, failed_count
-     FROM app.paired_devices WHERE revoked_at IS NULL OR revoked_at > now() - interval '30 days'
+     FROM app.paired_devices WHERE kind = $1 AND (revoked_at IS NULL OR revoked_at > now() - interval '30 days')
      ORDER BY revoked_at IS NOT NULL, paired_at DESC`,
+    [kind],
   );
   return rows;
 }
 
 /** What happened to the latest pairing code, for the setup screen to follow along. */
-export async function latestPairing() {
+export async function latestPairing(kind: DeviceKind = "shortcut") {
   const { rows } = await q<{ expires_at: string; used_at: string | null; device_id: string | null }>(
-    `SELECT expires_at, used_at, device_id FROM app.pairing_codes ORDER BY created_at DESC LIMIT 1`,
+    `SELECT expires_at, used_at, device_id FROM app.pairing_codes WHERE device_kind = $1 ORDER BY created_at DESC LIMIT 1`,
+    [kind],
   );
   return rows[0] ?? null;
 }

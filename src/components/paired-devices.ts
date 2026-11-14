@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "./api";
 
 export type Device = {
-  id: string; name: string; kind: "shortcut"; token_hint: string; paired_at: string;
+  id: string; name: string; kind: "shortcut" | "widget"; token_hint: string; paired_at: string;
   last_seen_at: string | null; last_sms_at: string | null; last_test_at: string | null; revoked_at: string | null;
   imported_count: number; review_count: number; duplicate_count: number; ignored_count: number; failed_count: number;
 };
@@ -15,26 +15,26 @@ export type DevicesInfo = {
   phoneUrl: string;
 };
 
-export type PairingCode = { code: string; expiresAt: string; runUrl: string; pairPageUrl: string; payload: string };
+export type PairingCode = { code: string; expiresAt: string; runUrl: string; pairPageUrl: string; payload: string; server?: string };
 
 /** Fired with `detail: true` when an iPhone is connected, false when none is. */
 export const IPHONE_STATUS = "mizan:iphone-status";
 
-/** Paired iPhones, refreshed every few seconds while `live` (during setup, to notice pairing and tests). */
-export function useDevices(live = false) {
+/** Paired iPhones (or widgets), refreshed every few seconds while `live` (during setup, to notice pairing and tests). */
+export function useDevices(live = false, kind: "shortcut" | "widget" = "shortcut") {
   const [data, setData] = useState<DevicesInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      const d = await apiFetch<DevicesInfo & { ok: true }>("/api/devices");
+      const d = await apiFetch<DevicesInfo & { ok: true }>(kind === "widget" ? "/api/devices?kind=widget" : "/api/devices");
       setData(d);
       setError(null);
       // Lets the menu's red or green dot follow along without its own polling.
-      window.dispatchEvent(new CustomEvent(IPHONE_STATUS, { detail: d.items.some(isConnected) }));
+      if (kind === "shortcut") window.dispatchEvent(new CustomEvent(IPHONE_STATUS, { detail: d.items.some(isConnected) }));
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [kind]);
   useEffect(() => {
     load();
     if (!live) return;
@@ -45,7 +45,7 @@ export function useDevices(live = false) {
 }
 
 /** A pairing code that renews itself when it runs out, until the iPhone uses it. */
-export function usePairingCode(enabled: boolean, opts: { replaces?: string } = {}) {
+export function usePairingCode(enabled: boolean, opts: { replaces?: string; kind?: "widget" } = {}) {
   const [code, setCode] = useState<PairingCode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -54,14 +54,14 @@ export function usePairingCode(enabled: boolean, opts: { replaces?: string } = {
     if (busy.current) return;
     busy.current = true;
     try {
-      setCode(await apiFetch<PairingCode>("/api/devices/code", { method: "POST", body: JSON.stringify(opts.replaces ? { replaces: opts.replaces } : {}) }));
+      setCode(await apiFetch<PairingCode>("/api/devices/code", { method: "POST", body: JSON.stringify({ ...(opts.replaces ? { replaces: opts.replaces } : {}), ...(opts.kind ? { kind: opts.kind } : {}) }) }));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       busy.current = false;
     }
-  }, [opts.replaces]);
+  }, [opts.replaces, opts.kind]);
   useEffect(() => {
     if (enabled && !code) make();
   }, [enabled, code, make]);
