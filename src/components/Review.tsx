@@ -114,9 +114,12 @@ export default function Review({ space }: { space: Space }) {
                   <ChargesField title="Bank charges / tax" amount={d.amount} value={charges} onChange={setCharges} kind={chargesKind} onKindChange={setChargesKind} error={fieldErrors.charges?.[0]} />
                 )}
                 {learn && (
-                  <label className="full small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="checkbox" style={{ width: "auto", margin: 0 }} checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-                    Remember ••{learn.digits} for {learn.bank.name}, so its next alerts go there on their own
+                  <label className="full small" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <input type="checkbox" style={{ width: "auto", margin: "2px 0 0" }} checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                    <span>
+                      Remember ••{learn.digits} as your {learn.bank.name} account, so its next alerts are filed under {learn.bank.name}
+                      {learn.bank.hold_transfers && <span className="muted" style={{ display: "block" }}>Outgoing payments will still wait here, as set in Settings.</span>}
+                    </span>
                   </label>
                 )}
               </>

@@ -376,7 +376,7 @@ export async function confirmReview(id: string, t: TransactionInput, chargesPais
     );
     if (!ins.rows[0]) return { duplicate: true as const };
     if (chargesPaisa > 0) await addBankCharge(run, ins.rows[0].id, chargesPaisa, t, it.account_hint, bankId, chargesCategory);
-    // The owner picked the account: save its digits on that bank, so its next alerts go there on their own.
+    // The owner picked the account: save its digits on that bank, so its next alerts are filed under it. The bank's hold setting still applies.
     if (rememberAccount && bankId && it.account_hint) await rememberDigits(run, bankId, it.account_hint);
     await run(
       `UPDATE app.review_items SET status='confirmed', transaction_id=$2, resolved_at=now(), redacted_text=NULL WHERE id=$1`,
