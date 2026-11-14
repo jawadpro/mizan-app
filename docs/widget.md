@@ -45,14 +45,13 @@ Scriptable widget the same way.
   - **Paid: link Rs 12,340 · 9 Nov · K-Electric** when Mizan found a likely match,
   - **Paid: choose the transaction…** lists that month's unlinked spending, best match first, with a search,
   - **Paid, nothing to link** for cash or another account,
-  - **Skip this month**, or **Mark as not paid** to undo,
-  - **Open in Mizan**.
+  - **Skip this month**, or **Mark as not paid** to undo.
 - **Tap elsewhere on the widget** to open the whole checklist, with ‹ › to look at past months.
 
 A part-paid payment (say school fees paid in two transfers) shows what's left, and you can link another transaction to
 it. Everything you do here shows up on the Monthly payments page, and the other way round.
 
-**Updates:** the script checks your Mizan every few hours and replaces itself when there's a newer version, so you
+**Updates:** the script checks your Mizan about once an hour and replaces itself when there's a newer version, so you
 paste it only once. (Copies added before version 2 have to be pasted once more.)
 
 iOS decides when widgets refresh, usually every 15 to 30 minutes, so a change can take a little while to show on the
@@ -90,6 +89,13 @@ waiting there, and a tap imports it all.
 
 The widget only reads the folder to count and total the alerts; it never sends them. They reach Mizan through the
 Shortcut's import, as before. Like the payments script, it updates itself.
+
+## Why a tap opens Scriptable, not Mizan
+
+Tapping a widget runs its script in Scriptable, so everything happens there: marking a payment, picking the
+transaction, or starting an import. The widgets never send you to Safari. iOS gives no way to open a web app saved to
+the Home Screen from a widget or a link: any web address opens in Safari, where you'd be signed out. To get to Mizan,
+use its Home Screen icon.
 
 ## Security
 

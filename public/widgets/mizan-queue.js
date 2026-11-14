@@ -14,7 +14,7 @@
 // It shares its connection with the Mizan Payments widget, so if that one is set up, there's nothing to connect.
 
 // Bumped with every change. The script checks your Mizan for a newer version and updates itself.
-const VERSION = 3;
+const VERSION = 4;
 const KEY = "mizan.widget";
 const UPDATE_KEY = "mizan.queue.checked";
 const BOOKMARK = "Mizan Queue";
@@ -402,8 +402,7 @@ async function interactive(params) {
     return;
   }
   if (!q.count) {
-    const i = await say("All synced ✓", "No alerts are waiting. Alerts the Shortcut saves while you're offline show up on the widget.", ["OK", "Open Mizan"]);
-    if (i === 1) Safari.open(creds().server + "/app");
+    await say("All synced ✓", "No alerts are waiting. Alerts the Shortcut saves while you're offline show up on the widget.");
     return;
   }
   if (params.import) return startImport(q);
@@ -421,7 +420,7 @@ async function selfUpdate() {
   const c = creds();
   if (!c) return;
   const last = Keychain.contains(UPDATE_KEY) ? Number(Keychain.get(UPDATE_KEY)) : 0;
-  if (Date.now() - last < 6 * 3600e3) return;
+  if (Date.now() - last < 3600e3) return;
   Keychain.set(UPDATE_KEY, String(Date.now()));
   try {
     const req = new Request(`${c.server}/widgets/mizan-queue.js`);

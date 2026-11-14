@@ -13,7 +13,7 @@
 // monthly payments and mark them; it can't send bank alerts or see anything else. Remove it any time in Mizan.
 
 // Bumped with every change. The script checks your Mizan for a newer version and updates itself.
-const VERSION = 2;
+const VERSION = 3;
 const KEY = "mizan.widget";
 const UPDATE_KEY = "mizan.widget.checked";
 const CACHE = "mizan-payments.json";
@@ -424,10 +424,6 @@ async function itemSheet(d, item) {
     if (item.state === "open") add("Skip this month", () => mark(d, item, "skipped"));
   }
   if (!unpaid) add("Mark as not paid", () => mark(d, item, "undo"), true);
-  add("Open in Mizan", async () => {
-    Safari.open(d.appUrl);
-    return false;
-  });
   a.addCancelAction("Cancel");
   const i = await a.presentSheet();
   if (i < 0 || i >= acts.length) return false;
@@ -501,11 +497,6 @@ async function checklist(firstItemId, firstMonth) {
       r.addText("No monthly payments yet", "Add rent, bills and fees in Mizan › Monthly payments").subtitleColor = C.muted;
       t.addRow(r);
     }
-    const open = new UITableRow();
-    open.addText("Open Mizan").titleColor = C.paid;
-    open.dismissOnSelect = false;
-    open.onSelect = () => Safari.open(d.appUrl);
-    t.addRow(open);
     t.reload();
   }
   async function refresh() {
@@ -566,7 +557,7 @@ async function selfUpdate(force) {
   const c = creds();
   if (!c) return false;
   const last = Keychain.contains(UPDATE_KEY) ? Number(Keychain.get(UPDATE_KEY)) : 0;
-  if (!force && Date.now() - last < 6 * 3600e3) return false;
+  if (!force && Date.now() - last < 3600e3) return false;
   Keychain.set(UPDATE_KEY, String(Date.now()));
   try {
     const req = new Request(`${c.server}/widgets/mizan-payments.js`);
