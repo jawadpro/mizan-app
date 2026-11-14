@@ -1,4 +1,14 @@
-# Monthly payments widget (iPhone)
+# iPhone widgets
+
+Mizan has two Home Screen widgets, both running in Scriptable. On an iPhone, open **More › Widgets** in Mizan to see
+them and add either one; that page only shows on an iPhone.
+
+- [Monthly payments](#monthly-payments-widget): what's paid and what's due, and mark payments paid.
+- [Queued messages](#queued-messages-widget): the bank alerts the Shortcut saved while you were offline, with one tap to import them.
+
+One connection serves both: once one widget is connected on an iPhone, the other uses the same key.
+
+## Monthly payments widget
 
 This month's payments on your iPhone's Home Screen or Lock Screen: what's paid, what's due and what's late. Tap a
 payment and the checklist opens, where you mark it paid and link the bank transaction that paid it. Mizan suggests
@@ -8,7 +18,7 @@ the likely transaction by payee, amount and date.
 The widget runs in [Scriptable](https://apps.apple.com/app/scriptable/id1405459188), a free iPhone app that runs small
 JavaScript files and shows them as widgets. A web app can't put widgets on the Home Screen by itself.
 
-## Set it up
+### Set it up
 
 1. In Mizan, open **Monthly payments** and tap **Home Screen widget**.
 2. **On a computer**, scan the QR code with the iPhone camera. It opens a page with the next three steps.
@@ -26,7 +36,7 @@ JavaScript files and shows them as widgets. A web app can't put widgets on the H
 Lock Screen widgets work too (rectangular, inline and circular sizes): **Customize** the Lock Screen and add a
 Scriptable widget the same way.
 
-## Using it
+### Using it
 
 - **Small:** paid count, a progress bar and the next payments due.
 - **Medium (3 rows) and large (9 rows), with big text and tap targets:** unpaid payments first with their status (`Due 20 Nov`, `4 days late`) and
@@ -49,13 +59,45 @@ iOS decides when widgets refresh, usually every 15 to 30 minutes, so a change ca
 widget. The checklist inside Scriptable is always current. Without internet the widget shows the last copy and says
 "offline".
 
+
+## Queued messages widget
+
+When an alert arrives without internet, the Mizan Shortcut saves it in a folder on the iPhone. This widget shows what's
+waiting there, and a tap imports it all.
+
+<p align="center"><img src="screenshots/queue-widget-mockup.png" width="860" alt="The queued messages widget: amber with alerts waiting, green when synced, and the Lock Screen circle" /></p>
+
+- **Alerts waiting:** amber, with the count and their total ("3 alerts waiting · Rs 18,450") over a fanned stack of
+  the messages, labelled by bank sender. The large size lists them.
+- **All synced:** calm green with a check and when you last imported.
+- **Tap it:** the Mizan Shortcut imports the queued alerts, then Scriptable comes back and shows what was added
+  ("All synced ✓").
+- **Lock Screen:** the round widget shows the count; rectangular and inline sizes work too.
+
+### Set it up
+
+1. In Mizan on the iPhone, open **More › Widgets** and tap **Add to Home Screen** on Queued messages. (On a computer,
+   the dialog shows a QR code that opens the same steps.)
+2. **Get Scriptable**, then **copy the script** and paste it into a new Scriptable script named **Mizan Queue**
+   (served at `/widgets/mizan-queue.js`).
+3. **Let Scriptable see the queue folder.** In Scriptable, tap the gear › **File Bookmarks** › **+** › **Pick Folder**
+   and choose the folder the Shortcut saves offline alerts in, usually **On My iPhone › Mizan › queue-messages**. Name
+   the bookmark exactly **Mizan Queue**. iOS only lets Scriptable read another app's folder through a bookmark you pick.
+4. **Connect the widget**, the same as the payments widget. Already connected the Payments widget on this iPhone?
+   Skip this; the queue widget uses the same key.
+5. **Add it:** pick Scriptable's small or medium widget, set **Script** to **Mizan Queue** and **When Interacting** to
+   **Run Script**. For the Lock Screen, add Scriptable's round widget with the same script.
+
+The widget only reads the folder to count and total the alerts; it never sends them. They reach Mizan through the
+Shortcut's import, as before. Like the payments script, it updates itself.
+
 ## Security
 
 - The widget pairs like the Mizan Shortcut: a one-time code that works once, for 10 minutes. Mizan stores only a hash
   of the widget's key.
-- **A widget's key can read the monthly payments checklist and mark payments, nothing else.** It can't send bank
+- **A widget's key can read the monthly payments checklist, mark payments, and start an import of queued alerts, nothing else.** It can't send bank
   alerts or read other data. The endpoints accept the Mizan Shortcut's key from the same iPhone too.
-- Widgets are listed in the **Home Screen widget** dialog, apart from iPhones, with their own limit of 5. **Remove**
+- Widgets are listed on the **Widgets** page and in the **Home Screen widget** dialog, apart from iPhones, with their own limit of 5. **Remove**
   stops a widget's key at once.
 - The script itself holds no address or key, so it's the same for everyone and safe to share.
 
@@ -68,6 +110,8 @@ All requests take `Authorization: Bearer <device key>`.
 | `GET /api/widgets/monthly?month=YYYY-MM` | The checklist (default this month): `summary`, `items` with `status`, `tone`, formatted `amount`, linked transactions and `suggestion`. |
 | `GET /api/widgets/monthly/<id>?month=YYYY-MM&q=…` | That month's unlinked spending to link the payment to, best match first; `q` searches name or amount. |
 | `POST /api/widgets/monthly/<id>` `{ "month", "action": "paid" \| "skipped" \| "undo", "transactionId"? }` | Marks it paid (linking the transaction if given, otherwise fully paid), skips the month, or puts it back to not paid. |
+| `GET /api/widgets/queue` | `lastImport` (the last finished import with its summary), `lastAlertAt`, `shortcutName`. With `?run=<id>`, that import's state. |
+| `POST /api/widgets/queue` | Starts an import and returns `runUrl`: a `shortcuts://` link that runs the Shortcut's import and comes back to Scriptable with `done=<id>` or `failed=<id>`. |
 
 Pairing: `POST /api/devices/code` with `{ "kind": "widget" }` (signed in) returns the code, `runUrl`
 (`scriptable:///run/Mizan%20Payments?pair=<pair link>`) and `pairPageUrl` (`/pair/widget#CODE`). The script opens the

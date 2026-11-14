@@ -6,11 +6,12 @@ import QrCode from "./QrCode";
 import { useToast } from "./Toast";
 import WidgetSteps, { AddWidgetGuide, SCRIPTABLE_APP_URL } from "./WidgetSteps";
 import { ago, isConnected, isIphone, useDevices, usePairingCode, type Device } from "./paired-devices";
-import { WIDGET_SCRIPT_NAME, WIDGET_SCRIPT_PATH } from "@/lib/shortcut-link";
+import { WIDGET_SCRIPTS, scriptableRunUrl, type WidgetId } from "@/lib/shortcut-link";
 import "@/app/setup.css";
 
 /** Pairs a new widget: a QR code on a computer, the steps right here on an iPhone. Done once the widget used its key. */
-function PairWidget({ onPaired }: { onPaired: (d: Device) => void }) {
+function PairWidget({ onPaired, widget }: { onPaired: (d: Device) => void; widget: WidgetId }) {
+  const script = WIDGET_SCRIPTS[widget];
   const devices = useDevices(true, "widget");
   const [paired, setPaired] = useState<Device | null>(null);
   const { code, error, secondsLeft, renew } = usePairingCode(!paired, { kind: "widget" });
@@ -46,6 +47,9 @@ function PairWidget({ onPaired }: { onPaired: (d: Device) => void }) {
   }
   if (error) return <div className="alert error" role="alert"><span>{error}</span><button className="btn sm" onClick={renew}>Try again</button></div>;
   if (!code) return <p className="small muted iph-loading">Getting ready…</p>;
+  // The code works for either widget; only the script it opens differs.
+  const runUrl = widget === "payments" ? code.runUrl : scriptableRunUrl(script.name, { pair: code.payload });
+  const pageUrl = widget === "payments" ? code.pairPageUrl : code.pairPageUrl.replace("#", `?w=${widget}#`);
   const mm = Math.floor(secondsLeft / 60);
   const ss = String(secondsLeft % 60).padStart(2, "0");
   const footer = (
@@ -60,7 +64,7 @@ function PairWidget({ onPaired }: { onPaired: (d: Device) => void }) {
   if (phone) {
     return (
       <div className="iph-pair phone">
-        <WidgetSteps runUrl={code.runUrl} code={code.code} server={code.server} />
+        <WidgetSteps runUrl={runUrl} code={code.code} server={code.server} widget={widget} />
         {footer}
       </div>
     );
@@ -68,13 +72,13 @@ function PairWidget({ onPaired }: { onPaired: (d: Device) => void }) {
   return (
     <div className="iph-pair">
       <figure className="iph-qr">
-        <QrCode value={code.pairPageUrl} label="QR code to set up the widget on your iPhone" />
+        <QrCode value={pageUrl} label="QR code to set up the widget on your iPhone" />
         <figcaption className="small muted">Scan with the iPhone camera</figcaption>
       </figure>
       <div className="iph-pair-text">
         <p style={{ margin: 0 }}>Scan this with your iPhone. It opens a page with three taps: get <a href={SCRIPTABLE_APP_URL} target="_blank" rel="noreferrer">Scriptable</a>, copy the script, and connect.</p>
         <p className="small muted" style={{ margin: 0 }}>
-          Or by hand: add <a href={WIDGET_SCRIPT_PATH} target="_blank" rel="noreferrer">the script</a> to Scriptable as <b>{WIDGET_SCRIPT_NAME}</b>, run it, and type
+          Or by hand: add <a href={script.path} target="_blank" rel="noreferrer">the script</a> to Scriptable as <b>{script.name}</b>, run it, and type
           the address <b>{code.server}</b> and the code <b>{code.code}</b>.
         </p>
         {footer}
@@ -83,7 +87,7 @@ function PairWidget({ onPaired }: { onPaired: (d: Device) => void }) {
   );
 }
 
-function WidgetItem({ d, onChanged }: { d: Device; onChanged: () => void }) {
+export function WidgetItem({ d, onChanged }: { d: Device; onChanged: () => void }) {
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
   async function revoke() {
@@ -114,8 +118,22 @@ function WidgetItem({ d, onChanged }: { d: Device; onChanged: () => void }) {
 
 const STEPS = ["Connect", "Add to Home Screen"] as const;
 
-/** "Home Screen widget" on the Monthly payments page: shows this month's checklist on the iPhone. */
-export default function WidgetSetup({ onClose }: { onClose: () => void }) {
+const INTRO: Record<WidgetId, { title: string; text: string }> = {
+  payments: {
+    title: "Home Screen widget",
+    text: "This month's payments on your iPhone's Home Screen, with what's paid and what's due. Tap one to mark it paid and link the bank transaction that paid it. Runs in the free Scriptable app.",
+  },
+  queue: {
+    title: "Queued messages widget",
+    text: "Shows the bank alerts the Mizan Shortcut saved while you were offline: how many, and how much. Tap it and the Shortcut imports them all. Calm green when everything is synced. Runs in the free Scriptable app.",
+  },
+};
+
+/**
+ * Sets up a Home Screen widget: "payments" (on the Monthly payments page) or "queue" (in SMS setup). Both share one
+ * connection per iPhone, so the queue widget can skip connecting when a widget is already connected.
+ */
+export default function WidgetSetup({ onClose, widget = "payments" }: { onClose: () => void; widget?: WidgetId }) {
   const devices = useDevices(false, "widget");
   const live = (devices.data?.items ?? []).filter((d) => !d.revoked_at);
   const [adding, setAdding] = useState<boolean | null>(null);
@@ -128,20 +146,20 @@ export default function WidgetSetup({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   // Straight to pairing when there's no widget yet.
   useEffect(() => {
-    if (adding === null && devices.data) setAdding(live.length === 0);
-  }, [adding, devices.data, live.length]);
+    if (adding === null && devices.data) setAdding(widget === "queue" || live.length === 0);
+  }, [adding, devices.data, live.length, widget]);
+  const intro = INTRO[widget];
+  // The queue widget reuses the connection of a widget already on this iPhone.
+  const canSkip = widget === "queue" && live.some((d) => d.last_seen_at);
 
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal iph-modal" role="dialog" aria-modal="true" aria-labelledby="widget-title">
         <div className="modal-head">
-          <h2 id="widget-title">Home Screen widget</h2>
+          <h2 id="widget-title">{intro.title}</h2>
           <CloseButton onClick={onClose} />
         </div>
-        <p className="small muted" style={{ margin: "0 0 6px" }}>
-          This month&apos;s payments on your iPhone&apos;s Home Screen, with what&apos;s paid and what&apos;s due. Tap one to mark it paid and link
-          the bank transaction that paid it. Runs in the free Scriptable app.
-        </p>
+        <p className="small muted" style={{ margin: "0 0 6px" }}>{intro.text}</p>
         {!adding ? (
           <>
             {devices.error && <div className="alert error" role="alert">{devices.error}</div>}
@@ -159,12 +177,12 @@ export default function WidgetSetup({ onClose }: { onClose: () => void }) {
                 </li>
               ))}
             </ol>
-            {step === 0 && <PairWidget onPaired={setDevice} />}
-            {step === 1 && <AddWidgetGuide />}
+            {step === 0 && <PairWidget onPaired={setDevice} widget={widget} />}
+            {step === 1 && <AddWidgetGuide widget={widget} />}
             <div className="modal-foot">
               {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>Back</button>}
               {step === 0
-                ? <button className="btn primary" disabled={!device} onClick={() => setStep(1)}>{device ? "Continue" : "Waiting for the widget…"}</button>
+                ? <button className="btn primary" disabled={!device && !canSkip} onClick={() => setStep(1)}>{device || canSkip ? "Continue" : "Waiting for the widget…"}</button>
                 : <button className="btn primary" onClick={onClose}>Done</button>}
             </div>
           </>

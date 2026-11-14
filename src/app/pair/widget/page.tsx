@@ -5,7 +5,7 @@ import "../../setup.css";
 import BrandMark from "@/components/BrandMark";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Set up the Mizan widget", robots: { index: false, follow: false } };
+export const metadata = { title: "Set up a Mizan widget", robots: { index: false, follow: false } };
 
 /** Opened on the iPhone from the widget QR code. The one-time code is in the #fragment; no sign-in needed. */
 export default async function WidgetPairPage() {
@@ -17,8 +17,8 @@ export default async function WidgetPairPage() {
     <div className="login-wrap">
       <div className="card login-card">
         <div className="brand" style={{ marginBottom: 12 }}><BrandMark /> Mizan</div>
-        <h1 style={{ fontSize: "1.5rem" }}>Monthly payments widget</h1>
-        <p className="muted" style={{ marginTop: 4 }}>Three steps and this month&apos;s payments are on your Home Screen.</p>
+        <h1 style={{ fontSize: "1.5rem" }}>Set up a Mizan widget</h1>
+        <p className="muted" style={{ marginTop: 4 }}>A few taps on this iPhone and it&apos;s on your Home Screen.</p>
         <WidgetLauncher server={server} />
       </div>
     </div>
