@@ -12,7 +12,10 @@
 // The script holds no address or key: connecting saves both in this iPhone's Keychain. The key can read your
 // monthly payments and mark them; it can't send bank alerts or see anything else. Remove it any time in Mizan.
 
+// Bumped with every change. The script checks your Mizan for a newer version and updates itself.
+const VERSION = 2;
 const KEY = "mizan.widget";
+const UPDATE_KEY = "mizan.widget.checked";
 const CACHE = "mizan-payments.json";
 const SCRIPT = Script.name();
 
@@ -175,44 +178,63 @@ function text(stack, s, font, color, lines = 1) {
   return t;
 }
 
-function header(w, d, compact) {
+/** "Rs 34,500 left", "4 to pay" (bills with no usual amount), or nothing when all is settled. */
+function leftText(s) {
+  if (s.leftText !== undefined) return s.leftText;
+  if (!s.open) return "";
+  if (s.left === "Rs 0" || /^\D*0$/.test(s.left)) return `${s.open} to pay`;
+  return `${s.left} left${s.unknownLeft ? ` + ${s.unknownLeft} bill${s.unknownLeft === 1 ? "" : "s"}` : ""}`;
+}
+
+function header(w, d, compact, big) {
   const top = w.addStack();
   top.centerAlignContent();
-  text(top, "Payments", Font.boldSystemFont(compact ? 13 : 14), C.text);
-  text(top, ` · ${d.monthShort}`, Font.mediumSystemFont(compact ? 13 : 14), C.muted);
+  text(top, "Payments", Font.boldSystemFont(big ? 17 : compact ? 14 : 15), C.text);
+  text(top, ` · ${d.monthShort}`, Font.mediumSystemFont(big ? 17 : compact ? 14 : 15), C.muted);
   top.addSpacer();
   const all = d.summary.due > 0 && d.summary.paid >= d.summary.due;
-  text(top, all ? "All paid" : `${d.summary.paid}/${d.summary.due} paid`, Font.semiboldSystemFont(12), all ? C.paid : C.text);
-  w.addSpacer(5);
-  const img = w.addImage(bar(300, 5, d.summary.due ? d.summary.paid / d.summary.due : 1));
-  img.imageSize = new Size(compact ? 130 : 300, 5);
+  text(top, all ? "All paid" : `${d.summary.paid}/${d.summary.due} paid`, Font.semiboldSystemFont(big ? 15 : 13), all ? C.paid : C.text);
+  w.addSpacer(6);
+  const img = w.addImage(bar(300, 6, d.summary.due ? d.summary.paid / d.summary.due : 1));
+  img.imageSize = new Size(compact ? 130 : 300, 6);
   img.resizable = true;
   w.addSpacer(5);
   const sub = [];
-  if (d.summary.open > 0) sub.push(`${d.summary.left} left${d.summary.unknownLeft ? ` + ${d.summary.unknownLeft} bill${d.summary.unknownLeft === 1 ? "" : "s"}` : ""}`);
+  const left = leftText(d.summary);
+  if (left) sub.push(left);
   if (d.summary.late > 0) sub.push(`${d.summary.late} late`);
   if (d.stale) sub.push("offline");
-  if (sub.length) text(w, sub.join(" · "), Font.systemFont(11), d.summary.late ? C.late : C.muted);
+  if (sub.length) text(w, sub.join(" · "), Font.systemFont(big ? 13 : 12), d.summary.late ? C.late : C.muted);
 }
 
-function row(w, item, compact) {
+// Row sizes: big enough to read at a glance and to hit with a thumb. A row is as tall as `h`, and the whole
+// row (not just the text) opens that payment.
+const ROW = {
+  medium: { font: 15, icon: 20, h: 26, status: 12.5, max: 3 },
+  large: { font: 17, icon: 22, h: 31, status: 13.5, max: 9 },
+};
+
+function row(w, item, size) {
   const r = w.addStack();
   r.centerAlignContent();
+  r.size = new Size(0, size.h);
   r.url = runUrl({ item: item.id, month: item.month });
-  const sym = symbol(TONE_SYMBOL[item.tone] || "circle", C[item.tone] || C.open, 12);
+  const settled = item.state === "paid" || item.state === "skipped";
+  const sym = symbol(TONE_SYMBOL[item.tone] || "circle", C[item.tone] || C.open, size.icon);
   const icon = r.addImage(sym.image);
-  icon.imageSize = new Size(13, 13);
+  icon.imageSize = new Size(size.icon, size.icon);
   icon.tintColor = sym.color;
-  r.addSpacer(6);
-  const name = text(r, item.name, Font.mediumSystemFont(12.5), item.state === "paid" || item.state === "skipped" ? C.muted : C.text);
-  name.minimumScaleFactor = 0.85;
+  r.addSpacer(9);
+  const name = text(r, item.name, Font.mediumSystemFont(size.font), settled ? C.muted : C.text);
+  name.minimumScaleFactor = 0.8;
   r.addSpacer();
-  if (!compact && item.state !== "paid") {
-    text(r, item.status, Font.systemFont(10.5), item.tone === "late" ? C.late : item.tone === "soon" ? C.soon : C.muted);
-    r.addSpacer(6);
-  }
   const amt = item.left || item.amount;
-  if (amt) text(r, amt, Font.semiboldSystemFont(12), item.state === "paid" ? C.muted : C.text);
+  // Unpaid: the amount, or the status when it has no usual amount (or is late or due soon).
+  if (!settled && (!amt || item.tone === "late" || item.tone === "soon")) {
+    text(r, item.status, Font.mediumSystemFont(size.status), item.tone === "late" ? C.late : item.tone === "soon" ? C.soon : C.muted);
+    if (amt) r.addSpacer(8);
+  }
+  if (amt) text(r, amt, Font.semiboldSystemFont(size.status + 1), settled ? C.muted : C.text);
 }
 
 function buildWidget(d, family) {
@@ -224,7 +246,7 @@ function buildWidget(d, family) {
   const open = items.filter((i) => i.state === "open" || i.state === "partial");
 
   if (family === "accessoryInline") {
-    text(w, d.summary.open ? `${d.summary.paid}/${d.summary.due} paid · ${d.summary.left} left` : "All payments done", Font.systemFont(12), C.text);
+    text(w, d.summary.open ? `${d.summary.paid}/${d.summary.due} paid · ${leftText(d.summary)}` : "All payments done", Font.systemFont(12), C.text);
     return w;
   }
   if (family === "accessoryCircular") {
@@ -240,11 +262,11 @@ function buildWidget(d, family) {
     text(w, `Payments ${d.summary.paid}/${d.summary.due}`, Font.boldSystemFont(13), C.text);
     if (open[0]) text(w, `${open[0].name} · ${open[0].status}`, Font.systemFont(12), C.text);
     else text(w, "All paid this month", Font.systemFont(12), C.text);
-    if (open.length) text(w, `${d.summary.left} left`, Font.systemFont(12), C.text);
+    if (open.length) text(w, leftText(d.summary), Font.systemFont(12), C.text);
     return w;
   }
 
-  w.setPadding(14, 14, 12, 14);
+  w.setPadding(14, 16, 12, 16);
   if (family === "small") {
     header(w, d, true);
     w.addSpacer(8);
@@ -254,36 +276,39 @@ function buildWidget(d, family) {
       open.slice(0, 3).forEach((i) => {
         const r = w.addStack();
         r.centerAlignContent();
-        const sym = symbol(TONE_SYMBOL[i.tone] || "circle", C[i.tone] || C.open, 10);
+        const sym = symbol(TONE_SYMBOL[i.tone] || "circle", C[i.tone] || C.open, 15);
         const icon = r.addImage(sym.image);
-        icon.imageSize = new Size(11, 11);
+        icon.imageSize = new Size(15, 15);
         icon.tintColor = sym.color;
-        r.addSpacer(4);
-        text(r, i.name, Font.mediumSystemFont(11.5), C.text);
-        w.addSpacer(3);
+        r.addSpacer(6);
+        text(r, i.name, Font.mediumSystemFont(14), C.text);
+        w.addSpacer(4);
       });
     }
     w.addSpacer();
     return w;
   }
 
-  header(w, d, false);
-  w.addSpacer(8);
+  const big = family === "large" || family === "extraLarge";
+  const size = big ? ROW.large : ROW.medium;
+  header(w, d, false, big);
+  w.addSpacer(big ? 8 : 4);
   if (!items.length) {
-    text(w, "No monthly payments yet. Add them in Mizan › Monthly payments.", Font.systemFont(12), C.muted, 2);
+    text(w, "No monthly payments yet. Add them in Mizan › Monthly payments.", Font.systemFont(14), C.muted, 2);
     w.addSpacer();
     return w;
   }
-  const max = family === "large" || family === "extraLarge" ? 11 : 4;
-  // Unpaid first; paid ones fill the space left.
-  const shown = items.slice(0, max);
-  shown.forEach((i, n) => {
-    row(w, i, false);
-    if (n < shown.length - 1) w.addSpacer(family === "large" || family === "extraLarge" ? 6 : 4);
-  });
-  if (items.length > max) {
-    w.addSpacer(4);
-    text(w, `+ ${items.length - max} more`, Font.systemFont(10.5), C.muted);
+  // Unpaid first; paid ones fill the space left. With more than fit, the last line says how many more.
+  const shown = items.length > size.max ? items.slice(0, size.max - 1) : items;
+  shown.forEach((i) => row(w, i, size));
+  if (items.length > shown.length) {
+    const rest = items.slice(shown.length);
+    const restOpen = rest.filter((i) => i.state === "open" || i.state === "partial").length;
+    const more = w.addStack();
+    more.size = new Size(0, size.h);
+    more.centerAlignContent();
+    text(more, `+ ${rest.length} more${restOpen ? ` (${restOpen} to pay)` : ", all paid"}`, Font.mediumSystemFont(size.status), C.muted);
+    more.addSpacer();
   }
   w.addSpacer();
   return w;
@@ -531,10 +556,41 @@ async function connectByHand() {
   return true;
 }
 
+// ---------- Keeping the script up to date ----------
+
+/**
+ * Every few hours, asks your Mizan for the latest copy of this script and, if it is newer, replaces this file
+ * with it. Only your own Mizan's copy is used, and only when it is this same script with a higher VERSION.
+ */
+async function selfUpdate(force) {
+  const c = creds();
+  if (!c) return false;
+  const last = Keychain.contains(UPDATE_KEY) ? Number(Keychain.get(UPDATE_KEY)) : 0;
+  if (!force && Date.now() - last < 6 * 3600e3) return false;
+  Keychain.set(UPDATE_KEY, String(Date.now()));
+  try {
+    const req = new Request(`${c.server}/widgets/mizan-payments.js`);
+    req.timeoutInterval = 15;
+    const code = await req.loadString();
+    const m = /\nconst VERSION = (\d+);/.exec(code || "");
+    if (!req.response || req.response.statusCode !== 200 || !m || Number(m[1]) <= VERSION) return false;
+    if (!code.includes("// Mizan: monthly payments widget for Scriptable")) return false;
+    for (const fm of [FileManager.iCloud(), FileManager.local()]) {
+      try {
+        fm.writeString(module.filename, code);
+        return true;
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return false;
+}
+
 // ---------- Start ----------
 
 async function main() {
   const q = args.queryParameters || {};
+  // The new copy takes effect from the next run.
+  await selfUpdate(false);
   if (config.runsInWidget || config.runsInAccessoryWidget) {
     let w;
     if (!creds()) w = messageWidget("Mizan payments", "Tap to connect this widget to Mizan.");
