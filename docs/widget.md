@@ -82,7 +82,7 @@ waiting there, and a tap imports it all.
    (served at `/widgets/mizan-queue.js`).
 3. **Let Scriptable see the queue folder.** In Scriptable, tap the gear › **File Bookmarks** › **+** › **Pick Folder**
    and choose the folder the Shortcut saves offline alerts in, usually **On My iPhone › Mizan › queue-messages**. Name
-   the bookmark exactly **Mizan Queue**. iOS only lets Scriptable read another app's folder through a bookmark you pick.
+   the bookmark **Mizan Queue** (naming it **queue-messages**, after the folder, works too). iOS only lets Scriptable read another app's folder through a bookmark you pick.
 4. **Connect the widget**, the same as the payments widget. Already connected the Payments widget on this iPhone?
    Skip this; the queue widget uses the same key.
 5. **Add it:** pick Scriptable's small or medium widget, set **Script** to **Mizan Queue** and **When Interacting** to

@@ -14,10 +14,12 @@
 // It shares its connection with the Mizan Payments widget, so if that one is set up, there's nothing to connect.
 
 // Bumped with every change. The script checks your Mizan for a newer version and updates itself.
-const VERSION = 2;
+const VERSION = 3;
 const KEY = "mizan.widget";
 const UPDATE_KEY = "mizan.queue.checked";
 const BOOKMARK = "Mizan Queue";
+// Names the bookmark may have: people often name it after the folder.
+const BOOKMARK_NAMES = [BOOKMARK, "queue-messages", "Queue Messages", "queue messages", "Mizan queue", "mizan queue"];
 const SCRIPT = Script.name();
 
 const AMBER = { top: new Color("#ffc65c"), bottom: new Color("#f08a1c"), ink: new Color("#3d2200"), soft: new Color("#5e3a08") };
@@ -59,8 +61,9 @@ function shortSender(s) {
 /** The alerts waiting in the queue folder, newest first. null when the folder bookmark isn't set up. */
 async function readQueue() {
   const fm = FileManager.local();
-  if (!fm.bookmarkExists(BOOKMARK)) return null;
-  const dir = fm.bookmarkedPath(BOOKMARK);
+  const name = BOOKMARK_NAMES.find((n) => fm.bookmarkExists(n));
+  if (!name) return null;
+  const dir = fm.bookmarkedPath(name);
   let names = [];
   try {
     names = fm.listContents(dir);
@@ -364,7 +367,7 @@ async function say(title, message, buttons) {
   return a.presentAlert();
 }
 
-const SETUP_HELP = `In Scriptable, open Settings (the gear) › File Bookmarks › +, pick Folder, then choose the folder the Mizan Shortcut saves offline alerts in (On My iPhone › Mizan › queue-messages, or wherever yours is). Name the bookmark exactly "${BOOKMARK}".`;
+const SETUP_HELP = `In Scriptable, open Settings (the gear) › File Bookmarks › +, pick Folder, then choose the folder the Mizan Shortcut saves offline alerts in (On My iPhone › Mizan › queue-messages, or wherever yours is). Name the bookmark "${BOOKMARK}" (or "queue-messages").`;
 
 async function startImport(q) {
   const res = await api("/api/widgets/queue", "POST");

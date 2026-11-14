@@ -74,7 +74,7 @@ function QueueBookmarkStep(): ReactNode {
       <p className="small muted" style={{ margin: 0 }}>
         In Scriptable, tap the gear (<b>Settings</b>) › <b>File Bookmarks</b> › <b>+</b> › <b>Pick Folder</b>. Choose the folder the Mizan
         Shortcut saves offline alerts in: <b>On My iPhone › Mizan › queue-messages</b> (or wherever yours is). Name the bookmark
-        exactly <b>{QUEUE_BOOKMARK}</b>. The widget only counts the alerts there; they reach Mizan when you import them.
+        <b>{QUEUE_BOOKMARK}</b> (or <b>queue-messages</b>, after the folder). The widget only counts the alerts there; they reach Mizan when you import them.
       </p>
     </li>
   );
