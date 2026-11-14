@@ -29,7 +29,7 @@ Scriptable widget the same way.
 ## Using it
 
 - **Small:** paid count, a progress bar and the next payments due.
-- **Medium (4 rows) and large (11 rows):** unpaid payments first with their status (`Due 20 Nov`, `4 days late`) and
+- **Medium (3 rows) and large (9 rows), with big text and tap targets:** unpaid payments first with their status (`Due 20 Nov`, `4 days late`) and
   amount, then the paid ones.
 - **Tap a payment** to open its options:
   - **Paid: link Rs 12,340 · 9 Nov · K-Electric** when Mizan found a likely match,
@@ -41,6 +41,9 @@ Scriptable widget the same way.
 
 A part-paid payment (say school fees paid in two transfers) shows what's left, and you can link another transaction to
 it. Everything you do here shows up on the Monthly payments page, and the other way round.
+
+**Updates:** the script checks your Mizan every few hours and replaces itself when there's a newer version, so you
+paste it only once. (Copies added before version 2 have to be pasted once more.)
 
 iOS decides when widgets refresh, usually every 15 to 30 minutes, so a change can take a little while to show on the
 widget. The checklist inside Scriptable is always current. Without internet the widget shows the last copy and says

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { widgetStatus, widgetTx, widgetView, type WidgetSourceRow } from "@/lib/widget";
+import { leftLine, widgetStatus, widgetTx, widgetView, type WidgetSourceRow } from "@/lib/widget";
 import { WIDGET_SCRIPT_NAME, pairPayload, scriptableRunUrl } from "@/lib/shortcut-link";
 
 const row = (o: Partial<WidgetSourceRow>): WidgetSourceRow => ({
@@ -41,7 +41,7 @@ describe("widget view", () => {
     expect(v.items.map((i) => i.id)).toEqual(["b", "c", "a", "d"]);
   });
   it("sums up the month", () => {
-    expect(v.summary).toEqual({ paid: 1, due: 3, open: 2, late: 1, left: "Rs 20,000", unknownLeft: 1 });
+    expect(v.summary).toEqual({ paid: 1, due: 3, open: 2, late: 1, left: "Rs 20,000", unknownLeft: 1, leftText: "Rs 20,000 left + 1 bill" });
     expect(v.monthText).toBe("November 2026");
     expect(v.monthShort).toBe("Nov");
     expect(v.appUrl).toBe("https://mizan.example.com/app/monthly");
@@ -50,6 +50,18 @@ describe("widget view", () => {
     expect(v.items[0].suggestion?.id).toBe("t1");
     expect(v.items[1].left).toBe("Rs 20,000");
     expect(v.items[1].state).toBe("partial");
+  });
+});
+
+describe("what's left", () => {
+  it("never says Rs 0 left", () => {
+    expect(leftLine(4, 0, 4, "PKR")).toBe("4 to pay");
+    expect(leftLine(1, 450000, 0, "PKR")).toBe("Rs 4,500 left");
+    expect(leftLine(3, 450000, 2, "PKR")).toBe("Rs 4,500 left + 2 bills");
+    expect(leftLine(0, 0, 0, "PKR")).toBe("");
+  });
+  it("a bill with no due day just says To pay", () => {
+    expect(widgetStatus(row({ due_day: null, amount_paisa: null }), "2026-11", "2026-11-14", "PKR").text).toBe("To pay");
   });
 });
 

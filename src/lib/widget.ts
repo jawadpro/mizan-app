@@ -35,7 +35,7 @@ export function widgetStatus(r: WidgetSourceRow, month: Month, today: string, cu
   if (month < thisMonth) return { text: "Not paid", tone: "late" };
   if (month > thisMonth) return { text: "Upcoming", tone: "open" };
   const due = dueDate(month, r.due_day);
-  if (!due) return { text: "Not paid yet", tone: "open" };
+  if (!due) return { text: "To pay", tone: "open" };
   const n = days(today, due);
   if (n < 0) return { text: `${-n} day${n === -1 ? "" : "s"} late`, tone: "late" };
   if (n === 0) return { text: "Due today", tone: "soon" };
@@ -89,6 +89,7 @@ export function widgetView(d: { month: Month; items: WidgetSourceRow[] }, today:
   const leftTotal = open.reduce((a, r) => a + (r.amount_paisa ? Math.max(0, r.amount_paisa - r.paid) : 0), 0);
   const thisMonth = today.slice(0, 7);
   const late = d.month <= thisMonth ? items.filter((i) => i.tone === "late").length : 0;
+  const unknownLeft = open.filter((r) => !r.amount_paisa).length;
   return {
     ok: true as const,
     month: d.month,
@@ -101,11 +102,22 @@ export function widgetView(d: { month: Month; items: WidgetSourceRow[] }, today:
       open: open.length,
       late,
       left: money(leftTotal, currency),
-      unknownLeft: open.filter((r) => !r.amount_paisa).length,
+      unknownLeft,
+      leftText: leftLine(open.length, leftTotal, unknownLeft, currency),
     },
     items,
     appUrl: `${appUrl}/app/monthly`,
   };
+}
+
+/**
+ * What's still to pay, in a few words: "Rs 34,500 left", "Rs 34,500 left + 1 bill" (a bill with no usual amount),
+ * "4 to pay" when none of them has a usual amount, or "" when everything is settled.
+ */
+export function leftLine(open: number, leftTotal: number, unknown: number, currency: string): string {
+  if (!open) return "";
+  if (!leftTotal) return `${open} to pay`;
+  return `${money(leftTotal, currency)} left${unknown ? ` + ${unknown} bill${unknown === 1 ? "" : "s"}` : ""}`;
 }
 
 export type WidgetView = ReturnType<typeof widgetView>;
