@@ -1,0 +1,25 @@
+/* Check a bank statement */
+.recon-pick { display: grid; gap: 12px; margin-bottom: 16px; }
+.recon-pick p { margin: 0; }
+.recon-pick input[type="file"] { padding: 8px; }
+.recon-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+.recon-stat { border-top: 3px solid var(--border-strong); --pad-x: 14px; --pad-y: 12px; }
+.recon-stat.ok { border-top-color: var(--accent); }
+.recon-stat.missing { border-top-color: var(--down); }
+.recon-stat.extra { border-top-color: var(--gold); }
+.recon-stat-n { font-family: var(--mono); font-size: 1.45rem; font-weight: 500; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.recon-hint { margin: -4px 0 6px; }
+.recon-row { justify-content: flex-start; align-items: flex-start; }
+.recon-row .tx-row-main { flex: 1; }
+.recon-row .tx-row-title { overflow-wrap: anywhere; }
+.recon-check { width: 18px; height: 18px; margin: 3px 0 0; flex: none; accent-color: var(--accent); }
+.recon-cat { margin-top: 6px; width: auto; max-width: 100%; padding: 3px 8px; font-size: 0.82rem; }
+.recon-total { margin-top: 10px; text-align: right; }
+.recon-more { margin-top: 16px; }
+.recon-more summary { cursor: pointer; }
+.recon-more[open] summary { margin-bottom: 8px; }
+@media (max-width: 640px) {
+  .recon-stat { --pad-x: 10px; }
+  .recon-stat .small { font-size: 0.74rem; }
+  .recon-stat-n { font-size: 1.2rem; }
+}
