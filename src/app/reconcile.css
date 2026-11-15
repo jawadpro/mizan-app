@@ -23,3 +23,5 @@
   .recon-stat .small { font-size: 0.74rem; }
   .recon-stat-n { font-size: 1.2rem; }
 }
+.recon-loose { margin-top: 16px; }
+.recon-loose > p { margin: -4px 0 6px; }

@@ -14,7 +14,8 @@ import { useToast } from "./Toast";
 import type { Tx } from "./types";
 import "@/app/reconcile.css";
 
-type Entry = BookEntry & { tx: Tx };
+/** `loose`: saved without a bank, so it counts toward no bank's balance (it can still be the statement's row). */
+type Entry = BookEntry & { tx: Tx; loose: boolean };
 type Choice = { kind: Kind; category: string };
 
 const MAX_PAGES = 50;
@@ -25,7 +26,7 @@ async function loadEntries(from: string, to: string, bank: string): Promise<Entr
   const out: Entry[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await apiFetch<{ items: Tx[]; total: number; pageSize: number }>(resourceUrl("app", "transactions", { from, to, bank: bank || undefined, page, pageSize: 200 }));
-    for (const tx of res.items) out.push({ id: tx.id, kind: tx.kind, amount_paisa: tx.amount_paisa, day: dayKeyPkt(tx.occurred_at), tx });
+    for (const tx of res.items) out.push({ id: tx.id, kind: tx.kind, amount_paisa: tx.amount_paisa, day: dayKeyPkt(tx.occurred_at), tx, loose: bank !== "" && tx.bank_id === null });
     if (page * res.pageSize >= res.total) break;
   }
   return out;
@@ -58,7 +59,12 @@ export default function Reconcile() {
     setLoadError(null);
     try {
       // A day either side, so a payment logged a day off still finds its row.
-      setEntries(await loadEntries(addDays(statement.from, -1), addDays(statement.to, 1), multi ? bank : ""));
+      const from = addDays(statement.from, -1);
+      const to = addDays(statement.to, 1);
+      // With several banks, entries saved without a bank are compared too: one may be this statement's row,
+      // and listing that row as missing would add it twice.
+      const [own, loose] = await Promise.all([loadEntries(from, to, multi ? bank : ""), multi && bank ? loadEntries(from, to, "none") : Promise.resolve([])]);
+      setEntries([...own, ...loose.map((e) => ({ ...e, loose: true }))]);
     } catch (e) {
       setLoadError((e as Error).message);
     }
@@ -68,7 +74,13 @@ export default function Reconcile() {
     void load();
   }, [load]);
 
-  const result = useMemo(() => (statement && entries ? reconcile(statement.rows, entries) : null), [statement, entries]);
+  const result = useMemo(() => {
+    if (!statement || !entries) return null;
+    const r = reconcile(statement.rows, entries);
+    // Unmatched entries without a bank are most likely cash, not this account's.
+    return { ...r, extra: r.extra.filter((e) => !e.loose) };
+  }, [statement, entries]);
+  const looseMatched = useMemo(() => (result?.matched ?? []).filter((m) => m.entry.loose), [result]);
   const missing = useMemo(() => result?.missing ?? [], [result]);
 
   // Everything missing starts ticked; rows added since drop out of the list on their own.
@@ -119,6 +131,24 @@ export default function Reconcile() {
       toast(`Added ${done} transaction${done === 1 ? "" : "s"} from the statement.`, "ok");
     } catch (e) {
       toast(`Added ${done} of ${rows.length}. ${(e as Error).message}`, "error");
+    } finally {
+      setBusy(false);
+      await load();
+    }
+  }
+
+  /** Files matched entries that have no bank under the statement's bank, so they count toward its balance. */
+  async function fileLoose() {
+    setBusy(true);
+    let done = 0;
+    try {
+      for (const m of looseMatched) {
+        await apiFetch(`/api/transactions/${m.entry.id}`, { method: "PATCH", body: JSON.stringify({ ...draftFrom(m.entry.tx), bankId: bank }) });
+        done++;
+      }
+      toast(`Filed ${done} under ${bankName}.`, "ok");
+    } catch (e) {
+      toast(`Filed ${done} of ${looseMatched.length}. ${(e as Error).message}`, "error");
     } finally {
       setBusy(false);
       await load();
@@ -238,6 +268,25 @@ export default function Reconcile() {
               </>
             )}
           </div>
+
+          {looseMatched.length > 0 && (
+            <div className="card recon-loose">
+              <div className="card-head">
+                <h2>On the statement, but saved without a bank</h2>
+                <button className="btn primary sm" disabled={busy} onClick={fileLoose}>{busy ? "Saving…" : `File ${looseMatched.length} under ${bankName}`}</button>
+              </div>
+              <p className="small muted">These are in Mizan, so they aren&apos;t missing, but with no bank they don&apos;t count toward the {bankName} balance ({formatPaisa(looseMatched.reduce((n, m) => n + (m.row.direction === "out" ? -m.row.amountPaisa : m.row.amountPaisa), 0), { sign: true })}).</p>
+              {looseMatched.map((m) => (
+                <div key={m.entry.id} className="tx-row">
+                  <div className="tx-row-main">
+                    <div className="tx-row-title">{m.entry.tx.counterparty || m.entry.tx.category}</div>
+                    <div className="meta">{dateLabel(m.entry.day)} · {m.entry.tx.category}</div>
+                  </div>
+                  <div className="tx-row-side"><span className={`amt ${m.entry.kind}`}>{m.entry.kind === "expense" ? "−" : "+"}{formatPaisa(m.entry.amount_paisa)}</span></div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {result.extra.length > 0 && (
             <details className="card recon-more">

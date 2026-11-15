@@ -795,6 +795,7 @@ export async function listBanksWithRecords(): Promise<{ items: BankWithRecords[]
  */
 export async function saveBanks(items: Bank[]) {
   await tx(async (run) => {
+    const lone = await loneBank(run);
     const keep = items.map((b) => b.id).filter((x): x is string => !!x);
     const gone = `archived_at IS NULL AND NOT (id = ANY($1::uuid[]))`;
     const used = `(EXISTS (SELECT 1 FROM app.transactions t WHERE t.bank_id = app.banks.id) OR EXISTS (SELECT 1 FROM app.review_items r WHERE r.bank_id = app.banks.id AND r.status = 'pending'))`;
@@ -807,18 +808,44 @@ export async function saveBanks(items: Bank[]) {
         : null;
       if (!upd?.rowCount) await run(`INSERT INTO app.banks (position, name, senders, account_hint, auto_import, hold_transfers, active) VALUES ($1,$2,$3,$4,$5,$6,$7)`, vals);
     }
+    await fileLooseUnder(run, lone);
   });
   return listBanksWithRecords();
 }
 
+/** The only bank in use, when there is exactly one. */
+async function loneBank(run: Run): Promise<string | null> {
+  const { rows } = await run<{ id: string }>(`SELECT id FROM app.banks WHERE archived_at IS NULL`);
+  return rows.length === 1 ? rows[0].id : null;
+}
+
+/**
+ * With one bank, a transaction saved without a bank counts toward that bank (the form doesn't even ask). Once a
+ * second bank is added it would count toward none and the first bank's balance would drift, so when the
+ * install goes from one bank to more, those transactions are filed under the bank they always belonged to.
+ */
+async function fileLooseUnder(run: Run, lone: string | null) {
+  if (!lone) return;
+  const { rows } = await run<{ n: number; still: boolean }>(
+    `SELECT count(*)::int AS n, bool_or(id = $1) AS still FROM app.banks WHERE archived_at IS NULL`,
+    [lone],
+  );
+  if (rows[0].n < 2 || !rows[0].still) return;
+  await run(`UPDATE app.transactions SET bank_id = $1, updated_at = now() WHERE bank_id IS NULL`, [lone]);
+}
+
 /** Brings a removed bank back, at the end of the list, with its history and balance. */
 export async function restoreBank(id: string) {
-  const r = await q(
-    `UPDATE app.banks SET archived_at = NULL, position = (SELECT coalesce(max(position), -1) + 1 FROM app.banks WHERE archived_at IS NULL)
-     WHERE id = $1 AND archived_at IS NOT NULL`,
-    [id],
-  );
-  return (r.rowCount ?? 0) > 0;
+  return tx(async (run) => {
+    const lone = await loneBank(run);
+    const r = await run(
+      `UPDATE app.banks SET archived_at = NULL, position = (SELECT coalesce(max(position), -1) + 1 FROM app.banks WHERE archived_at IS NULL)
+       WHERE id = $1 AND archived_at IS NOT NULL`,
+      [id],
+    );
+    await fileLooseUnder(run, lone);
+    return (r.rowCount ?? 0) > 0;
+  });
 }
 
 /** Deletes a removed bank for good, once its name is typed back. Its transactions stay, without a bank. */
