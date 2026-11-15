@@ -162,6 +162,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           <div className="toolbar">
             <Link className="btn" href={space === "demo" ? "/demo/calendar" : "/app/calendar"}>Calendar view</Link>
             <a className="btn" href={resourceUrl(space, "export", filters)} download>Export CSV</a>
+            {!readOnly && <Link className="btn" href="/app/reconcile">Check a statement</Link>}
             {readOnly ? (
               <button className="btn primary" disabled title="The demo is read-only. Sign in to your private workspace to add transactions.">+ Add transaction</button>
             ) : (

@@ -41,6 +41,7 @@ const ICONS = {
   light: svg(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>),
   dark: svg(<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />),
   widgets: svg(<><rect x="3.5" y="3.5" width="7" height="7" rx="2" /><rect x="13.5" y="3.5" width="7" height="7" rx="2" /><rect x="3.5" y="13.5" width="17" height="7" rx="2" /></>),
+  statement: svg(<><path d="M6 3h9l4 4v14H6z" /><path d="M14.5 3v4.5H19" /><path d="M9 13l2 2 4-4" /></>),
   download: svg(<><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" /><path d="M4.5 15.5V19a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3.5" /></>),
 };
 
@@ -68,6 +69,7 @@ function ShellBody({ space, children, currency = DEFAULT_CURRENCY }: ShellProps)
     ...(space === "app" ? [{ href: `${base}/savings`, label: "Savings plan", icon: ICONS.sprout }] : []),
     { href: `${base}/zakat`, label: "Zakat", icon: ICONS.scale },
     { href: `${base}/review`, label: "Review inbox", icon: ICONS.inbox },
+    ...(space === "app" ? [{ href: `${base}/reconcile`, label: "Check a statement", icon: ICONS.statement }] : []),
   ];
   const setupLinks = space === "app" ? [
     { href: `${base}/sms`, label: "Connect iPhone", icon: ICONS.phone },
