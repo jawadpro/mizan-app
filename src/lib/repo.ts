@@ -212,7 +212,7 @@ async function balanceOverTime(from: string, to: string, granularity: "day" | "m
        FROM generate_series(date_trunc('${granularity}', $1::date::timestamp), date_trunc('${granularity}', $2::date::timestamp), interval '${step}') AS b
      )
      SELECT to_char(bk.b, '${fmt}') AS bucket, sum(a.amount_paisa + coalesce(x.v, 0))::float8 AS balance
-     FROM buckets bk CROSS JOIN sel a CROSS JOIN single s
+     FROM buckets bk CROSS JOIN sel a
      LEFT JOIN LATERAL (
        SELECT sum(${SIGNED} * ((t.occurred_at >= a.as_of)::int - (t.occurred_at >= bk.e)::int)) AS v
        FROM app.transactions t WHERE ${MOVES}
@@ -414,16 +414,18 @@ export type Balances = { total: BalanceRow | null; accounts: AccountBalance[] };
 const SIGNED = `CASE WHEN t.kind = 'expense' THEN -t.amount_paisa ELSE t.amount_paisa END`;
 /** Every balance anchor: one per bank account, or the single one of an install without banks. */
 // A removed (archived) bank's balance is left out; a paused one still counts, as its money is still there.
-const ANCHORS_SQL = `single AS (SELECT count(*) = 1 AS v FROM app.banks WHERE archived_at IS NULL),
-  anchors AS (
+const ANCHORS_SQL = `anchors AS (
     SELECT bb.bank_id, bb.amount_paisa, date_trunc('minute', bb.as_of) AS as_of
     FROM app.bank_balances bb JOIN app.banks k ON k.id = bb.bank_id AND k.archived_at IS NULL
     UNION ALL
     SELECT NULL::uuid, a.amount_paisa, date_trunc('minute', a.as_of) FROM app.balance_anchor a
     WHERE a.id = 1 AND NOT EXISTS (SELECT 1 FROM app.banks WHERE archived_at IS NULL)
   )`;
-/** Whether transaction `t` moves the balance anchored by `a` (with `s` from ANCHORS_SQL). */
-const MOVES = `(a.bank_id IS NULL OR t.bank_id = a.bank_id OR (s.v AND t.bank_id IS NULL))`;
+/**
+ * Whether transaction `t` moves the balance anchored by `a`. A transaction without a bank is cash or other and
+ * moves no bank's balance; one saved while there's a single bank is filed under it (migration 028).
+ */
+const MOVES = `(a.bank_id IS NULL OR t.bank_id = a.bank_id)`;
 
 /**
  * A balance set before banks were added belongs to the first bank. The old row is left in place (it is ignored
@@ -445,7 +447,7 @@ export async function getBalances(): Promise<Balances> {
     `WITH ${ANCHORS_SQL}
      SELECT a.bank_id, a.amount_paisa::float8 AS anchor, a.as_of,
             coalesce(sum(${SIGNED}), 0)::float8 AS delta, count(t.id)::int AS n
-     FROM anchors a CROSS JOIN single s
+     FROM anchors a
      LEFT JOIN app.transactions t ON t.occurred_at >= a.as_of AND ${MOVES}
      GROUP BY a.bank_id, a.amount_paisa, a.as_of`,
   );
@@ -795,6 +797,7 @@ export async function listBanksWithRecords(): Promise<{ items: BankWithRecords[]
  */
 export async function saveBanks(items: Bank[]) {
   await tx(async (run) => {
+    const { rows: had } = await run<{ any: boolean }>(`SELECT EXISTS (SELECT 1 FROM app.banks) AS any`);
     const keep = items.map((b) => b.id).filter((x): x is string => !!x);
     const gone = `archived_at IS NULL AND NOT (id = ANY($1::uuid[]))`;
     const used = `(EXISTS (SELECT 1 FROM app.transactions t WHERE t.bank_id = app.banks.id) OR EXISTS (SELECT 1 FROM app.review_items r WHERE r.bank_id = app.banks.id AND r.status = 'pending'))`;
@@ -806,6 +809,12 @@ export async function saveBanks(items: Bank[]) {
         ? await run(`UPDATE app.banks SET position=$2, name=$3, senders=$4, account_hint=$5, auto_import=$6, hold_transfers=$7, active=$8 WHERE id=$1 AND archived_at IS NULL`, [b.id, ...vals])
         : null;
       if (!upd?.rowCount) await run(`INSERT INTO app.banks (position, name, senders, account_hint, auto_import, hold_transfers, active) VALUES ($1,$2,$3,$4,$5,$6,$7)`, vals);
+    }
+    // The first bank ever added takes over the balance kept before there were banks, and what moved it.
+    if (!had[0].any) {
+      await run(
+        `UPDATE app.transactions SET bank_id = (SELECT id FROM app.banks WHERE archived_at IS NULL ORDER BY position, created_at LIMIT 1), updated_at = now() WHERE bank_id IS NULL`,
+      );
     }
   });
   return listBanksWithRecords();
