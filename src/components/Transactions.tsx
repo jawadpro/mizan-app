@@ -17,6 +17,8 @@ import { useChargesEdit } from "./ChargesField";
 import { useToast } from "./Toast";
 import type { Tx } from "./types";
 import SplitForm from "./SplitForm";
+import InvoiceModal from "./InvoiceModal";
+import { canShareInvoice, type InvoiceTx } from "./invoice";
 import "@/app/splits.css";
 
 type List = { items: Tx[]; total: number; page: number; pageSize: number; sums: { expense: number; income: number; remittance: number } };
@@ -114,6 +116,8 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
   const [splitting, setSplitting] = useState<string | null>(null);
   const openSplit = (t: Tx) => { setEditing(null); setSplitting(t.id); };
   const edit = (t: Tx | "new") => { chargesEdit.start(t); setEditing(t); };
+  const [sharing, setSharing] = useState<InvoiceTx | null>(null);
+  const shareInvoice = (t: Tx) => { setEditing(null); setSharing({ ...t, bank: nameOf(t.bank_id) }); };
   const dq = useDebounced(q);
   const filters = { q: dq, kind, category, source, bank, from, to, counterparty: fixedCounterparty };
   useEffect(() => setPage(1), [dq, kind, category, source, bank, from, to]);
@@ -238,6 +242,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                       <div className={`amt ${t.kind}`}>{t.kind === "expense" ? "−" : "+"}{formatPaisa(t.amount_paisa)}</div>
                       {!readOnly && (
                         <div className="row-actions">
+                          {canShareInvoice(t) && <button className="btn ghost sm" onClick={() => shareInvoice(t)} title="Share as an invoice image">Share</button>}
                           <button className="btn ghost sm" onClick={() => edit(t)}>Edit</button>
                           <button className="btn ghost sm danger" onClick={() => remove(t)}>Delete</button>
                         </div>
@@ -272,7 +277,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
                         {charges.length > 0 && <div className="charge-total">{totalLabel(t, charges)}</div>}
                       </td>
                       {!readOnly && (
-                        <td><div className="row-actions">{canSplit(t) && <button className="btn sm" onClick={() => openSplit(t)} title="Split this payment with others">Split</button>}<button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
+                        <td><div className="row-actions">{canSplit(t) && <button className="btn sm" onClick={() => openSplit(t)} title="Split this payment with others">Split</button>}{canShareInvoice(t) && <button className="btn sm" onClick={() => shareInvoice(t)} title="Share as an invoice image">Share</button>}<button className="btn sm" onClick={() => edit(t)}>Edit</button><button className="btn sm danger" onClick={() => remove(t)}>Delete</button></div></td>
                       )}
                     </tr>
                     </Fragment>))}
@@ -323,12 +328,20 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           onClose={() => setEditing(null)}
           onSubmit={(d) => save(d, editing === "new" ? undefined : editing.id)}
           onDelete={editing === "new" ? undefined : () => destroy(editing.id)}
-          children={editing !== "new" && !readOnly && canSplit(editing) ? (
-            <div className="split-cta">
-              <span className="small">{editing.split ? `Split with ${editing.split.n} ${editing.split.n === 1 ? "person" : "people"}` : "Paid for others too?"}</span>
-              <button type="button" className="btn sm" onClick={() => openSplit(editing)}>{editing.split ? "See shares" : "Split this payment"}</button>
-            </div>
-          ) : undefined}
+          children={editing !== "new" && !readOnly && (canSplit(editing) || canShareInvoice(editing)) ? (<>
+            {canSplit(editing) && (
+              <div className="split-cta">
+                <span className="small">{editing.split ? `Split with ${editing.split.n} ${editing.split.n === 1 ? "person" : "people"}` : "Paid for others too?"}</span>
+                <button type="button" className="btn sm" onClick={() => openSplit(editing)}>{editing.split ? "See shares" : "Split this payment"}</button>
+              </div>
+            )}
+            {canShareInvoice(editing) && (
+              <div className="split-cta">
+                <span className="small">Send this as a picture</span>
+                <button type="button" className="btn sm" onClick={() => shareInvoice(editing)}>Share invoice</button>
+              </div>
+            )}
+          </>) : undefined}
           extra={editing === "new" ? undefined : (d, fieldErrors) =>
             d.kind === "expense" && d.category !== "Bank charges" && d.category !== "Tax deducted" && (
               chargesEdit.field(d, fieldErrors.charges?.[0])
@@ -336,6 +349,7 @@ export default function Transactions({ space, fixedCounterparty }: { space: Spac
           }
         />
       )}
+      {sharing && <InvoiceModal tx={sharing} onClose={() => setSharing(null)} />}
       {splitting && <SplitForm billId={splitting} onClose={() => { setSplitting(null); reload(); }} onChanged={reload} />}
     </>
   );
