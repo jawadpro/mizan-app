@@ -143,10 +143,10 @@ describe("several accounts at the same banks", () => {
     const one = [b("h", "HBL", "HBL", "")];
     expect(chooseBank(one, "HBL", []).bank?.name).toBe("HBL");
     expect(chooseBank(one, "HBL", ["1111"]).bank?.name).toBe("HBL");
-    // With digits saved, another account's alert is not filed under it.
+    // Digits saved on the only bank for a sender don't hold back an alert showing another number (a card, say).
     const saved = [b("h", "HBL", "HBL", "5678")];
     expect(chooseBank(saved, "HBL", []).bank?.name).toBe("HBL");
-    expect(chooseBank(saved, "HBL", ["1111"]).unclear).toContain("••1111");
+    expect(chooseBank(saved, "HBL", ["1111"]).bank?.name).toBe("HBL");
   });
   it("a short visible tail still picks its account", () => {
     const js = [b("j1", "JS Main", "JS BANK", "4248"), b("j2", "JS Zindigi", "JS BANK", "1357")];
@@ -173,5 +173,47 @@ describe("bank filter", () => {
     expect(showsForBank(ubl, ubl)).toBe(true);
     expect(showsForBank(ubl, mcbId)).toBe(false);
     expect(showsForBank(ubl, "none")).toBe(false);
+  });
+});
+
+describe("one bank for a sender", () => {
+  const only: Bank & { id: string } = { id: "o", name: "My Bank", senders: "MYBANK", account_hint: "1234", auto_import: true, hold_transfers: false };
+  const read = (text: string) => readAlert({ sender: "MYBANK", text, receivedAt: new Date("2026-11-13T12:00:00Z") }, { banks: [only] });
+  it("takes every alert from that sender, whatever number it shows", () => {
+    expect(read("PKR 6,392.60 was charged at NANDOS via Debit Card 4321 on 07-11-2026 at 19:49")).toMatchObject({ bank: { name: "My Bank" }, result: { status: "parsed" } });
+    expect(read("PKR 2,000.00 Debited from your A/C: 8350-1***7777 on 7-Nov-26 at 10:00:00").bank?.name).toBe("My Bank");
+    expect(read("PKR 500.00 debited at KFC on 07-11-2026").bank?.name).toBe("My Bank");
+    expect(read("PKR 500.00 debited at KFC on 07-11-2026").result.status).toBe("parsed");
+  });
+});
+
+// The live setup that sent every card payment to Review: MCB (account ••8428, card ••7428 not saved) and a
+// second bank on a different sender. Card alerts must import under MCB; several accounts at one bank still wait.
+describe("one bank per sender, with a second bank elsewhere", () => {
+  const mcb: Bank & { id: string } = { id: "m", name: "MCB", senders: "MCB*, 6222, 8222", account_hint: "8428", auto_import: true, hold_transfers: true };
+  const js: Bank & { id: string } = { id: "j", name: "JS Bank", senders: "8012", account_hint: "4248", auto_import: true, hold_transfers: true };
+  const at = new Date("2026-11-19T03:18:12Z");
+  const read = (sender: string, text: string, banks = [mcb, js]) => readAlert({ sender, text, receivedAt: at }, { banks });
+  const card = "PKR 665.00 was charged at SAMPLE SWEETS Lahore PAK via MCB Debit Card 7428 on 19-11-2026 at 08:18. Helpline: 111000622";
+
+  it("imports a debit card payment under MCB even though the card's digits aren't saved", () => {
+    const r = read("6222", card);
+    expect(r.bank?.name).toBe("MCB");
+    expect(r.result.status).toBe("parsed");
+  });
+  it("still files the other bank's alerts under it", () => {
+    expect(read("8012", "PKR 1,200.00 debited from A/C ****4248 at SAMPLE STORE on 19-11-2026").bank?.name).toBe("JS Bank");
+  });
+  it("still waits when two banks share a sender and the number fits neither", () => {
+    const mcb2: Bank & { id: string } = { ...mcb, id: "m2", name: "MCB Savings", account_hint: "1357" };
+    const r = read("6222", card, [mcb, mcb2, js]);
+    expect(r.bank).toBeNull();
+    expect(r.result.status).toBe("review");
+    expect(r.result.status === "review" && r.result.reason).toContain("Couldn't tell which account");
+  });
+  it("still picks the right one of two accounts at one bank by its digits", () => {
+    const mcb2: Bank & { id: string } = { ...mcb, id: "m2", name: "MCB Savings", account_hint: "1357" };
+    expect(read("6222", "PKR 500.00 debited from A/C ****1357 at SAMPLE SHOP on 19-11-2026", [mcb, mcb2, js]).bank?.name).toBe("MCB Savings");
+    expect(read("6222", "PKR 500.00 debited from A/C ****8428 at SAMPLE SHOP on 19-11-2026", [mcb, mcb2, js]).bank?.name).toBe("MCB");
   });
 });
