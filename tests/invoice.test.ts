@@ -27,8 +27,9 @@ describe("transaction invoice", () => {
     expect(invoiceRef(tx.id)).toBe("TXN-3F9A1C");
   });
 
-  it("totals the transfer with its charges in the text", () => {
-    expect(invoiceText(tx)).toContain("12,525.00 paid to Ahmed Raza");
+  it("keeps bank charges out of the amount in the text", () => {
+    expect(invoiceText(tx)).toContain("12,500.00 paid to Ahmed Raza");
+    expect(invoiceText(tx)).toContain("Bank charges, not included: bank charge Rs 25.00.");
     expect(invoiceText({ ...tx, kind: "income", counterparty: null, charge_fee_paisa: null })).toContain("12,500.00 received on");
   });
 });
