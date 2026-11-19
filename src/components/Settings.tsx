@@ -16,6 +16,7 @@ import MessageTester from "./MessageTester";
 import { LimitModal, type LimitEdit } from "./SpendingCheck";
 import { ChangePassphraseModal } from "./ChangePassphrase";
 import Security from "./Security";
+import WhatsAppSettings from "./WhatsAppSettings";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const RANGES: { id: Prefs["defaultRange"]; label: string }[] = [
@@ -59,6 +60,7 @@ const TABS = [
   { id: "general", label: "General" },
   { id: "spending", label: "Spending" },
   { id: "bank", label: "Banks" },
+  { id: "whatsapp", label: "WhatsApp" },
   { id: "security", label: "Sign-in" },
   { id: "data", label: "Data" },
 ] as const;
@@ -218,6 +220,10 @@ export default function Settings() {
             </Row>
           </Section>
           </>}
+
+          {tab === "whatsapp" && <Section id="whatsapp" title="WhatsApp assistant">
+            <WhatsAppSettings />
+          </Section>}
 
           {tab === "security" && <Section id="security" title="Sign-in">
             <Row title="Passphrase" hint="Change the passphrase you sign in with. Other devices are signed out when you do.">
