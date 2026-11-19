@@ -115,6 +115,22 @@ export async function listTransactions(space: Space, f: ListQuery) {
   return { items: rows.rows, total: agg.rows[0].n, sums: agg.rows[0], page: f.page, pageSize: f.pageSize };
 }
 
+/** Transactions by id with what an invoice needs: the bank's name and any charge or tax cut from them. */
+export async function invoiceTransactions(ids: string[]) {
+  if (!ids.length) return [];
+  const { rows } = await q<{
+    id: string; kind: "expense" | "income" | "remittance"; amount_paisa: number; occurred_at: string; category: string; counterparty: string | null;
+    note: string | null; account_hint: string | null; bank_ref: string | null; charge_fee_paisa: number | null; charge_tax_paisa: number | null; bank: string | null;
+  }>(
+    `SELECT t.id, t.kind, t.amount_paisa::float8 AS amount_paisa, t.occurred_at, t.category, t.counterparty, t.note, t.account_hint, t.bank_ref,
+            ${chargeSum("app", "Bank charges")} AS charge_fee_paisa, ${chargeSum("app", "Tax deducted")} AS charge_tax_paisa, b.name AS bank
+     FROM app.transactions t LEFT JOIN app.banks b ON b.id = t.bank_id
+     WHERE t.id = ANY($1::uuid[]) ORDER BY t.occurred_at DESC`,
+    [ids],
+  );
+  return rows;
+}
+
 export async function exportTransactions(space: Space, f: Partial<ListQuery>) {
   const { sql, params } = buildWhere(f);
   const { rows } = await q<TxRow>(`SELECT ${TX_COLS} FROM ${sch(space)}.transactions ${sql} ORDER BY occurred_at DESC LIMIT 50000`, params);
