@@ -17,6 +17,7 @@ import { LimitModal, type LimitEdit } from "./SpendingCheck";
 import { ChangePassphraseModal } from "./ChangePassphrase";
 import Security from "./Security";
 import WhatsAppSettings from "./WhatsAppSettings";
+import AiApps from "./AiApps";
 
 const rs = (p: number) => formatPaisa(Math.round(p)).replace(/\.\d\d$/, "");
 const RANGES: { id: Prefs["defaultRange"]; label: string }[] = [
@@ -61,6 +62,7 @@ const TABS = [
   { id: "spending", label: "Spending" },
   { id: "bank", label: "Banks" },
   { id: "whatsapp", label: "WhatsApp" },
+  { id: "ai", label: "AI apps" },
   { id: "security", label: "Sign-in" },
   { id: "data", label: "Data" },
 ] as const;
@@ -223,6 +225,10 @@ export default function Settings() {
 
           {tab === "whatsapp" && <Section id="whatsapp" title="WhatsApp assistant">
             <WhatsAppSettings />
+          </Section>}
+
+          {tab === "ai" && <Section id="ai" title="AI apps">
+            <AiApps />
           </Section>}
 
           {tab === "security" && <Section id="security" title="Sign-in">
